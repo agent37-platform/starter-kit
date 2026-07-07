@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, readApiError } from "@/lib/api";
-import { FILES_ONLY_PROMPT, type SessionDetail } from "@/lib/types";
+import { type SessionDetail } from "@/lib/types";
 import { uid, type ChatMessage, type ChatSettings, type MessageAttachment, type ToolEvent, type ToolStatus } from "./types";
 
 export interface SendSettings extends Partial<ChatSettings> {
@@ -93,51 +93,12 @@ interface LiveRun {
   sessionId: string | null;
   responseId: string | null;
   abort: AbortController;
-  /** The `input` actually sent upstream (files-only turns substitute FILES_ONLY_PROMPT) — used
-   *  to match this turn against transcript rows; `user.content` stays the display text. */
-  input: string;
-  user: ChatMessage;
+  /** null for a reattached run — the typed text isn't recoverable mid-turn; the transcript
+   *  supplies the full pair once the turn ends. */
+  user: ChatMessage | null;
   /** Latest immutable snapshot of the assistant bubble — updated via patchRun. */
   assistant: ChatMessage;
   done: boolean;
-  /** Set when `done` flips — lets the merge tell a just-finished run from a long-settled one. */
-  finishedAt?: number;
-}
-
-// --- Reattach receipts -------------------------------------------------------------------------
-// A per-tab sessionStorage note of the turn running on a session, so a page reload (or leaving and
-// re-entering the agent workspace) can reattach via GET /v1/responses/{id}/stream — the gateway
-// replays every event from response.created onward, then stays live. Receipts are cleaned up when
-// a turn is confirmed persisted in the transcript, explicitly stopped, or the replay 404s.
-
-const receiptKey = (agentId: string, sessionId: string) => `a37:chat:run:${agentId}:${sessionId}`;
-
-function rememberRun(agentId: string, sessionId: string, responseId: string, input: string): void {
-  try {
-    sessionStorage.setItem(receiptKey(agentId, sessionId), JSON.stringify({ id: responseId, input }));
-  } catch {
-    // Storage unavailable — reattach-after-reload just won't happen.
-  }
-}
-
-function readReceipt(agentId: string, sessionId: string): { id: string; input: string } | null {
-  try {
-    const raw = sessionStorage.getItem(receiptKey(agentId, sessionId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { id?: unknown; input?: unknown };
-    if (typeof parsed.id !== "string" || !parsed.id) return null;
-    return { id: parsed.id, input: typeof parsed.input === "string" ? parsed.input : "" };
-  } catch {
-    return null;
-  }
-}
-
-function forgetReceipt(agentId: string, sessionId: string): void {
-  try {
-    sessionStorage.removeItem(receiptKey(agentId, sessionId));
-  } catch {
-    // ignore
-  }
 }
 
 // --- Transcript merging ------------------------------------------------------------------------
@@ -151,44 +112,12 @@ function mapHistory(history: SessionDetail["history"]): ChatMessage[] {
   }));
 }
 
-function lastUserIndex(messages: ChatMessage[]): number {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "user") return i;
-  }
-  return -1;
-}
-
-// Does this transcript row hold the turn with this wire input? Exact match, or the input plus
-// the "[Attached files: …]" block the gateway appends when files ride along.
-function rowMatchesInput(row: ChatMessage, input: string): boolean {
-  return input !== "" && (row.content === input || row.content.startsWith(`${input}\n\n[Attached files:`));
-}
-
-// How long after a run finishes we still distrust the fetched transcript: a history fetch that
-// raced the turn's completion can predate the final answer (multi-step turns persist intermediate
-// assistant rows, so "has an assistant row" alone doesn't prove the answer landed).
-const SETTLE_MS = 5_000;
-
-// Overlay a live run's bubbles onto the fetched transcript. The run is the session's newest turn,
-// and the harness persists its user row at turn start (plus intermediate assistant rows on
-// multi-step turns):
-// - Transcript's last user row is this turn's → splice the live pair over that tail (the run's
-//   assistant bubble carries everything streamed so far, so nothing is double-shown) — unless the
-//   run settled long enough ago that the transcript reliably holds the full turn.
-// - No match and the run is done → its user row was persisted at turn start, so a non-matching
-//   transcript means newer turns exist and already contain this one: keep the transcript as-is
-//   rather than re-appending the pair out of order.
-// - No match and the run is live → the turn just started; append the live pair.
+// Overlay a live run's bubbles onto the fetched transcript. The harness persists a turn's
+// messages in one write at turn end, so a running turn is never in `history` — append its
+// bubbles; once it's done, the transcript holds the whole turn and wins.
 function mergeLiveRun(history: ChatMessage[], run: LiveRun): ChatMessage[] {
-  const idx = lastUserIndex(history);
-  const matches = idx !== -1 && rowMatchesInput(history[idx], run.input);
-  if (matches) {
-    const settled = run.done && Date.now() - (run.finishedAt ?? 0) > SETTLE_MS;
-    if (settled && history.slice(idx + 1).some((m) => m.role === "assistant")) return history;
-    return [...history.slice(0, idx), run.user, run.assistant];
-  }
   if (run.done) return history;
-  return [...history, run.user, run.assistant];
+  return run.user ? [...history, run.user, run.assistant] : [...history, run.assistant];
 }
 
 export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: UseChatArgs) {
@@ -241,23 +170,35 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
     [isViewed]
   );
 
-  // Drop a run everywhere: registry, new-chat binding, and its reattach receipt.
-  const forgetRun = useCallback(
-    (run: LiveRun) => {
-      if (run.sessionId) {
-        if (runsRef.current.get(run.sessionId) === run) runsRef.current.delete(run.sessionId);
-        forgetReceipt(agentId, run.sessionId);
-      }
-      if (newChatRunRef.current === run) newChatRunRef.current = null;
-    },
-    [agentId]
-  );
+  // Drop a run everywhere: registry and new-chat binding.
+  const forgetRun = useCallback((run: LiveRun) => {
+    if (run.sessionId && runsRef.current.get(run.sessionId) === run) {
+      runsRef.current.delete(run.sessionId);
+    }
+    if (newChatRunRef.current === run) newChatRunRef.current = null;
+  }, []);
 
   // Cancel a turn upstream so the agent actually stops working — dropping the local SSE alone
   // does NOT stop server-side generation (only the cancel endpoint does).
   const cancelUpstream = useCallback(
     (rid: string | null) => {
       if (rid) apiFetch(`/api/agents/${agentId}/chat/responses/${rid}/cancel`, { method: "POST" }).catch(() => {});
+    },
+    [agentId]
+  );
+
+  // Re-pull the transcript for the on-screen thread (used when a reattached turn ends — the
+  // persisted transcript supplies the full pair, including the user row the reattach lacked).
+  const refreshHistory = useCallback(
+    async (sid: string) => {
+      try {
+        const res = await apiFetch<SessionDetail>(`/api/agents/${agentId}/chat/sessions/${sid}`);
+        if (activeSessionRef.current !== sid || runsRef.current.get(sid)) return;
+        setMessages(mapHistory(res.history));
+        setIsStreaming(false);
+      } catch {
+        // Leave whatever's on screen.
+      }
     },
     [agentId]
   );
@@ -287,9 +228,8 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
                     activeSessionRef.current = sid;
                     skipLoadRef.current = sid;
                   }
-                  onSessionCreatedRef.current(sid, run.user.content.slice(0, 80), { promote });
+                  onSessionCreatedRef.current(sid, run.user?.content.slice(0, 80) ?? "New chat", { promote });
                 }
-                if (run.sessionId && run.responseId) rememberRun(agentId, run.sessionId, run.responseId, run.input);
                 break;
               }
               case "response.reasoning.delta": {
@@ -335,7 +275,6 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
         );
       } finally {
         run.done = true;
-        run.finishedAt = Date.now();
         // Sweep any still-running tool spinners, and put a failure into the bubble itself so it
         // shows wherever the thread is next viewed — covers terminal events and a bare stream-end.
         patchRun(run, (m) => ({
@@ -343,52 +282,37 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
           content: m.content || (streamError ? `_${streamError}_` : ""),
           tools: (m.tools ?? []).map((t) => (t.status === "running" ? { ...t, status: "completed" as const } : t)),
         }));
-        if (sawTerminal) {
-          // The turn settled, and the harness persists the transcript before the terminal event
-          // fires — the receipt has done its job.
-          if (run.sessionId) forgetReceipt(agentId, run.sessionId);
-        } else if (!run.abort.signal.aborted) {
+        if (!sawTerminal && !run.abort.signal.aborted) {
           // The stream died without a terminal event — the turn may still be running server-side.
-          // Drop the in-memory run but keep the receipt: the next visit to the thread reattaches
-          // and replays; a turn that actually died 404s there and cleans itself up.
-          if (run.sessionId && runsRef.current.get(run.sessionId) === run) runsRef.current.delete(run.sessionId);
-          if (newChatRunRef.current === run) newChatRunRef.current = null;
+          // Drop the in-memory run: the next visit to the thread reads the session's
+          // active_response_id and reattaches if the turn is still going.
+          forgetRun(run);
         }
         if (isViewed(run)) {
           setIsStreaming(false);
           if (streamError) setError(streamError);
+          if (sawTerminal && run.user === null && run.sessionId) {
+            // A reattached run has no user bubble; the turn just persisted, so swap the live
+            // bubbles for the transcript's full pair.
+            forgetRun(run);
+            void refreshHistory(run.sessionId);
+          }
         }
       }
     },
-    [agentId, patchRun, isViewed]
-  );
-
-  // Re-pull the transcript for the on-screen thread (used when a reattach turns out to be dead —
-  // the answer, if any, lives in the transcript).
-  const refreshHistory = useCallback(
-    async (sid: string) => {
-      try {
-        const res = await apiFetch<SessionDetail>(`/api/agents/${agentId}/chat/sessions/${sid}`);
-        if (activeSessionRef.current !== sid || runsRef.current.get(sid)) return;
-        setMessages(mapHistory(res.history));
-        setIsStreaming(false);
-      } catch {
-        // Leave whatever's on screen.
-      }
-    },
-    [agentId]
+    [patchRun, isViewed, forgetRun, refreshHistory]
   );
 
   // Reattach to a turn that outlived this component (page reload / workspace re-entry): register
-  // a synthetic run and replay its stream. Returns the run so the caller can merge it right away.
+  // a synthetic run and replay its stream — the gateway replays every event from response.created
+  // onward, then stays live. Returns the run so the caller can merge it right away.
   const startReattach = useCallback(
-    (sid: string, receipt: { id: string; input: string }): LiveRun => {
+    (sid: string, responseId: string): LiveRun => {
       const run: LiveRun = {
         sessionId: sid,
-        responseId: receipt.id,
+        responseId,
         abort: new AbortController(),
-        input: receipt.input,
-        user: { id: uid("u"), role: "user", content: receipt.input },
+        user: null,
         assistant: { id: uid("a"), role: "assistant", content: "", tools: [] },
         done: false,
       };
@@ -396,16 +320,15 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
       void (async () => {
         let attached = false;
         try {
-          const res = await fetch(`/api/agents/${agentId}/chat/responses/${encodeURIComponent(receipt.id)}/stream`, {
+          const res = await fetch(`/api/agents/${agentId}/chat/responses/${encodeURIComponent(responseId)}/stream`, {
             signal: run.abort.signal,
           });
           if (!res.ok || !res.body) {
+            // Gone (expired or a gateway restart) or transient — either way the transcript is
+            // the best available view; a turn that is still running is rediscovered from
+            // active_response_id on the next visit.
             run.done = true;
-            run.finishedAt = Date.now();
-            if (runsRef.current.get(sid) === run) runsRef.current.delete(sid);
-            // Only a 404 means the response record is truly gone (expired, or a gateway
-            // restart) — anything else is transient, so keep the receipt for a later retry.
-            if (res.status === 404) forgetReceipt(agentId, sid);
+            forgetRun(run);
             void refreshHistory(sid);
             return;
           }
@@ -413,36 +336,33 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
           await consume(run, res.body);
         } catch (e) {
           run.done = true;
-          run.finishedAt = Date.now();
-          if (runsRef.current.get(sid) === run) runsRef.current.delete(sid);
+          forgetRun(run);
           if ((e as Error).name === "AbortError") return;
-          // Keep the receipt — the stream died, not necessarily the turn. If it broke before
-          // attaching, nothing streamed into the bubble yet: fall back to the transcript; a
-          // mid-replay drop keeps the partial on screen instead (consume already settled it).
+          // If it broke before attaching, nothing streamed into the bubble yet: fall back to the
+          // transcript; a mid-replay drop keeps the partial on screen (consume already settled it).
           if (!attached) void refreshHistory(sid);
         }
       })();
       return run;
     },
-    [agentId, consume, refreshHistory]
+    [agentId, consume, refreshHistory, forgetRun]
   );
 
   // Stop any turn on a thread, locally and upstream — used when the thread itself is deleted.
-  // With no in-memory run (e.g. after a reload), the receipt still carries the response id the
-  // cancel needs; cancelling an already-finished response is a no-op 200 upstream.
+  // With no in-memory run (e.g. after a reload), the session's active_response_id names the
+  // response to cancel; cancelling an already-finished response is a no-op 200 upstream.
   const killRun = useCallback(
     (sid: string) => {
-      const receipt = readReceipt(agentId, sid);
-      forgetReceipt(agentId, sid);
       const run = runsRef.current.get(sid);
       if (run && !run.done) {
         run.done = true;
-        run.finishedAt = Date.now();
         run.abort.abort();
         cancelUpstream(run.responseId);
         runsRef.current.delete(sid);
-      } else if (!run && receipt) {
-        cancelUpstream(receipt.id);
+      } else if (!run) {
+        apiFetch<SessionDetail>(`/api/agents/${agentId}/chat/sessions/${sid}`)
+          .then((res) => cancelUpstream(res.active_response_id ?? null))
+          .catch(() => {});
       }
     },
     [agentId, cancelUpstream]
@@ -484,18 +404,30 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
         const history = mapHistory(res.history);
 
         let run = runsRef.current.get(sessionId) ?? null;
-        if (!run) {
-          // A receipt without a live run means a turn outlived this component (reload / workspace
-          // re-entry). Reattach and replay — the gateway rebuilds finished turns too, and a dead
-          // response 404s and cleans the receipt up.
-          const receipt = readReceipt(agentId, sessionId);
-          if (receipt) run = startReattach(sessionId, receipt);
+        if (!run && res.active_response_id) {
+          // A turn outlived this component (reload / workspace re-entry, any device): the
+          // session names its running response — reattach and stream the rest of it live.
+          run = startReattach(sessionId, res.active_response_id);
         }
 
         if (run) {
-          const merged = mergeLiveRun(history, run);
-          if (merged === history) forgetRun(run); // finished and fully persisted — transcript wins
-          setMessages(merged);
+          if (run.done) {
+            forgetRun(run);
+            // The turn finished while this fetch was in flight: a snapshot that still names
+            // this run as active predates the turn's persist, so its history lacks the turn —
+            // keep the run's bubbles (or refetch when a reattached run has no user bubble).
+            if (res.active_response_id === run.responseId) {
+              if (run.user) {
+                setMessages([...history, run.user, run.assistant]);
+              } else {
+                setMessages(history);
+                void refreshHistory(sessionId);
+              }
+              setIsStreaming(false);
+              return;
+            }
+          }
+          setMessages(mergeLiveRun(history, run));
           setIsStreaming(!run.done);
         } else {
           setMessages(history);
@@ -512,7 +444,7 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
     return () => {
       cancelled = true;
     };
-  }, [agentId, sessionId, startReattach, forgetRun]);
+  }, [agentId, sessionId, startReattach, forgetRun, refreshHistory]);
 
   const send = useCallback(
     async (text: string, settings: SendSettings = {}) => {
@@ -535,9 +467,6 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
         sessionId: activeSessionRef.current,
         responseId: null,
         abort: new AbortController(),
-        // Mirror the BFF's files-only substitution so the run's input matches what the
-        // transcript will store; the user bubble keeps the (possibly empty) typed text.
-        input: trimmed || FILES_ONLY_PROMPT,
         user: userMsg,
         assistant,
         done: false,
@@ -577,20 +506,17 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
         await consume(run, res.body);
       } catch (e) {
         run.done = true;
-        run.finishedAt = Date.now();
         const viewed = isViewed(run);
-        // Drop the in-memory run but keep any reattach receipt: if only the local stream died
-        // (not the turn), revisiting the thread reattaches and replays; a dead turn 404s there
-        // and cleans itself up.
-        if (run.sessionId && runsRef.current.get(run.sessionId) === run) runsRef.current.delete(run.sessionId);
-        if (newChatRunRef.current === run) newChatRunRef.current = null;
+        // Drop the in-memory run: if only the local stream died (not the turn), revisiting the
+        // thread rediscovers it from the session's active_response_id and reattaches.
+        forgetRun(run);
         if (viewed) {
           setIsStreaming(false);
           if ((e as Error).name !== "AbortError") setError((e as Error).message || "Something went wrong.");
         }
       }
     },
-    [agentId, isStreaming, consume, isViewed]
+    [agentId, isStreaming, consume, isViewed, forgetRun]
   );
 
   // Stop the current turn: abort the local stream and cancel it upstream so the agent stops work.
@@ -598,7 +524,6 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
     const run = activeSessionRef.current ? runsRef.current.get(activeSessionRef.current) : newChatRunRef.current;
     if (run && !run.done) {
       run.done = true;
-      run.finishedAt = Date.now();
       run.abort.abort();
       cancelUpstream(run.responseId);
       forgetRun(run);
@@ -606,8 +531,8 @@ export function useChat({ agentId, sessionId, onSessionCreated, onActivity }: Us
     setIsStreaming(false);
   }, [cancelUpstream, forgetRun]);
 
-  // On unmount, close the local streams only — the turns keep running server-side, and their
-  // receipts let the next mount (reload, workspace re-entry) reattach losslessly.
+  // On unmount, close the local streams only — the turns keep running server-side, and the next
+  // mount (reload, workspace re-entry) reattaches via the session's active_response_id.
   useEffect(() => {
     const runs = runsRef.current;
     return () => {

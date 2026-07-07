@@ -156,7 +156,7 @@ export interface ModelsResponse {
 }
 
 // The input the chat BFF substitutes for a files-only turn (the Agents API requires a non-empty
-// `input`). Shared with the client so it can match the turn against the stored transcript.
+// `input`).
 export const FILES_ONLY_PROMPT = "Please review the attached file(s).";
 
 // One message in a conversation's history (GET /v1/sessions/{id}).
@@ -172,6 +172,10 @@ export interface ChatHistoryMessage {
 export interface SessionDetail {
   id: string;
   agent: string;
+  /** The response currently running on the session, or null when idle. The harness persists a
+   *  turn's messages at turn end, so while this is set the running turn is not in `history` yet —
+   *  follow it via GET /v1/responses/{id}/stream. Null means the transcript is complete. */
+  active_response_id: string | null;
   history: ChatHistoryMessage[];
 }
 
