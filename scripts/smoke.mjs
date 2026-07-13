@@ -35,6 +35,7 @@ if (!KEY || !KEY.startsWith("sk_live_")) {
 }
 
 const auth = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
+const dataAuth = { "X-Agent37-Key": KEY, "Content-Type": "application/json" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
@@ -52,7 +53,7 @@ async function main() {
   try {
     console.log("→ waiting for health…");
     for (let i = 0; i < 60; i++) {
-      const h = await fetch(`${base}/v1/health`, { headers: auth }).catch(() => null);
+      const h = await fetch(`${base}/v1/health`, { headers: dataAuth }).catch(() => null);
       if (h?.ok) {
         const body = await h.json().catch(() => ({}));
         if (body.ok) break;
@@ -65,7 +66,7 @@ async function main() {
     console.log("→ sending one chat turn…");
     const r = await fetch(`${base}/v1/responses`, {
       method: "POST",
-      headers: auth,
+      headers: dataAuth,
       body: JSON.stringify({ input: "Reply with exactly: smoke ok" }),
     });
     if (!r.ok) throw new Error(`responses failed ${r.status}: ${await r.text()}`);

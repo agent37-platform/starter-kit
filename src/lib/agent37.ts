@@ -90,7 +90,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return parseAgent37<T>(res, true);
 }
 
-// Raw fetch against an instance's Agents API (data plane) with the shared bearer. Returns the raw
+// Raw fetch against an instance's Agents API (data plane), authenticated with the raw key in the
+// X-Agent37-Key header (the data plane passes Authorization through to the app). Returns the raw
 // Response so callers can stream SSE, upload bytes, or stream a download — things the JSON-parsing
 // `call` helper above can't. Only throws for missing server config; HTTP status is the caller's to
 // handle (e.g. a 409 session_busy is surfaced, not thrown here).
@@ -110,7 +111,7 @@ export async function instanceFetch(id: string, path: string, init?: RequestInit
   return fetch(`${instanceBaseUrl(id)}${path}`, {
     ...init,
     body,
-    headers: { Authorization: `Bearer ${key}`, ...(init?.headers || {}) },
+    headers: { "X-Agent37-Key": key, ...(init?.headers || {}) },
     cache: "no-store",
   });
 }

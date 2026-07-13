@@ -62,7 +62,10 @@ The **Integrations** tab is also control plane: it manages a per-agent Composio
 entity through `/instances/{id}/integrations/*` (toolkits / connect / connections).
 
 **Data plane — `https://{instanceId}.agent37.app/v1/*`** (talk to one agent's
-gateway). The native **Chat** and **Files** tabs call these endpoints directly
+gateway). Data-plane requests authenticate with the `X-Agent37-Key: sk_live_...`
+header (raw key, no Bearer prefix; `Authorization` passes through to the app inside
+the instance), while the control plane stays `Authorization: Bearer`. The native
+**Chat** and **Files** tabs call these endpoints directly
 (through this app's BFF). The signed-URL "open in new tab" shortcuts still exist
 too — they just complement the in-dashboard UIs now rather than replace them:
 
@@ -84,7 +87,8 @@ own dashboard / terminal / files UI in a new tab.
 ```
 Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/v1   (instances, integrations)
    │            │              └▶ data plane     https://{instance}.agent37.app/v1   (chat, files)
-   │            │                                 (one server-side sk_live_ key, both planes)
+   │            │                                 (one server-side sk_live_ key, both planes:
+   │            │                                  Bearer on the control plane, X-Agent37-Key on the instance)
    │            │
    │            └─▶ Supabase: Auth (browser, anon key) + Postgres (server-only, service-role key):
    │                          users, workspaces, members, agent mirror
