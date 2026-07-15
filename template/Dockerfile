@@ -10,10 +10,10 @@
 # rather bring your OWN model (point the agent at your own LLM via a tiny proxy),
 # see the more advanced example in `examples/custom-agent-image/`.
 #
-# The contract (keep all four or the image won't run):
+# The contract (keep these or the image won't run):
 #   - build for linux/amd64  (on Apple Silicon, buildx with --platform=linux/amd64;
 #     `npm run release:agent` already passes it)
-#   - keep the image <= 5 GB compressed
+#   - keep the image at most 5 GB
 #   - bake into /usr/local or /opt, never /home/node or /home/linuxbrew
 #     (both are persistent volumes that mask anything baked there at runtime)
 #   - keep the base ENTRYPOINT (it starts Hermes + the gateway that serves chat)
@@ -46,18 +46,9 @@ USER root
 # COPY my-skill /usr/local/share/agent37/default-skills/my-skill
 # ---------------------------------------------------------------------------------
 
-# Re-expose Hermes' surfaces on NON-reserved ports. The control plane rejects custom
-# templates that declare the reserved 3737/7681/8080/9119 (and exposes only the ports
-# the template declares), so we remap. The stock entrypoint honors these env overrides.
-# The gateway/data-plane port is set by the platform from the template's default port
-# (3738 in release.sh), so it needs no env var here — only EXPOSE for documentation.
-ENV AGENT37_TERMINAL_PORT=7682 \
-    AGENT37_HERMES_DASHBOARD_PORT=9120 \
-    AGENT37_FILEBROWSER_PORT=8081
-
-# Documentation only (the platform routes the declared template ports): gateway,
-# terminal, dashboard, files. These match the ports in template/release.sh.
-EXPOSE 3738 7682 9120 8081
+# Every listening port is reachable at `{instanceId}-{port}.agent37.app`; templates
+# no longer declare a ports array. `template/release.sh` sets the legal default port
+# 3737 so the bare instance URL routes to the inherited Hermes gateway.
 
 # Keep the base ENTRYPOINT (do NOT override it — it starts Hermes + the gateway).
 USER node

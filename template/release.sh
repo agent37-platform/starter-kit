@@ -72,19 +72,14 @@ docker buildx build --platform linux/amd64 --pull \
   --build-arg "HERMES_TAG=${HERMES_TAG}" \
   -t "${IMAGE}:${TAG}" --push "${DIR}"
 
-# The four remapped ports — must match the EXPOSE/ENV in template/Dockerfile. The
-# reserved 3737/7681/8080/9119 are rejected by the control plane.
+# The bare instance URL routes to default_port. Port 3737 is the legal gateway
+# default; every other listening port is derivable as {instanceId}-{port}.agent37.app.
 BODY=$(cat <<JSON
 {
   "name": "${NAME}",
   "image_ref": "${IMAGE}:${TAG}",
   "description": "Custom Agent37 workspace template (forked from the full Hermes image).",
-  "ports": [
-    { "port": 3738, "default": true },
-    { "port": 7682 },
-    { "port": 9120 },
-    { "port": 8081 }
-  ]
+  "default_port": 3737
 }
 JSON
 )

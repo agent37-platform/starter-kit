@@ -6,7 +6,7 @@
 #
 # The contract (see README.md → "The contract"):
 #   - build for linux/amd64 (the GitHub Action does; locally, pass --platform=linux/amd64)
-#   - keep the image <= 5 GB compressed
+#   - keep the image at most 5 GB
 #   - bake into /usr/local or /opt, never /home/node or /home/linuxbrew
 #     (both are persistent volumes that mask anything baked there at runtime)
 #   - keep the base ENTRYPOINT (it starts Hermes + the gateway/chat API)

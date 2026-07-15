@@ -16,17 +16,29 @@ Two independent extension points:
 | `Dockerfile` | `FROM` the Hermes base; installs an example CLI + skill |
 | `hello/SKILL.md` | An example skill that teaches the agent a behavior |
 | `llm-proxy/proxy.mjs` | A ~40-line example LLM proxy — bring your own model |
-| `register.sh` | Registers your image as a template and spawns an instance |
+| `register.sh` | Creates or updates a template from a public image or local archive, then spawns an instance |
 | `.github/workflows/publish.yml` | Reference CI that publishes the image to GHCR (see the note) |
 
 ## Track 1 — your own image
 
 1. **Customize** the `Dockerfile`: install your CLI, drop in your skill. Binaries go in `/usr/local/bin`, skills in `/usr/local/share/agent37/default-skills/`.
-2. **Publish to a public registry.** Copy this folder into its own GitHub repo; the bundled `.github/workflows/publish.yml` builds and pushes to your GHCR on every push, using GitHub's built-in token — no secrets. First publish only: make the package **public** (repo → Packages → Package settings → Change visibility → Public); Agent37 pulls anonymously.
-   *Building locally first?* `docker build --platform=linux/amd64 -t my-agent .` — the `--platform` flag matters on an Apple Silicon Mac, where Docker would otherwise produce an arm64 image; Agent37 runs **amd64**.
-3. **Register and spawn.** Mint an `sk_live_` key in the [dashboard](https://www.agent37.com/dashboard/cloud), then:
+2. **Build for Agent37's architecture.** Use one concrete tag throughout the build and upload steps:
    ```bash
-   cp .env.example .env          # set AGENT37_API_KEY and IMAGE_REF
+   docker build --platform linux/amd64 -t my-agent:v1 .
+   ```
+   The `--platform` flag matters on an Apple Silicon Mac, where Docker would otherwise produce an arm64 image. If you use `docker buildx build` instead, add `--load` so `docker save` can see the result locally.
+3. **Choose how to send the image.** Agent37 copies either source into private storage and pins it by digest.
+
+   - **Public registry:** copy this folder into its own GitHub repo. The bundled `.github/workflows/publish.yml` builds `linux/amd64` and pushes to GHCR using GitHub's built-in token. Make the package **public** after the first publish, then set `IMAGE_REF` to its pinned `:<sha>` tag.
+   - **Direct upload:** save the local image and set `IMAGE_ARCHIVE`. This works for unpublished images and images you pulled from a private registry:
+     ```bash
+     docker save my-agent:v1 -o my-agent.tar
+     ```
+     Agent37 does not accept private-registry credentials. For a private registry, authenticate and pull the `linux/amd64` image yourself, then `docker save` it and use this direct-upload path.
+
+4. **Register and spawn.** Mint an `sk_live_` key in the [dashboard](https://www.agent37.com/dashboard/cloud), then:
+   ```bash
+   cp .env.example .env          # set the key and exactly one image source
    set -a; source .env; set +a
    ./register.sh
    ```
@@ -63,8 +75,8 @@ It lives on the persistent volume, so it survives restarts. Then [message the in
 
 Four rules keep a custom image runnable:
 
-1. **Build for `linux/amd64`** (see the note in Track 1).
-2. **Keep the image ≤ 5 GB** compressed.
+1. **Build for `linux/amd64`** (see the command in Track 1).
+2. **Keep the image at most 5 GB.** The uploaded archive must also be at most 5 GB.
 3. **Bake outside `/home`.** `/home/node` and `/home/linuxbrew` are persistent volumes that mask anything baked there at build time. Binaries → `/usr/local/bin`, skills → `/usr/local/share/agent37/default-skills/`, other assets → `/opt`.
 4. **Keep the base `ENTRYPOINT`.** It starts Hermes and the gateway that serves the chat API.
 
