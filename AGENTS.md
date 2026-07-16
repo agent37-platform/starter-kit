@@ -161,8 +161,9 @@ which run on Agent37's stock images. To offer **your own** image, use the top-le
 `template/` folder: edit its `Dockerfile` (it starts `FROM` Hermes), then publish +
 register the image with `npm run release:agent` (`template/release.sh`). That command
 handles both registration paths: the default pushes to a public registry, and
-`RELEASE_MODE=private npm run release:agent` uploads the built image straight to
-Agent37 (no registry, nothing published). Finally, uncomment the `custom` entry in
+`RELEASE_MODE=private npm run release:agent` cloud-builds the folder on Agent37's own
+infrastructure via `npx agent37 templates build` (no registry, no local Docker,
+nothing published). Finally, uncomment the `custom` entry in
 `src/config/agents.ts`, matching its `template` to the `TEMPLATE_NAME` in
 `template/release.sh`. The new card then appears on the create screen. For the more
 advanced "bring your own image **and** your own model" path

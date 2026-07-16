@@ -1,75 +1,65 @@
 #!/usr/bin/env bash
-# Register an Agent37 template from either a public image reference or a local
-# `docker save` archive, then spawn an instance from it.
+# Register an Agent37 template from either a public image reference or a cloud
+# build of a local Dockerfile folder, then spawn an instance from it.
 #
 # Prereqs:
-#   - curl and jq installed
+#   - curl and jq installed (the CONTEXT_DIR path also needs Node for npx)
 #   - AGENT37_API_KEY set
-#   - exactly one of IMAGE_REF or IMAGE_ARCHIVE set (see .env.example)
+#   - exactly one of IMAGE_REF or CONTEXT_DIR set (see .env.example)
 set -euo pipefail
 
 API="${AGENT37_API_BASE:-https://api.agent37.com}"
 TEMPLATE="${TEMPLATE_NAME:-my-custom-agent}"
 : "${AGENT37_API_KEY:?Set AGENT37_API_KEY (sk_live_...). See .env.example.}"
 IMAGE_REF="${IMAGE_REF:-}"
-IMAGE_ARCHIVE="${IMAGE_ARCHIVE:-}"
+CONTEXT_DIR="${CONTEXT_DIR:-}"
 
-if [ -n "${IMAGE_REF}" ] && [ -n "${IMAGE_ARCHIVE}" ]; then
-  echo "Set exactly one of IMAGE_REF or IMAGE_ARCHIVE, not both." >&2
+if [ -n "${IMAGE_REF}" ] && [ -n "${CONTEXT_DIR}" ]; then
+  echo "Set exactly one of IMAGE_REF or CONTEXT_DIR, not both." >&2
   exit 1
 fi
-if [ -z "${IMAGE_REF}" ] && [ -z "${IMAGE_ARCHIVE}" ]; then
-  echo "Set exactly one of IMAGE_REF or IMAGE_ARCHIVE. See .env.example." >&2
+if [ -z "${IMAGE_REF}" ] && [ -z "${CONTEXT_DIR}" ]; then
+  echo "Set exactly one of IMAGE_REF or CONTEXT_DIR. See .env.example." >&2
   exit 1
 fi
-if [ -n "${IMAGE_ARCHIVE}" ] && [ ! -f "${IMAGE_ARCHIVE}" ]; then
-  echo "IMAGE_ARCHIVE does not exist: ${IMAGE_ARCHIVE}" >&2
+if [ -n "${CONTEXT_DIR}" ] && [ ! -f "${CONTEXT_DIR}/Dockerfile" ]; then
+  echo "CONTEXT_DIR has no Dockerfile: ${CONTEXT_DIR}" >&2
   exit 1
 fi
 
 auth=(-H "Authorization: Bearer ${AGENT37_API_KEY}")
 
-if [ -n "${IMAGE_REF}" ]; then
-  image_field="image_ref"
-  image_value="${IMAGE_REF}"
-  echo "Using public image ${IMAGE_REF}"
+if [ -n "${CONTEXT_DIR}" ]; then
+  # The cloud build publishes the template itself (new name = revision 1, existing
+  # name = next revision), so no create/PATCH call is needed on this path.
+  echo "Building '${TEMPLATE}' from ${CONTEXT_DIR} on Agent37's linux/amd64 builders"
+  AGENT37_API_KEY="${AGENT37_API_KEY}" npx agent37 templates build "${CONTEXT_DIR}" \
+    --name "${TEMPLATE}"
 else
-  echo "Requesting an upload slot for ${IMAGE_ARCHIVE}"
-  upload=$(curl -fsS -X POST "${API}/v1/template-uploads" "${auth[@]}")
-  upload_id=$(jq -er '.id' <<<"${upload}")
-  upload_url=$(jq -er '.upload_url' <<<"${upload}")
+  echo "Using public image ${IMAGE_REF}"
+  create_body=$(jq -nc --arg name "${TEMPLATE}" --arg ref "${IMAGE_REF}" \
+    '{name: $name, description: "Custom Agent37 image", image_ref: $ref}')
+  update_body=$(jq -nc --arg ref "${IMAGE_REF}" '{image_ref: $ref}')
 
-  echo "Uploading the docker-save archive"
-  curl -fsS --upload-file "${IMAGE_ARCHIVE}" "${upload_url}" >/dev/null
-  image_field="upload_id"
-  image_value="${upload_id}"
+  existing=$(curl -sS -o /dev/null -w '%{http_code}' \
+    "${auth[@]}" "${API}/v1/templates/${TEMPLATE}" || true)
+  case "${existing}" in
+    200)
+      echo "Updating template '${TEMPLATE}'"
+      curl -fsS -X PATCH "${API}/v1/templates/${TEMPLATE}" "${auth[@]}" \
+        -H "Content-Type: application/json" -d "${update_body}" >/dev/null
+      ;;
+    404)
+      echo "Creating template '${TEMPLATE}'"
+      curl -fsS -X POST "${API}/v1/templates" "${auth[@]}" \
+        -H "Content-Type: application/json" -d "${create_body}" >/dev/null
+      ;;
+    *)
+      echo "Could not check template '${TEMPLATE}' (HTTP ${existing})." >&2
+      exit 1
+      ;;
+  esac
 fi
-
-create_body=$(jq -nc \
-  --arg name "${TEMPLATE}" --arg field "${image_field}" --arg value "${image_value}" \
-  '{name: $name, description: "Custom Agent37 image"} + {($field): $value}')
-update_body=$(jq -nc \
-  --arg field "${image_field}" --arg value "${image_value}" \
-  '{($field): $value}')
-
-existing=$(curl -sS -o /dev/null -w '%{http_code}' \
-  "${auth[@]}" "${API}/v1/templates/${TEMPLATE}" || true)
-case "${existing}" in
-  200)
-    echo "Updating template '${TEMPLATE}'"
-    curl -fsS -X PATCH "${API}/v1/templates/${TEMPLATE}" "${auth[@]}" \
-      -H "Content-Type: application/json" -d "${update_body}" >/dev/null
-    ;;
-  404)
-    echo "Creating template '${TEMPLATE}'"
-    curl -fsS -X POST "${API}/v1/templates" "${auth[@]}" \
-      -H "Content-Type: application/json" -d "${create_body}" >/dev/null
-    ;;
-  *)
-    echo "Could not check template '${TEMPLATE}' (HTTP ${existing})." >&2
-    exit 1
-    ;;
-esac
 
 echo "Creating an instance from '${TEMPLATE}'"
 # credit_micros gives $1 of managed-spend headroom. It is harmless on the clean base

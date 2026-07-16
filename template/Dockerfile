@@ -11,22 +11,24 @@
 # see the more advanced example in `examples/custom-agent-image/`.
 #
 # The contract (keep these or the image won't run):
-#   - build for linux/amd64  (on Apple Silicon, buildx with --platform=linux/amd64;
-#     `npm run release:agent` already passes it)
+#   - the image must be linux/amd64  (`npm run release:agent` handles this in both
+#     modes: public builds pass --platform, private cloud builds run on amd64)
 #   - keep the image at most 5 GB
 #   - bake into /usr/local or /opt, never /home/node or /home/linuxbrew
 #     (both are persistent volumes that mask anything baked there at runtime)
 #   - keep the base ENTRYPOINT (it starts Hermes + the gateway that serves chat)
 #   - install as root, end as USER node
 #
-# Publish: the pushed image must be PUBLIC on GHCR (Agent37 pulls it anonymously).
-# After editing this file, run `npm run release:agent` (build + push + register the
-# workspace template). See template/release.sh for the exact steps.
+# Publish: run `npm run release:agent` after editing this file (public mode: build +
+# push + register — the pushed GHCR package must be PUBLIC, Agent37 pulls it
+# anonymously; private mode: Agent37 cloud-builds this folder, nothing published).
+# See template/release.sh for the exact steps.
 
-# The base Hermes tag is injected at build time — release.sh resolves the newest
-# date tag from GHCR and passes --build-arg HERMES_TAG=<tag>, so each release pins a
-# concrete, immutable tag. The :latest default is only a convenience for ad-hoc
-# `docker build` runs without the arg; override with --build-arg HERMES_TAG=YYYY.MM.DD[x].
+# The base Hermes tag is injected at build time in public mode — release.sh resolves
+# the newest date tag from GHCR and passes --build-arg HERMES_TAG=<tag>, so each
+# public release pins a concrete, immutable tag. Private cloud builds (and ad-hoc
+# `docker build` runs without the arg) use the :latest default; the registered
+# template is pinned by digest either way.
 ARG HERMES_TAG=latest
 FROM ghcr.io/agent37-platform/hermes:${HERMES_TAG}
 

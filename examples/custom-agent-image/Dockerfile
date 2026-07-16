@@ -5,7 +5,7 @@
 # them for the tools, skills, and config your agent actually needs.
 #
 # The contract (see README.md → "The contract"):
-#   - build for linux/amd64 (the GitHub Action does; locally, pass --platform=linux/amd64)
+#   - the image must be linux/amd64 (the GitHub Action and Agent37 cloud builds both are)
 #   - keep the image at most 5 GB
 #   - bake into /usr/local or /opt, never /home/node or /home/linuxbrew
 #     (both are persistent volumes that mask anything baked there at runtime)

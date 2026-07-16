@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build, push/upload, and register your custom Agent37 workspace template — run via
+# Build (locally or on Agent37) and register your custom workspace template — run via
 # `npm run release:agent`. Reads AGENT37_API_KEY from .env.local.
 #
 # DORMANT by default — only needed if you ship your own image. The default Starter
@@ -8,12 +8,15 @@
 # Two ways to get your image to Agent37, selected by RELEASE_MODE:
 #   public  (default) — push IMAGE:TAG to a public registry, register by image_ref.
 #                       First publish only: make the pushed GHCR package Public.
-#   private           — no registry: build locally, `docker save`, upload the archive
-#                       straight to Agent37, register by upload_id. Nothing is published.
+#   private           — no registry, no local Docker: upload this folder as a build
+#                       context and Agent37 builds + publishes the template on its
+#                       own linux/amd64 infrastructure (`npx agent37 templates build`).
+#                       Nothing is published anywhere public.
 #                       Run with `RELEASE_MODE=private npm run release:agent`.
 #
 # Steps to go live:
 #   1) edit IMAGE / TAG / TEMPLATE_NAME below + the Dockerfile in this folder
+#      (private mode only needs TEMPLATE_NAME)
 #   2) public mode only: docker login ghcr.io, then make the pushed package PUBLIC
 #      (first publish only): https://github.com/orgs/<your-org>/packages
 #   3) npm run release:agent            (private: RELEASE_MODE=private npm run release:agent)
@@ -21,15 +24,16 @@
 #      (its `template` must equal TEMPLATE_NAME below)
 #
 # This forks the FULL Hermes image (managed model + gateway included). To bring your
-# OWN model instead, see examples/custom-agent-image/. The Hermes base tag is
-# auto-resolved to the newest date tag in GHCR at build time — override with
-# HERMES_TAG=YYYY.MM.DD[x] to pin one.
+# OWN model instead, see examples/custom-agent-image/. In public mode the Hermes base
+# tag is auto-resolved to the newest date tag in GHCR at build time — override with
+# HERMES_TAG=YYYY.MM.DD[x] to pin one. Private (cloud) builds use the Dockerfile's
+# :latest default; the registered template is pinned by digest either way.
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # template/
 ROOT="$(dirname "$DIR")"                              # repo root (holds .env.local)
 
-# --- EDIT THESE THREE (placeholders) ---------------------------------------------
+# --- EDIT THESE THREE (placeholders; private mode only uses TEMPLATE_NAME) --------
 IMAGE="${IMAGE:-ghcr.io/your-org/your-agent}"
 # Bump every release — image tags are immutable (date + a revision letter: a, b, c…).
 TAG="${TAG:-2026.01.01a}"
@@ -39,8 +43,8 @@ TEMPLATE_NAME="${TEMPLATE_NAME:-your-template-name}"
 # ---------------------------------------------------------------------------------
 
 # public: push IMAGE:TAG to a public registry, register by image_ref.
-# private: no registry — IMAGE:TAG is just a local build tag; `docker save` + upload
-#          the archive to Agent37 and register by upload_id.
+# private: no registry — Agent37 cloud-builds this folder's Dockerfile and publishes
+#          the template itself; IMAGE/TAG are unused.
 RELEASE_MODE="${RELEASE_MODE:-public}"
 case "${RELEASE_MODE}" in
   public|private) ;;
@@ -54,13 +58,6 @@ read_env() {
   v="$(grep -E "^$1=." "$ROOT/.env.local" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r')"
   v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
   printf '%s' "$v"
-}
-
-# Pull a top-level string field out of a compact JSON object without jq (keeps this
-# script dependency-free, like the GHCR token parse below). Reads JSON on stdin; the
-# value has no embedded quotes (ids and presigned URLs never do), so a "-split is safe.
-json_field() {
-  grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 | cut -d'"' -f4 | sed 's|\\/|/|g'
 }
 
 BASE_REPO="${BASE_REPO:-agent37-platform/hermes}"
@@ -83,48 +80,37 @@ AGENT37_API_KEY="${AGENT37_API_KEY:-$(read_env AGENT37_API_KEY)}"
 : "${AGENT37_API_KEY:?not found — set AGENT37_API_KEY in .env.local}"
 
 NAME="${TEMPLATE_NAME}"
-HERMES_TAG="${HERMES_TAG:-$(resolve_hermes_tag || true)}"
-: "${HERMES_TAG:?could not resolve a Hermes tag from GHCR — set HERMES_TAG explicitly, e.g. HERMES_TAG=2026.06.26b}"
 # The Hosting API base is fixed; AGENT37_API only overrides it for local API work.
 API="${AGENT37_API:-https://api.agent37.com/v1}"
 AUTH="Authorization: Bearer ${AGENT37_API_KEY}"
 
-echo "==> Build ${IMAGE}:${TAG} (linux/amd64, ${RELEASE_MODE})"
-echo "    base: ghcr.io/${BASE_REPO}:${HERMES_TAG}"
-if [ "${RELEASE_MODE}" = "public" ]; then
-  docker buildx build --platform linux/amd64 --pull \
-    --build-arg "HERMES_TAG=${HERMES_TAG}" \
-    -t "${IMAGE}:${TAG}" --push "${DIR}"
-  IMAGE_LINE="\"image_ref\": \"${IMAGE}:${TAG}\""
-else
-  # --load makes the amd64 result available to `docker save`, incl. on Apple Silicon.
-  docker buildx build --platform linux/amd64 --pull \
-    --build-arg "HERMES_TAG=${HERMES_TAG}" \
-    -t "${IMAGE}:${TAG}" --load "${DIR}"
-
-  TARBALL="$(mktemp)"; trap 'rm -f "${TARBALL}"' EXIT
-  echo "==> Save the image to a docker-save archive"
-  docker save "${IMAGE}:${TAG}" -o "${TARBALL}"
-
-  echo "==> Request an upload slot"
-  UPLOAD_JSON="$(curl -fsS -X POST "${API}/template-uploads" -H "${AUTH}")"
-  UPLOAD_ID="$(printf '%s' "${UPLOAD_JSON}" | json_field id || true)"
-  UPLOAD_URL="$(printf '%s' "${UPLOAD_JSON}" | json_field upload_url || true)"
-  : "${UPLOAD_ID:?could not parse an upload id from ${API}/template-uploads}"
-  : "${UPLOAD_URL:?could not parse an upload_url from ${API}/template-uploads}"
-
-  echo "==> Upload the archive ($(wc -c <"${TARBALL}" | awk '{printf "%.1f GB", $1/1073741824}'))"
-  # The presigned URL is the credential; send no API key. 5 GB cap, linux/amd64 only.
-  curl -fsS --upload-file "${TARBALL}" "${UPLOAD_URL}" >/dev/null
-  IMAGE_LINE="\"upload_id\": \"${UPLOAD_ID}\""
+if [ "${RELEASE_MODE}" = "private" ]; then
+  # Uploads only the build context (this folder minus .git and .dockerignore
+  # patterns, gzipped, 100 MB cap), streams the build log, and publishes the
+  # template (new name = revision 1, existing name = next revision). Every FROM/RUN
+  # fetch must be publicly reachable. Ctrl-C stops the log, not the server-side build.
+  echo "==> Cloud-build ${DIR} -> template ${NAME}"
+  AGENT37_API_KEY="${AGENT37_API_KEY}" npx agent37 templates build "${DIR}" \
+    --name "${NAME}" --default-port 3737
+  echo "OK  ${NAME} -> private image (cloud build)"
+  exit 0
 fi
+
+HERMES_TAG="${HERMES_TAG:-$(resolve_hermes_tag || true)}"
+: "${HERMES_TAG:?could not resolve a Hermes tag from GHCR — set HERMES_TAG explicitly, e.g. HERMES_TAG=2026.06.26b}"
+
+echo "==> Build ${IMAGE}:${TAG} (linux/amd64, public)"
+echo "    base: ghcr.io/${BASE_REPO}:${HERMES_TAG}"
+docker buildx build --platform linux/amd64 --pull \
+  --build-arg "HERMES_TAG=${HERMES_TAG}" \
+  -t "${IMAGE}:${TAG}" --push "${DIR}"
 
 # The bare instance URL routes to default_port. Port 3737 is the legal gateway
 # default; every other listening port is derivable as {instanceId}-{port}.agent37.app.
 BODY=$(cat <<JSON
 {
   "name": "${NAME}",
-  ${IMAGE_LINE},
+  "image_ref": "${IMAGE}:${TAG}",
   "description": "Custom Agent37 workspace template (forked from the full Hermes image).",
   "default_port": 3737
 }
@@ -141,4 +127,4 @@ fi
 code=$(curl -sS -o /tmp/agent37-template.json -w '%{http_code}' \
   -X "${method}" "${url}" -H "${AUTH}" -H "Content-Type: application/json" -d "${BODY}")
 echo "HTTP ${code}"; cat /tmp/agent37-template.json 2>/dev/null || true; echo
-case "${code}" in 2*) echo "OK  ${NAME} -> ${RELEASE_MODE} image";; *) echo "FAILED"; exit 1;; esac
+case "${code}" in 2*) echo "OK  ${NAME} -> public image";; *) echo "FAILED"; exit 1;; esac
