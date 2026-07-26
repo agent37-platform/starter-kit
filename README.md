@@ -1,6 +1,6 @@
 # Agent37 Starter Kit
 
-A full-stack starter for building your own agent app on the [Agent37](https://www.agent37.com) Cloud API — auth, chat, files, integrations, and fleet management, with your choice of Hermes or OpenClaw (or your own image). Fork it, rebrand it, ship it.
+A full-stack starter for building your own agent app on the [Agent37](https://www.agent37.com) Cloud API — auth, chat, files, integrations, and fleet management, with your choice of Hermes or OpenClaw. Fork it, rebrand it, ship it.
 
 <p align="center">
   <img src="screenshots/demo.gif" alt="Demo of the Agent37 Starter Kit dashboard and agent workspace" width="100%" />

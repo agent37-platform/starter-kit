@@ -1,4 +1,0 @@
-# The image only needs the skill folder. Keep the proxy, docs, scripts, and any
-# local .env out of the build context.
-*
-!hello

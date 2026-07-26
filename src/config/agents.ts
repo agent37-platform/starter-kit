@@ -30,9 +30,10 @@ export interface AgentTypeOption {
 }
 
 // The agent types offered on the create screen. This is the curated catalog —
-// branded cards, in your control. To offer your own custom image, publish + register
-// it (see template/release.sh) and uncomment the "custom" entry below, matching its
-// `template` to the TEMPLATE_NAME in template/release.sh.
+// branded cards, in your control. Both entries run on Agent37's stock images, so this
+// app needs no Docker at all. To offer your OWN image, build and register it as a
+// workspace template (https://github.com/agent37-platform/custom-agent-image), then
+// add an entry here whose `template` is that template's name.
 export const AGENT_TYPES: AgentTypeOption[] = [
   {
     id: "hermes",
@@ -47,28 +48,17 @@ export const AGENT_TYPES: AgentTypeOption[] = [
     label: "OpenClaw",
     description: "General agent: headless browser, code, files.",
   },
-  // {
-  //   id: "custom",
-  //   template: "your-template-name", // must match TEMPLATE_NAME in template/release.sh
-  //   label: "My Agent",
-  //   description: "Your own image and model.",
-  // },
 ];
 
 export const AGENT_TEMPLATES = AGENT_TYPES.map((a) => a.template);
 
 // Labels for the "open in new tab" buttons. Ports come from the live instance
-// (instance.ports), never this map — this only prettifies known port numbers; any
-// unrecognized port falls back to "Port {n}". Covers stock Hermes/OpenClaw and the
-// remapped ports a custom workspace template uses (it can't reuse the reserved
-// 3737/7681/8080/9119, so template/release.sh declares 3738/7682/9120/8081).
+// (instance.ports), never this map — this only prettifies the ports the stock
+// Hermes/OpenClaw images serve; any other port falls back to "Port {n}", which is
+// what a custom image's own ports get until you add them here.
 export const PORT_LABELS: Record<number, string> = {
   9119: "Dashboard",
   7681: "Terminal",
   8080: "Files",
   18789: "OpenClaw",
-  9120: "Dashboard",
-  7682: "Terminal",
-  8081: "Files",
-  3738: "Gateway",
 };

@@ -8,7 +8,6 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "release:agent": "bash template/release.sh",
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {

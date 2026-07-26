@@ -134,7 +134,6 @@ Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/
 | `src/app/dashboard/agents/[agentId]/[[...tab]]/` | The per-agent tabbed workspace route (Chat / Files / Integrations / Settings) |
 | `src/config/agents.ts` | `SHAPE_PRESETS`, `DEFAULT_AGENT`, the `AGENT_TYPES` catalog, and `PORT_LABELS` (labels only — ports come from the live instance) |
 | `src/config/branding.ts` | `appName` / `logoUrl` code constants (branding lives here, not in env) |
-| `template/` | Opt-in custom-image scaffold (Dockerfile `FROM` Hermes + `release.sh`); unused unless you build your own image |
 | `src/lib/types.ts` | App + upstream `/v1` types |
 | `supabase/migrations/0001_init.sql` | Schema, RLS policies (dormant backstop), SECURITY DEFINER RPCs; grants tables to the service role only (clients have no direct DB access) |
 | `src/lib/supabase/admin.ts` | Service-role client (server-only, bypasses RLS) — the DB egress |
@@ -154,20 +153,21 @@ There is no test suite; the gate before shipping is a clean `npm run typecheck`
 and `npm run build`. Setup is "paste two keys + `npm run setup`" — no manual
 dashboard steps.
 
-## Custom agent image (opt-in)
+## Custom agent image (out of scope here)
 
-By default no Docker or GHCR is involved — the catalog ships Hermes and OpenClaw,
-which run on Agent37's stock images. To offer **your own** image, use the top-level
-`template/` folder: edit its `Dockerfile` (it starts `FROM` Hermes), then publish +
-register the image with `npm run release:agent` (`template/release.sh`). That command
-handles both registration paths: the default pushes to a public registry, and
-`RELEASE_MODE=private npm run release:agent` cloud-builds the folder on Agent37's own
-infrastructure via `npx agent37 templates build` (no registry, no local Docker,
-nothing published). Finally, uncomment the `custom` entry in
-`src/config/agents.ts`, matching its `template` to the `TEMPLATE_NAME` in
-`template/release.sh`. The new card then appears on the create screen. For the more
-advanced "bring your own image **and** your own model" path
-(including a minimal LLM proxy), see [`examples/custom-agent-image/`](examples/custom-agent-image/).
+**There is no Docker in this repo.** The catalog ships Hermes and OpenClaw, which run
+on Agent37's stock images, and nothing in `src/**` or `scripts/**` builds, pushes, or
+references an image. Don't add a Dockerfile here — building a custom agent image is a
+separate concern with its own repo and its own docs page:
+
+- [agent37-platform/custom-agent-image](https://github.com/agent37-platform/custom-agent-image)
+  — a GitHub template repo: a Dockerfile on the Hermes base, an example skill, a
+  register script (Agent37 cloud build or a public registry), and an optional
+  bring-your-own-model proxy.
+- [Build a custom image](https://www.agent37.com/docs/agents-api/custom-image) — the guide.
+
+Once that template is registered in your workspace, wiring it into this app is one
+entry in `AGENT_TYPES` (`src/config/agents.ts`) whose `template` is the template name.
 
 ## House rules
 
