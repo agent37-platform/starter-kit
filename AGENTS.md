@@ -15,9 +15,10 @@ Setting this up from a fresh clone? Follow **[`SETUP.md`](SETUP.md)** — the co
 
 A full-stack starter for building your own agent app, built entirely on top of the
 public **[Agent37](https://www.agent37.com) B2B Agents API**: email + password auth
-(open signup, no verification), a multi-agent fleet, and — for each agent — native
-in-dashboard **Chat**, a **Files** browser, **Integrations** (Composio), and a
-**Settings** tab. Forkers rebrand it (`src/config/branding.ts`) and ship it; their
+(open signup, no verification), a multi-agent fleet, and, for each agent, native
+in-dashboard **Chat**, a **Files** browser, **Messaging** (connect the agent to
+Telegram, WhatsApp, Slack, Discord and two dozen more), **Integrations** (Composio),
+and a **Settings** tab. Forkers rebrand it (`src/config/branding.ts`) and ship it; their
 end users sign up, get workspaces, invite teammates, and create / manage agents.
 
 Everything this app can do is a **subset of the Agent37 `/v1` API** — control plane
@@ -55,11 +56,18 @@ Two planes, one `sk_live_` key — and this template now drives **both**. The
 | [Templates](https://www.agent37.com/docs/agents-api/templates) | the agent images you can provision | ✅ |
 | [Managed services & budgets](https://www.agent37.com/docs/agents-api/budgets) | per-agent managed-spend cap | ✅ |
 | [Billing](https://www.agent37.com/docs/agents-api/billing) | wallet, compute prepay, usage | ✅ (usage) |
-| [Run commands](https://www.agent37.com/docs/agents-api/exec) | exec a command inside an instance | available, not used |
+| [Run commands](https://www.agent37.com/docs/agents-api/exec) | exec a command inside an instance | ✅ (Messaging) |
 | [Errors](https://www.agent37.com/docs/agents-api/errors) | machine-readable error codes | ✅ (mapped in `Agent37Error`) |
 
 The **Integrations** tab is also control plane: it manages a per-agent Composio
 entity through `/instances/{id}/integrations/*` (toolkits / connect / connections).
+
+The **Messaging** tab is control plane too, but through `exec`: messaging channels are
+configured *inside* the agent, not by our API, so the tab drives the agent's own
+messaging API (loopback port `9119`) over `POST /v1/instances/{id}/exec`. The agent
+reports the channel catalog, each channel's fields, and its live connection state, so
+the UI renders a form it did not write and a channel a later image adds needs no change
+here. See [Messaging channels](https://www.agent37.com/docs/agents-api/messaging).
 
 **Data plane — `https://{instanceId}.agent37.app/v1/*`** (talk to one agent's
 gateway). Data-plane requests authenticate with the `X-Agent37-Key: sk_live_...`
@@ -116,7 +124,7 @@ Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/
 - **The UI is a fleet + a per-agent workspace.** The `(fleet)` route group is the
   multi-agent dashboard (agents, members, invitations, workspace settings). Clicking
   an agent opens `/dashboard/agents/{agentId}/{tab}` — a tabbed workspace (Chat /
-  Files / Integrations / Settings) where the active agent is bound to the URL and
+  Files / Messaging / Integrations / Settings) where the active agent is bound to the URL and
   switchable from a dropdown. Creating an agent is one screen: pick a type from the
   curated catalog (`AGENT_TYPES`) and an optional name; shape and budget are fixed
   server-side (`DEFAULT_AGENT`).
@@ -131,7 +139,12 @@ Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/
 | `src/app/api/**` | This app's own API routes (BFF); enforce auth + ownership |
 | `src/app/api/agents/[id]/{chat,files}/**` | Data-plane BFF: native Chat + Files proxied to the instance |
 | `src/app/api/agents/[id]/integrations/**` | Composio integrations BFF (control plane) |
-| `src/app/dashboard/agents/[agentId]/[[...tab]]/` | The per-agent tabbed workspace route (Chat / Files / Integrations / Settings) |
+| `src/app/api/agents/[id]/channels/**` | Messaging channels BFF (list / write / disconnect, Telegram checks, WhatsApp pairing) |
+| `src/lib/hermes-messaging.ts` | The agent's own messaging API, reached over `exec`; the only module that speaks it |
+| `src/lib/telegram.ts` | Telegram Bot API calls made BEFORE anything is written into the agent (token check, owner lookup) |
+| `src/lib/channels.ts` | Channel types + the featured list, shared by the BFF and the Messaging tab |
+| `src/components/channels/**` | The Messaging tab: channel list, Telegram flow, WhatsApp QR, generic credentials form |
+| `src/app/dashboard/agents/[agentId]/[[...tab]]/` | The per-agent tabbed workspace route (Chat / Files / Messaging / Integrations / Settings) |
 | `src/config/agents.ts` | `SHAPE_PRESETS`, `DEFAULT_AGENT`, the `AGENT_TYPES` catalog, `PORT_LABELS` (labels only), and `templateAppPorts` — the per-template openable app ports (the API no longer reports per-instance ports) |
 | `src/config/branding.ts` | `appName` / `logoUrl` code constants (branding lives here, not in env) |
 | `src/lib/types.ts` | App + upstream `/v1` types |
@@ -176,6 +189,13 @@ entry in `AGENT_TYPES` (`src/config/agents.ts`) whose `template` is the template
   `src/config` lists. Check the docs before assuming a capability exists.
 - **Never expose `AGENT37_API_KEY` to the browser.** It stays server-side; all
   agent calls go through `src/app/api/**` → `src/lib/agent37.ts`.
+- **A messaging channel is a door into the agent, so fill its allowlist.** Every channel
+  takes an allowed-users field; empty means anyone who finds the bot reaches the agent,
+  its files, and its connected accounts. The Telegram flow learns the owner from the
+  first message sent to the bot rather than asking for a numeric id nobody knows.
+- **Check a channel credential before writing it** where the provider lets you (Telegram's
+  `getMe`). The agent's messaging gateway refuses to start on a bad token, which takes
+  every other channel on that agent down with it.
 - **Payments are intentionally excluded.** Add Stripe (or anything) yourself when
   you're ready to charge your own customers — the create route (`src/app/api/agents/route.ts`)
   has a commented `canCreateAgent()` seam marking where an entitlement gate would go.

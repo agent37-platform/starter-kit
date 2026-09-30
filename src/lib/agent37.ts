@@ -170,6 +170,16 @@ export const agent37 = {
       { method: "POST", body: JSON.stringify(body) }
     ),
 
+  // Run a shell command inside the instance. The escape hatch for anything the API does not wrap as
+  // its own call. Here it is how the Messaging tab reaches the harness's own messaging API, which
+  // listens on a loopback port inside the sandbox. A command that exits nonzero is a normal 200 with
+  // its exit_code, so read that rather than relying on a throw.
+  exec: (id: string, command: string, user?: "root") =>
+    call<{ exit_code: number; stdout: string; stderr: string; truncated: boolean }>(
+      `/instances/${id}/exec`,
+      { method: "POST", body: JSON.stringify({ command, ...(user ? { user } : {}) }) }
+    ),
+
   signedUrl: (id: string, port: number, ttlSeconds?: number) =>
     call<{ url: string; port: number; expires_at: number }>(`/instances/${id}/signed-url`, {
       method: "POST",
