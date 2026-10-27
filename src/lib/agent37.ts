@@ -133,7 +133,6 @@ async function instanceCall<T>(id: string, path: string, init?: RequestInit): Pr
 export interface CreateAgentInput {
   template?: string;
   resources?: { cpu?: number; memory?: number; disk?: number };
-  user?: string;
   name?: string;
   metadata?: Record<string, unknown>;
   budget?: { monthly_cap_micros?: number; credit_micros?: number };
