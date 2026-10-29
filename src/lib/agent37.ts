@@ -20,9 +20,13 @@ const BASE = "https://api.agent37.com";
 
 // The per-instance Agents API (the DATA plane — chat /v1/responses, /v1/models, /v1/sessions,
 // /v1/files) is served on the INSTANCE host: the bare `https://{id}.agent37.app` (default port
-// 3737), NOT the control-plane BASE above (which owns instance lifecycle: start/stop/exec/etc).
+// 3737), NOT the control-plane BASE above (which owns instance lifecycle: start/stop/etc).
 // Like BASE, a code constant — no per-deployment reason to change it.
 const INSTANCE_DOMAIN = "agent37.app";
+
+// exec is answered by the machine the instance runs on, at this address, with the raw key in
+// X-Agent37-Key. api.agent37.com/v1/instances/{id}/exec still works but forwards here, a hop slower.
+const SANDBOX_BASE = "https://sandbox.agent37.app";
 
 function instanceBaseUrl(id: string): string {
   return `https://${id}.${INSTANCE_DOMAIN}`;
@@ -130,6 +134,20 @@ async function instanceCall<T>(id: string, path: string, init?: RequestInit): Pr
   return parseAgent37<T>(res);
 }
 
+async function sandboxCall<T>(path: string, init?: RequestInit): Promise<T> {
+  const key = process.env.AGENT37_API_KEY;
+  if (!key) {
+    throw new Agent37Error(500, "config_error", "AGENT37_API_KEY is not set on the server");
+  }
+  const res = await fetch(`${SANDBOX_BASE}/v1${path}`, {
+    ...init,
+    headers: { "X-Agent37-Key": key, "Content-Type": "application/json", ...(init?.headers || {}) },
+    cache: "no-store",
+  });
+
+  return parseAgent37<T>(res);
+}
+
 export interface CreateAgentInput {
   template?: string;
   resources?: { cpu?: number; memory?: number; disk?: number };
@@ -174,7 +192,7 @@ export const agent37 = {
   // listens on a loopback port inside the sandbox. A command that exits nonzero is a normal 200 with
   // its exit_code, so read that rather than relying on a throw.
   exec: (id: string, command: string, user?: "root") =>
-    call<{ exit_code: number; stdout: string; stderr: string; truncated: boolean }>(
+    sandboxCall<{ exit_code: number; stdout: string; stderr: string; truncated: boolean }>(
       `/instances/${id}/exec`,
       { method: "POST", body: JSON.stringify({ command, ...(user ? { user } : {}) }) }
     ),
