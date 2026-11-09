@@ -1,37 +1,47 @@
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { BACKEND } from "@/lib/backend";
+import { getStore, type Store } from "@/lib/db";
 import { ApiError } from "@/lib/http";
 import type { AgentRow, Role } from "@/lib/types";
 
-// `db` is the privileged service-role client (RLS bypassed). All table access in this app goes
-// through it, which makes the helpers below the authorization boundary — they replace what RLS used
-// to enforce. The user's IDENTITY still comes only from their verified session cookie (the
-// anon/SSR client in getSession), never from `db`; `db` is used purely to run the query once the
-// session-derived user id has been checked against the memberships table.
-export type DB = ReturnType<typeof createAdminClient>;
+// `db` is the privileged data layer (src/lib/db — the Supabase service-role client, or Neon's
+// DATABASE_URL). All table access in this app goes through it, which makes the helpers below the
+// authorization boundary. The user's IDENTITY still comes only from their verified session cookie
+// (getSession), never from `db`; `db` is used purely to run the query once the session-derived user
+// id has been checked against the memberships table.
+export type DB = Store;
 
-export async function getSession() {
+export interface SessionUser {
+  id: string;
+  email: string | null;
+}
+
+export async function getSession(): Promise<{ user: SessionUser | null }> {
+  if (BACKEND === "neon") {
+    // Touch cookies first so a static prerender bails out here (marking the route dynamic) instead
+    // of inside the SDK, which logs Next's bail-out signal as a cookie error before rethrowing it.
+    const { cookies } = await import("next/headers");
+    await cookies();
+    const { neonAuth } = await import("@/lib/neon/auth");
+    const { data } = await neonAuth().getSession();
+    const user = data?.user;
+    return { user: user ? { id: String(user.id), email: user.email ?? null } : null };
+  }
+  const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return { user };
+  return { user: user ? { id: user.id, email: user.email ?? null } : null };
 }
 
 export async function requireUser() {
   const { user } = await getSession();
   if (!user) throw new ApiError(401, "unauthorized", "Sign in required");
-  return { db: createAdminClient(), user };
+  return { db: getStore(), user };
 }
 
 export async function getRole(db: DB, workspaceId: string, userId: string): Promise<Role | null> {
-  const { data } = await db
-    .from("memberships")
-    .select("role")
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  return (data?.role as Role) ?? null;
+  return db.getRole(workspaceId, userId);
 }
 
 // 404 (not 403) so we don't leak whether the workspace exists.
@@ -47,9 +57,9 @@ export async function requireAdmin(db: DB, workspaceId: string, userId: string):
 }
 
 export async function getAgentRow(db: DB, agent37Id: string): Promise<AgentRow> {
-  const { data } = await db.from("agents").select("*").eq("agent37_id", agent37Id).maybeSingle();
-  if (!data) throw new ApiError(404, "not_found", "Agent not found");
-  return data as AgentRow;
+  const row = await db.getAgent(agent37Id);
+  if (!row) throw new ApiError(404, "not_found", "Agent not found");
+  return row;
 }
 
 // The auth + ownership preamble every per-agent BFF route repeats: require a signed-in user,

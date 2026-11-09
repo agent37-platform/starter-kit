@@ -21,7 +21,7 @@ export async function POST(_request: Request, { params }: Ctx) {
 
     const result = await fn(id);
     if (result.status) {
-      await db.from("agents").update({ status: result.status }).eq("agent37_id", id);
+      await db.updateAgent(id, { status: result.status });
     }
 
     return json(result);

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getStore } from "@/lib/db";
 import { AcceptInvite } from "@/components/AcceptInvite";
 import { branding } from "@/config/branding";
 
@@ -11,14 +11,11 @@ export default async function InvitePage({ params }: Ctx) {
   const { user } = await getSession();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/invite/${token}`)}`);
 
-  // get_invitation is gated by the token (a secret), not by membership, so a not-yet-member can
-  // read what they were invited to. Runs through the privileged client.
-  const { data, error } = await createAdminClient().rpc("get_invitation", { p_token: token });
-  const inv = (Array.isArray(data) ? data[0] : null) as
-    | { workspace_name: string; role: string; expired: boolean }
-    | null;
+  // getInvitation is gated by the token (a secret), not by membership, so a not-yet-member can
+  // read what they were invited to. Runs through the privileged data layer.
+  const inv = await getStore().getInvitation(token);
 
-  if (error || !inv) return <Message text="This invitation is invalid or no longer exists." />;
+  if (!inv) return <Message text="This invitation is invalid or no longer exists." />;
   if (inv.expired) return <Message text="This invitation has expired." />;
 
   return <AcceptInvite token={token} workspaceName={inv.workspace_name} role={inv.role} />;
