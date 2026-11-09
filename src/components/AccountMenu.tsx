@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, LogOut, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { signOut as authSignOut } from "@/lib/auth-client";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { apiFetch } from "@/lib/api";
 import type { WorkspaceWithRole } from "@/lib/types";
@@ -50,7 +50,7 @@ export function AccountMenu() {
   }
 
   async function signOut() {
-    await createClient().auth.signOut();
+    await authSignOut();
     window.location.href = "/login";
   }
 

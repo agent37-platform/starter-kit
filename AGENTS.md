@@ -7,9 +7,11 @@ truth — edit here, not there.
 ## First-time setup
 
 Setting this up from a fresh clone? Follow **[`SETUP.md`](SETUP.md)** — the complete runbook
-(it's what the README tells adopters to hand you). Two login-gated secrets are human-supplied:
-`AGENT37_API_KEY` (plus a **funded** Agent37 wallet) and `SUPABASE_ACCESS_TOKEN`;
-`npm run setup` does the rest. Never print or commit the `sk_live_` key.
+(it's what the README tells adopters to hand you). The backend is **Supabase** (default) or
+**Neon**, picked by `NEXT_PUBLIC_BACKEND`. On Supabase, two login-gated secrets are human-supplied:
+`AGENT37_API_KEY` (plus a **funded** Agent37 wallet) and `SUPABASE_ACCESS_TOKEN`; `npm run setup`
+does the rest. On Neon, `AGENT37_API_KEY` is the only secret; `npm run setup:neon` provisions a
+claimable Neon project, and the human claims it in a browser within 72 hours. Never print or commit the `sk_live_` key.
 
 ## What this project is
 
@@ -103,7 +105,8 @@ Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/
    │            │                                 (one server-side sk_live_ key everywhere:
    │            │                                  Bearer on the control plane, X-Agent37-Key on agent37.app)
    │            │
-   │            └─▶ Supabase: Auth (browser, anon key) + Postgres (server-only, service-role key):
+   │            └─▶ Supabase: Auth (browser, anon key) + Postgres (server-only, service-role key)
+   │                or Neon:  Neon Auth (via this app's /api/auth proxy) + Postgres (server-only, DATABASE_URL):
    │                          users, workspaces, members, agent mirror
    │
    └──────────────▶ https://{instance}.agent37.app  (agent's own UI, via short-lived signed URLs)
@@ -111,21 +114,29 @@ Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/
 
 - **One key, many app workspaces.** A single `sk_live_` key, server-side only, is
   shared by the whole app. Every agent is created under your one Agent37 workspace
-  and tagged `metadata.app_workspace`; a Supabase mirror table is the source of
+  and tagged `metadata.app_workspace`; the `agents` mirror table is the source of
   truth for which app-workspace owns which agent.
+- **Two backends, one data layer.** `NEXT_PUBLIC_BACKEND` (`supabase` | `neon`, inlined at build
+  time) picks the backend. Routes never call a database SDK directly: they use the `Store`
+  interface in `src/lib/db` (`supabase.ts` = service-role client, `neon.ts` = SQL over
+  `DATABASE_URL`), and browser auth goes through `src/lib/auth-client.ts`. A new query means a new
+  `Store` method implemented for **both** backends, and a schema change means editing both
+  `supabase/migrations/` and `neon/migrations/`.
 - **Isolation is enforced in the server (BFF), not in the browser.** Clients have **no**
-  direct table access — the schema migration (`0001_init.sql`) grants tables only to the
-  service role, so the browser only uses Supabase for *auth*. Every read and write
-  goes through `src/app/api/**` using the **service-role** client (`src/lib/supabase/admin.ts`,
-  which bypasses RLS); the TypeScript checks in `src/lib/auth.ts` (`requireUser` /
+  direct table access. On Supabase, `0001_init.sql` grants the tables and RPCs to the service role
+  and `0002_revoke_client_access.sql` revokes Supabase's default anon/authenticated grants (without
+  it the public key could call the SECURITY DEFINER RPCs, which bypass RLS), so the browser only
+  uses Supabase for *auth*; on Neon the browser has no database credential at all. Every read and write goes through `src/app/api/**` using the privileged
+  `Store` (`src/lib/db`, which bypasses RLS on Supabase); the TypeScript checks in `src/lib/auth.ts` (`requireUser` /
   `requireMember` / `requireAdmin` / `requireAgentAccess`) are the authorization boundary. RLS
-  policies stay enabled as a backstop but are dormant (clients can't reach the tables). Neither
-  the `sk_live_` key nor the service-role key ever reaches the browser.
+  policies stay enabled as a backstop but are dormant (clients can't reach the tables). None of
+  the `sk_live_` key, the service-role key, `DATABASE_URL` or `NEON_AUTH_COOKIE_SECRET` ever
+  reaches the browser.
 - **`src/lib/agent37.ts` is the only thing that calls the Agent37 API**
   (`server-only`) — both the control-plane base and each instance's data-plane host.
   Internal `src/app/api/**` routes are this app's BFF: the browser calls them, they
   authenticate + check workspace ownership in TS, then call `agent37.ts` and/or the DB via the
-  service-role client. The browser never calls the upstream API or the DB directly.
+  privileged `Store`. The browser never calls the upstream API or the DB directly.
 - **The UI is a fleet + a per-agent workspace.** The `(fleet)` route group is the
   multi-agent dashboard (agents, members, invitations, workspace settings). Clicking
   an agent opens `/dashboard/agents/{agentId}/{tab}` — a tabbed workspace (Chat /
@@ -153,23 +164,32 @@ Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/
 | `src/config/agents.ts` | `SHAPE_PRESETS`, `DEFAULT_AGENT`, the `AGENT_TYPES` catalog, `PORT_LABELS` (labels only), and `templateAppPorts` — the per-template openable app ports (the API no longer reports per-instance ports) |
 | `src/config/branding.ts` | `appName` / `logoUrl` code constants (branding lives here, not in env) |
 | `src/lib/types.ts` | App + upstream `/v1` types |
-| `supabase/migrations/0001_init.sql` | Schema, RLS policies (dormant backstop), SECURITY DEFINER RPCs; grants tables to the service role only (clients have no direct DB access) |
-| `src/lib/supabase/admin.ts` | Service-role client (server-only, bypasses RLS) — the DB egress |
-| `scripts/setup.mjs` | One-command Supabase setup (`npm run setup`) |
+| `src/lib/backend.ts` | `BACKEND` — `"supabase"` or `"neon"`, from `NEXT_PUBLIC_BACKEND` |
+| `src/lib/db/**` | The `Store` interface (every table read/write) + its Supabase and Neon implementations — the DB egress |
+| `src/lib/auth-client.ts` | Browser-side sign-up / sign-in / sign-out / password reset for either backend |
+| `supabase/migrations/0001_init.sql` | Supabase schema, RLS policies (dormant backstop), SECURITY DEFINER RPCs; grants tables to the service role |
+| `supabase/migrations/0002_revoke_client_access.sql` | Revokes Supabase's default anon/authenticated table + function grants, so clients really have no direct DB access |
+| `neon/migrations/0001_init.sql` | Neon schema: the same tables, user ids referencing Neon Auth's `neon_auth."user"` |
+| `src/lib/supabase/admin.ts` | Supabase service-role client (server-only, bypasses RLS), used by `src/lib/db/supabase.ts` |
+| `src/lib/neon/**`, `src/app/api/auth/[...path]` | Neon Auth server instance, browser client, and its `/api/auth/*` proxy route (404 on Supabase) |
+| `scripts/setup.mjs` | One-command setup: Supabase (`npm run setup`), or Neon via `scripts/setup-neon.mjs` (`npm run setup:neon`, `npm run neon:claim`) |
 
 ## Commands
 
 ```bash
 npm install
 npm run setup       # configure Supabase end-to-end (idempotent; needs SUPABASE_ACCESS_TOKEN)
+npm run setup:neon  # or: provision + configure Neon end-to-end (idempotent; no token needed)
+npm run neon:claim  # print a fresh link to claim the Neon project (unclaimed ones expire in 72h)
 npm run dev         # http://localhost:3000
 npm run build
 npm run typecheck   # tsc --noEmit
 ```
 
 There is no test suite; the gate before shipping is a clean `npm run typecheck`
-and `npm run build`. Setup is "paste two keys + `npm run setup`" — no manual
-dashboard steps.
+and `npm run build`. Setup is "paste two keys + `npm run setup`" (Supabase, no manual dashboard
+steps) or "`npm run setup:neon` + paste one key" (Neon, plus claiming the project in a browser and,
+for production, adding the domain in the Neon Console).
 
 ## Custom agent image (out of scope here)
 

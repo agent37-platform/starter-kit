@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { canResetPassword, updatePassword } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,14 +15,16 @@ export default function ResetPasswordPage() {
   // null = still checking for the recovery session.
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [done, setDone] = useState(false);
+  // Neon reset links carry the token in the URL (?token=…); Supabase ones carry none.
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // The recovery link routes through /auth/callback, which establishes a session
-    // before redirecting here. No user means the link was invalid, already used,
-    // expired, or opened in a different browser than the one that requested it.
-    createClient()
-      .auth.getUser()
-      .then(({ data }) => setHasSession(!!data.user));
+    // Supabase: the recovery link routes through /auth/callback, which establishes a session
+    // before redirecting here. Neon: the link brings a one-time token. Neither means the link was
+    // invalid, already used, expired, or opened in a different browser than the one that requested it.
+    const t = new URLSearchParams(window.location.search).get("token");
+    setToken(t);
+    canResetPassword(t).then(setHasSession);
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -31,7 +33,7 @@ export default function ResetPasswordPage() {
       return toast.error(`Password must be at least ${MIN_PASSWORD} characters.`);
     }
     setLoading(true);
-    const { error } = await createClient().auth.updateUser({ password });
+    const { error } = await updatePassword(password, token);
     setLoading(false);
     if (error) return toast.error(error.message);
     setDone(true);

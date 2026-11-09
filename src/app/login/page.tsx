@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { requestPasswordReset, signIn, signUp } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,13 +56,13 @@ export default function LoginPage() {
     const mail = email.trim();
     if (!mail) return;
 
-    const supabase = createClient();
     const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
 
     if (mode === "reset") {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(mail, {
-        redirectTo: callbackUrl("/reset-password"),
+      const { error } = await requestPasswordReset(mail, {
+        callbackUrl: callbackUrl("/reset-password"),
+        resetPageUrl: new URL("/reset-password", publicSiteOrigin(window.location.origin)).toString(),
       });
       setLoading(false);
       if (error) return toast.error(error.message);
@@ -78,11 +78,7 @@ export default function LoginPage() {
 
     setLoading(true);
     if (mode === "signup") {
-      const { data, error } = await supabase.auth.signUp({
-        email: mail,
-        password,
-        options: { emailRedirectTo: callbackUrl(next) },
-      });
+      const { session, error } = await signUp(mail, password, callbackUrl(next));
       setLoading(false);
       if (error) {
         // Email confirmation is off, so signing up an existing email errors here
@@ -96,7 +92,7 @@ export default function LoginPage() {
       }
       // Email confirmation is disabled: signUp returns a session immediately, so we
       // register-and-go with no inbox round-trip.
-      if (data.session) {
+      if (session) {
         window.location.href = next;
         return;
       }
@@ -107,7 +103,7 @@ export default function LoginPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email: mail, password });
+    const { error } = await signIn(mail, password);
     setLoading(false);
     if (error) return toast.error(error.message);
     // Hard navigation so the freshly written auth cookies ride along on the next request.

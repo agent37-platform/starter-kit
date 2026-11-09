@@ -13,6 +13,7 @@ const MGMT = "https://api.supabase.com";
 const args = process.argv.slice(2);
 const FLAGS = {
   noCreate: args.includes("--no-create"),
+  neon: args.includes("--neon"),
   help: args.includes("--help") || args.includes("-h"),
 };
 
@@ -281,7 +282,7 @@ function printHelp() {
 
 Usage: npm run setup [-- options]
 
-Reads .env.local and finishes the Supabase setup for you using
+Supabase (default) — reads .env.local and finishes the Supabase setup for you using
 SUPABASE_ACCESS_TOKEN (a personal access token):
   - runs the database migration(s)
   - configures the Site URL + redirect allow-list and turns on
@@ -293,7 +294,13 @@ If NEXT_PUBLIC_SUPABASE_URL is blank, it creates a free project for you.
 
 Options:
   --no-create   Don't create a project; fail if none is configured.
+  --neon        Use the Neon backend instead (same as \`npm run setup:neon\`).
   -h, --help    Show this help.
+
+Neon (--neon, or NEXT_PUBLIC_BACKEND=neon) — see SETUP.md:
+  --claim       Only print a fresh claim link (same as \`npm run neon:claim\`).
+  NEON_REGION   region for a new project                [default: aws-us-east-2]
+  NEON_API_KEY  adds NEXT_PUBLIC_SITE_URL as a trusted domain (claimed projects only)
 
 Env overrides:
   SUPABASE_ACCESS_TOKEN   personal access token (sbp_…)   [required]
@@ -306,6 +313,20 @@ Env overrides:
 async function main() {
   if (FLAGS.help) {
     printHelp();
+    return;
+  }
+
+  // Neon backend: `npm run setup:neon`, or NEXT_PUBLIC_BACKEND=neon already in .env.local.
+  if (FLAGS.neon || get(loadEnv(ENV_FILE), "NEXT_PUBLIC_BACKEND") === "neon") {
+    const { setupNeon } = await import("./setup-neon.mjs");
+    await setupNeon({
+      ROOT,
+      ENV_FILE,
+      ENV_EXAMPLE,
+      args,
+      ui: { log, step, ok, info, warn, die, bold, dim, green, yellow, cyan },
+      env: { loadEnv, setEnv, saveEnv, isBlank, get },
+    });
     return;
   }
 

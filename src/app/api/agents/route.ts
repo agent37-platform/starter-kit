@@ -3,7 +3,7 @@ import { requireAdmin, requireMember, requireUser } from "@/lib/auth";
 import { AGENT_TEMPLATES, DEFAULT_AGENT, templateAppPorts } from "@/config/agents";
 import { usdToMicros } from "@/lib/format";
 import { ApiError, handleError, json, readJson } from "@/lib/http";
-import type { Agent, AgentRow, MergedAgent, Template } from "@/lib/types";
+import type { Agent, MergedAgent, Template } from "@/lib/types";
 
 // The image catalog barely changes, but the dashboard polls this route every 5s while any agent is
 // transitioning — so cache the template list briefly rather than re-fetching /templates on every
@@ -39,12 +39,7 @@ export async function GET(request: Request) {
 
     const role = await requireMember(db, workspaceId, user.id);
 
-    const { data: rows, error } = await db
-      .from("agents")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .order("created_at", { ascending: false });
-    if (error) throw new ApiError(500, "db_error", error.message);
+    const rows = await db.listAgents(workspaceId);
 
     let live = new Map<string, Agent>();
     let templates = new Map<string, Template>();
@@ -69,12 +64,12 @@ export async function GET(request: Request) {
       return (t.revision ?? 1) > (l.template_revision ?? 1);
     }
 
-    const agents: MergedAgent[] = (rows as AgentRow[]).map((row) => {
+    const agents: MergedAgent[] = rows.map((row) => {
       const l = live.get(row.agent37_id);
       if (l && l.status !== row.status) {
         // Best-effort mirror sync. Authorized already: these rows belong to workspaceId, which the
         // caller is a member of (requireMember above).
-        db.from("agents").update({ status: l.status }).eq("agent37_id", row.agent37_id).then(() => {});
+        db.updateAgent(row.agent37_id, { status: l.status }).catch(() => {});
       }
       return {
         ...row,
@@ -131,25 +126,26 @@ export async function POST(request: Request) {
       budget: { monthly_cap_micros: usdToMicros(DEFAULT_AGENT.monthlyCapUsd) },
     });
 
-    const { error } = await db.from("agents").insert({
-      agent37_id: agent.id,
-      workspace_id: workspaceId,
-      name: agent.name || null,
-      status: agent.status,
-      template: agent.template,
-      cpu: agent.resources.cpu,
-      memory: agent.resources.memory,
-      disk: agent.resources.disk,
-      created_by: user.id,
-    });
-    if (error) {
+    try {
+      await db.insertAgent({
+        agent37_id: agent.id,
+        workspace_id: workspaceId,
+        name: agent.name || null,
+        status: agent.status,
+        template: agent.template,
+        cpu: agent.resources.cpu,
+        memory: agent.resources.memory,
+        disk: agent.resources.disk,
+        created_by: user.id,
+      });
+    } catch (e) {
       // Roll back the orphaned agent so we never bill for an untracked box.
       try {
         await agent37.deleteAgent(agent.id);
       } catch {
         /* best-effort */
       }
-      throw new ApiError(500, "db_error", error.message);
+      throw e;
     }
 
     return json(agent, 201);

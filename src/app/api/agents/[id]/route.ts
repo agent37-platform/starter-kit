@@ -13,8 +13,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
     const trimmed = (name || "").trim();
     if (!trimmed) throw new ApiError(400, "invalid_request", "name is required");
 
-    const { error } = await db.from("agents").update({ name: trimmed }).eq("agent37_id", id);
-    if (error) throw new ApiError(500, "db_error", error.message);
+    await db.updateAgent(id, { name: trimmed });
 
     return json({ id, name: trimmed });
   } catch (e) {
@@ -33,7 +32,7 @@ export async function DELETE(_request: Request, { params }: Ctx) {
       // Instance already gone upstream — still remove our mirror row.
       if (!(e instanceof Agent37Error && e.status === 404)) throw e;
     }
-    await db.from("agents").delete().eq("agent37_id", id);
+    await db.deleteAgent(id);
 
     return json({ id, deleted: true });
   } catch (e) {

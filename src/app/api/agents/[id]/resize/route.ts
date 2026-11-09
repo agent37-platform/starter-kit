@@ -15,15 +15,12 @@ export async function POST(request: Request, { params }: Ctx) {
     }
 
     const result = await agent37.resize(id, body);
-    await db
-      .from("agents")
-      .update({
-        cpu: result.resources.cpu,
-        memory: result.resources.memory,
-        disk: result.resources.disk,
-        status: result.status,
-      })
-      .eq("agent37_id", id);
+    await db.updateAgent(id, {
+      cpu: result.resources.cpu,
+      memory: result.resources.memory,
+      disk: result.resources.disk,
+      status: result.status,
+    });
 
     return json(result);
   } catch (e) {

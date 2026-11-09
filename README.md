@@ -8,17 +8,24 @@ A full-stack starter for building your own agent app on the [Agent37](https://ww
 
 ## Setup
 
-**1. Get two keys** (both behind a login, so only you can fetch them):
+Auth and Postgres run on your choice of **[Supabase](https://supabase.com)** (default) or
+**[Neon](https://neon.com)**. [SETUP.md](SETUP.md) compares the two setups.
+
+**1. Get your keys** (behind a login, so only you can fetch them):
 
 - `AGENT37_API_KEY` — Agent37 dashboard → **Cloud → API keys**, then **fund the wallet** (Cloud → Billing).
-- `SUPABASE_ACCESS_TOKEN` — [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens).
+- Supabase: `SUPABASE_ACCESS_TOKEN` — [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens).
+- Neon: no second key. `npm run setup:neon` creates a temporary project that you claim into your Neon
+  account within 72 hours.
 
 **2. Hand it to your coding agent.** Open this folder in Claude Code / Codex and paste:
 
 ```
-Set this repo up and run it locally, end to end — follow SETUP.md. Ask me for the two
+Set this repo up and run it locally, end to end — follow SETUP.md. Ask me for the
 login-gated keys it needs, then do everything else and tell me the local URL.
 ```
 
-It writes your keys, configures Supabase, and starts the app. Prefer to do it yourself?
-**[SETUP.md](SETUP.md)** has the four-command path and deploy steps too.
+For Neon, say "on the Neon backend" in the prompt.
+
+It writes your keys, sets up the backend, and starts the app. Prefer to do it yourself?
+**[SETUP.md](SETUP.md)** has the by-hand commands and deploy steps for both backends.
