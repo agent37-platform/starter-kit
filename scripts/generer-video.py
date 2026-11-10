@@ -1,33 +1,31 @@
+#!/usr/bin/env python3
 import argparse
 import datetime
 import getpass
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 import unicodedata
-import urllib.error
-import urllib.parse
-import urllib.request
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def remove_accents(text: str) -> str:
-    """Retire les accents pour aligner sur le nom de dossier ASCII (ex: Djénéba -> Djeneba)."""
+    """Retire les accents pour normaliser un nom de dossier en ASCII."""
     nfkd = unicodedata.normalize("NFKD", text)
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def detect_expert() -> str:
-    """Détecte dynamiquement le vrai nom de l'expert courant (Fatima, Mamadou, Djeneba, etc.)."""
-    # 1. Variables d'environnement injectées par le runtime
+    """Détecte dynamiquement le nom de l'expert actif depuis l'environnement ou le profil courant."""
     for var in ("EXPERT_NAME", "HERMES_PROFILE", "PROFILE", "EXPERT", "AGENT_NAME", "HERMES_AGENT_NAME"):
         val = os.environ.get(var)
         if val and val.strip():
             return remove_accents(val.strip()).capitalize()
 
-    # 2. Lecture directe de SOUL.md dans le dossier courant ou les dossiers parents
     cwd = os.getcwd()
     curr = cwd
     for _ in range(4):
@@ -46,7 +44,6 @@ def detect_expert() -> str:
             break
         curr = parent
 
-    # 3. Déduction par le chemin d'exécution (agents/<expert>, .hermes/profiles/<expert>, etc.)
     system_reserved = {
         "workspace", "default", "node", "home", "root", "scripts", "skills", "shared", "videos",
         getpass.getuser().lower(),
@@ -65,7 +62,6 @@ def detect_expert() -> str:
             if val not in system_reserved and not val.startswith("."):
                 return remove_accents(m.group(1)).capitalize()
 
-    # 4. Fichier de profil actif Hermes s'il existe
     home = os.path.expanduser("~")
     for active_f in (os.path.join(home, ".hermes", "active_profile"), os.path.join(home, ".hermes", "profile")):
         if os.path.exists(active_f):
@@ -87,218 +83,318 @@ def slugify(text: str) -> str:
     return text[:40] or "video"
 
 
-def get_default_dest(expert: str, sujet: str) -> str:
+def get_default_dest(expert: str, sujet: str, echantillon: bool = False) -> str:
     now = datetime.datetime.now()
     prefix = now.strftime("%y%m%d")
     slug = slugify(sujet)
-    filename = f"{prefix}_{slug}.mp4"
-    home = os.path.expanduser("~")
-    expert_dir = os.path.join(home, "Livrables", expert)
-
-    # L'arborescence standard est ~/Livrables/<expert>/Videos/
+    ext = "mp3" if echantillon else "mp4"
+    tag = "echantillon_" if echantillon else ""
+    filename = f"{prefix}_{tag}{slug}.{ext}"
+    livrables_root = os.environ.get("LIVRABLES_DIR") or os.path.join(os.path.expanduser("~"), "Livrables")
+    expert_dir = os.path.join(os.path.expanduser(livrables_root), expert)
     videos_dir = os.path.join(expert_dir, "Videos")
     os.makedirs(videos_dir, exist_ok=True)
-
     return os.path.join(videos_dir, filename)
 
 
-def request_json(url: str, method: str = "GET", data: dict = None, headers: dict = None):
-    req_headers = {"Accept": "application/json"}
-    if headers:
-        req_headers.update(headers)
+def find_uv_binary() -> Optional[str]:
+    """Cherche l'exécutable uv sur le système."""
+    uv_bin = shutil.which("uv")
+    if uv_bin:
+        return uv_bin
 
-    body_bytes = None
-    if data is not None:
-        body_bytes = json.dumps(data).encode("utf-8")
-        req_headers["Content-Type"] = "application/json"
+    candidates = [
+        os.path.expanduser("~/.local/bin/uv"),
+        os.path.expanduser("~/.cargo/bin/uv"),
+        "/usr/local/bin/uv",
+        "/usr/bin/uv",
+    ]
+    for path in candidates:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
 
-    req = urllib.request.Request(url, data=body_bytes, headers=req_headers, method=method)
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+
+def find_local_mpt() -> Tuple[Optional[str], Optional[List[str]]]:
+    """
+    Détecte l'installation locale de MoneyPrinterTurbo et retourne:
+    (mpt_dir, runner_cmd_prefix) ou (None, None).
+    """
+    candidates = [
+        os.environ.get("MONEYPRINTER_DIR"),
+        os.path.expanduser("~/MoneyPrinterTurbo"),
+        "/home/node/MoneyPrinterTurbo",
+        "/opt/MoneyPrinterTurbo",
+    ]
+    for d in candidates:
+        if not d or not os.path.isdir(d):
+            continue
+        cli_py = os.path.join(d, "cli.py")
+        if not os.path.isfile(cli_py):
+            continue
+
+        # 1. Priorité: uv avec Python 3.11 (recommandation officielle upstream)
+        uv_bin = find_uv_binary()
+        if uv_bin:
+            return d, [uv_bin, "run", "--python", "3.11", "python", "cli.py"]
+
+        # 2. Environnement virtuel .venv existant
+        venv_py = os.path.join(d, ".venv", "bin", "python")
+        if os.path.isfile(venv_py) and os.access(venv_py, os.X_OK):
+            return d, [venv_py, "cli.py"]
+
+        # 3. Python 3.11 direct
+        py311 = shutil.which("python3.11") or os.path.expanduser("~/.local/bin/python3.11")
+        if py311 and os.path.isfile(py311) and os.access(py311, os.X_OK):
+            return d, [py311, "cli.py"]
+
+    return None, None
 
 
-def ensure_server_running(api_url: str):
-    """Vérifie si MoneyPrinterTurbo répond, sinon tente un démarrage automatique."""
+def ensure_mpt_config(mpt_dir: str) -> None:
+    """S'assure que config.toml existe et synchronise PEXELS_API_KEY / PIXABAY_API_KEY depuis l'environnement."""
+    cfg_path = os.path.join(mpt_dir, "config.toml")
+    example_path = os.path.join(mpt_dir, "config.example.toml")
+    if not os.path.isfile(cfg_path) and os.path.isfile(example_path):
+        shutil.copy2(example_path, cfg_path)
+
+    if not os.path.isfile(cfg_path):
+        return
+
+    pexels_key = (os.environ.get("PEXELS_API_KEY") or "").strip()
+    pixabay_key = (os.environ.get("PIXABAY_API_KEY") or "").strip()
+    if not pexels_key and not pixabay_key:
+        return
+
     try:
-        req = urllib.request.Request(f"{api_url}/ping", headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            if resp.status in (200, 404):
-                return
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        updated = content
+        if pexels_key and "pexels_api_keys = []" in updated:
+            updated = updated.replace("pexels_api_keys = []", f'pexels_api_keys = ["{pexels_key}"]', 1)
+        if pixabay_key and "pixabay_api_keys = []" in updated:
+            updated = updated.replace("pixabay_api_keys = []", f'pixabay_api_keys = ["{pixabay_key}"]', 1)
+        if updated != content:
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                f.write(updated)
     except Exception:
         pass
 
-    # Vérification présence de l'installation locale sur l'instance
-    mpt_dirs = [
-        "/home/node/MoneyPrinterTurbo",
-        os.path.expanduser("~/MoneyPrinterTurbo"),
-        "/opt/MoneyPrinterTurbo"
-    ]
-    for d in mpt_dirs:
-        mpt_main = os.path.join(d, "main.py")
-        if os.path.exists(mpt_main) and any(h in api_url for h in ("localhost", "127.0.0.1")):
-            print("⚡ [MoneyPrinterTurbo] Démarrage automatique du moteur de montage sur le port 8088...")
-            mpt_py = os.path.join(d, ".venv/bin/python")
-            py_bin = mpt_py if os.path.exists(mpt_py) else sys.executable
-            log_f = open(os.path.join(d, "server.log"), "a")
-            try:
-                subprocess.Popen(
-                    [py_bin, "main.py"],
-                    cwd=d,
-                    stdout=log_f,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True
-                )
-                time.sleep(3)
-                return
-            except Exception as e:
-                print(f"⚠️ Échec du démarrage automatique : {e}")
-                break
 
+def run_cli_generation(
+    mpt_dir: str,
+    runner_prefix: List[str],
+    sujet: str,
+    script: str,
+    aspect: str,
+    voix: str,
+    dest_path: str,
+    expert: str,
+    source: str = "pexels",
+    materiaux: str = "",
+    termes: str = "",
+    echantillon: bool = False,
+    timeout_sec: int = 300,
+) -> Dict[str, Any]:
+    """Exécute la génération vidéo (ou échantillon vocal) via le mode CLI autonome (cli.py)."""
+    ensure_mpt_config(mpt_dir)
+    action_label = "Échantillon vocal" if echantillon else "Vidéo complète"
+    print(f"🎬 [MoneyPrinterTurbo CLI] Démarrage du pipeline ({action_label})...")
+    print(f"   Dépôt MPT : {mpt_dir}")
+    print(f"   Sujet     : '{sujet}'")
+    print(f"   Format    : {aspect} | Voix : {voix} | Source : {source} | Expert : {expert}")
 
-def main():
-    parser = argparse.ArgumentParser(description="Générateur de vidéo universel via MoneyPrinterTurbo")
-    parser.add_argument("--sujet", required=True, help="Sujet ou titre de la vidéo")
-    parser.add_argument("--script", default="", help="Script détaillé de la vidéo (optionnel)")
-    parser.add_argument("--expert", default=None, help="Nom de l'expert (détecté automatiquement si omis)")
-    parser.add_argument("--aspect", choices=["9:16", "16:9", "1:1"], default="9:16", help="Format vidéo")
-    parser.add_argument("--voix", default=None, help="Voix TTS (défaut: MONEYPRINTER_DEFAULT_VOICE ou Vivienne)")
-    parser.add_argument("--sortie", default="", help="Chemin du fichier de sortie .mp4")
-    parser.add_argument("--api-url", default="", help="URL MoneyPrinterTurbo (override)")
-    parser.add_argument("--api-key", default="", help="Clé API MoneyPrinterTurbo (override)")
-    parser.add_argument("--timeout-attente", type=int, default=300, help="Délai max d'attente en secondes")
+    cmd = list(runner_prefix)
+    cmd.extend(["--video-subject", sujet])
+    if script:
+        cmd.extend(["--video-script", script])
+    if termes:
+        cmd.extend(["--video-terms", termes])
+    cmd.extend(["--video-aspect", aspect])
+    cmd.extend(["--voice-name", voix])
+    cmd.extend(["--video-source", source])
+    if materiaux:
+        cmd.extend(["--video-materials", materiaux])
+    if echantillon:
+        cmd.extend(["--bgm-type", "none"])
+        cmd.extend(["--stop-at", "audio"])
+    else:
+        cmd.extend(["--bgm-type", "none"])
+        cmd.extend(["--subtitle-enabled"])
+        cmd.extend(["--subtitle-display-mode", "word_by_word"])
+        font_name = os.environ.get("MONEYPRINTER_FONT_NAME") or "BeVietnamPro-Bold.ttf"
+        if os.path.isfile(os.path.join(mpt_dir, "resource", "fonts", font_name)):
+            cmd.extend(["--font-name", font_name])
+        cmd.extend(["--stop-at", "video"])
 
-    args = parser.parse_args()
-
-    api_url = (args.api_url or os.environ.get("MONEYPRINTER_API_URL") or "http://localhost:8088").rstrip("/")
-    api_key = args.api_key or os.environ.get("MONEYPRINTER_API_KEY") or ""
-    voice_name = args.voix or os.environ.get("MONEYPRINTER_DEFAULT_VOICE") or "fr-FR-VivienneMultilingualNeural"
-
-    # Auto-démarrage si besoin
-    ensure_server_running(api_url)
-
-    expert = remove_accents(args.expert.strip()).capitalize() if args.expert else detect_expert()
-    dest_path = args.sortie or get_default_dest(expert, args.sujet)
-    dest_path = os.path.expanduser(dest_path)
-
-    headers = {}
-    if api_key:
-        headers["x-api-key"] = api_key
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    print(f"🎬 [MoneyPrinterTurbo] Lancement de la génération pour : '{args.sujet}'")
-    print(f"   Format : {args.aspect} | Voix : {voice_name} | Expert : {expert}")
-
-    payload = {
-        "video_subject": args.sujet,
-        "video_aspect": args.aspect,
-        "voice_name": voice_name,
-        "subtitle_enabled": True,
-        "video_count": 1,
-    }
-    if args.script:
-        payload["video_script"] = args.script
-
-    # 1. Création de la tâche
-    try:
-        init_res = request_json(f"{api_url}/api/v1/videos", method="POST", data=payload, headers=headers)
-    except Exception as e:
-        print(f"❌ Erreur lors de la connexion à MoneyPrinterTurbo ({api_url}) : {e}", file=sys.stderr)
-        sys.exit(1)
-
-    task_id = None
-    if isinstance(init_res, dict):
-        data = init_res.get("data")
-        if isinstance(data, dict):
-            task_id = data.get("task_id") or data.get("taskId")
-        if not task_id:
-            task_id = init_res.get("task_id") or init_res.get("taskId")
-
-    if not task_id:
-        print(f"❌ Réponse inattendue du service : {init_res}", file=sys.stderr)
-        sys.exit(1)
-
-    print(f"⏳ Tâche créée avec succès (ID: {task_id}). En attente du rendu...")
-
-    # 2. Polling du statut
     start_time = time.time()
-    video_url = None
-    last_progress = -1
+    proc = subprocess.Popen(
+        cmd,
+        cwd=mpt_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
 
-    while time.time() - start_time < args.timeout_attente:
-        time.sleep(3)
-        try:
-            status_res = request_json(f"{api_url}/api/v1/tasks/{urllib.parse.quote(task_id)}", headers=headers)
-        except Exception as e:
-            print(f"⚠️ Erreur temporaire lors de la vérification : {e}")
-            continue
+    stdout_lines: List[str] = []
 
-        if not isinstance(status_res, dict):
-            continue
+    # Lecture asynchrone / non bloquante des flux
+    import select
+    while proc.poll() is None:
+        if time.time() - start_time > timeout_sec:
+            proc.kill()
+            raise TimeoutError(f"Délai d'attente dépassé ({timeout_sec}s) lors de la génération vidéo CLI.")
 
-        data = status_res.get("data") if isinstance(status_res.get("data"), dict) else status_res
-
-        # État MoneyPrinterTurbo : state = 1 (succès/terminé), -1 (échec), 4 (en cours)
-        state = data.get("state")
-        progress = data.get("progress") if data.get("progress") is not None else status_res.get("progress", 0)
-        videos = data.get("videos") or []
-        err_msg = data.get("error") or status_res.get("error") or ""
-
-        raw_status = status_res.get("status")
-        status_str = str(raw_status).lower() if isinstance(raw_status, str) else ""
-
-        if progress != last_progress:
-            state_label = f"state={state}" if state is not None else status_str
-            print(f"   Progression : {progress}% [{state_label}]")
-            last_progress = progress
-
-        # Terminé avec succès (state == 1 ou statut textuel)
-        if state == 1 or status_str in ("completed", "success", "done"):
-            if videos and isinstance(videos, list) and len(videos) > 0:
-                video_url = videos[0]
+        rlist, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0.5)
+        for stream in rlist:
+            line = stream.readline()
+            if not line:
+                continue
+            if stream is proc.stdout:
+                stdout_lines.append(line.strip())
             else:
-                res_obj = data.get("result") or status_res.get("result") or {}
-                video_url = res_obj.get("video_url") or data.get("video_url") or status_res.get("video_url") or res_obj.get("file_path")
-            break
-        # Échec de la tâche (state == -1 ou statut failed/error)
-        elif state == -1 or status_str in ("failed", "error"):
-            print(f"❌ La génération a échoué : {err_msg or 'Erreur inconnue'}", file=sys.stderr)
-            sys.exit(1)
+                line_str = line.strip()
+                if "generation activity:" in line_str or "combining video:" in line_str or "generating video:" in line_str or "azure_tts_v1" in line_str:
+                    print(f"   [MPT] {line_str}")
 
-    if not video_url:
-        print(f"❌ Délai d'attente dépassé ({args.timeout_attente}s).", file=sys.stderr)
-        sys.exit(1)
+    # Récupérer les lignes restantes
+    rest_out, rest_err = proc.communicate()
+    if rest_out:
+        stdout_lines.extend(line.strip() for line in rest_out.splitlines() if line.strip())
+    if rest_err:
+        for err_line in rest_err.splitlines():
+            line_str = err_line.strip()
+            if "ERROR" in line_str or "Exception" in line_str or "Traceback" in line_str:
+                print(f"   ⚠️ [MPT Log] {line_str}", file=sys.stderr)
 
-    # Résolution de l'URL absolue si relative
-    if not (video_url.startswith("http://") or video_url.startswith("https://")):
-        video_url = f"{api_url}/{video_url.lstrip('/')}"
+    if proc.returncode != 0:
+        raise RuntimeError(f"Échec de cli.py (code {proc.returncode}). Vérifiez les logs ci-dessus.")
 
-    print(f"📥 Rapatriement de la vidéo depuis : {video_url}")
+    # Analyse du JSON émis sur stdout par cli.py
+    parsed_json: Optional[Dict[str, Any]] = None
+    for line in reversed(stdout_lines):
+        if line.startswith("{") and line.endswith("}"):
+            try:
+                candidate = json.loads(line)
+                if isinstance(candidate, dict) and ("task_id" in candidate or "result" in candidate):
+                    parsed_json = candidate
+                    break
+            except Exception:
+                continue
 
-    # 3. Téléchargement vers ~/Livrables/<expert>/Videos/
+    if not parsed_json or "result" not in parsed_json:
+        raise RuntimeError(f"cli.py n'a pas renvoyé le JSON de résultat attendu sur stdout : {stdout_lines[-3:] if stdout_lines else 'vide'}")
+
+    res_data = parsed_json.get("result", {})
+    task_id = parsed_json.get("task_id", "local_cli")
+
+    if echantillon:
+        audio_file = res_data.get("audio_file")
+        if not audio_file or not isinstance(audio_file, str):
+            raise RuntimeError(f"Aucun fichier audio trouvé dans le résultat cli.py : {res_data}")
+        generated_path = audio_file if os.path.isabs(audio_file) else os.path.join(mpt_dir, audio_file)
+    else:
+        videos = res_data.get("videos") or []
+        if not videos or not isinstance(videos, list):
+            raise RuntimeError(f"Aucune vidéo trouvée dans le résultat cli.py : {res_data}")
+        generated_path = videos[0] if os.path.isabs(videos[0]) else os.path.join(mpt_dir, videos[0])
+
+    if not os.path.isfile(generated_path) or os.path.getsize(generated_path) == 0:
+        raise FileNotFoundError(f"Le fichier produit est introuvable ou vide : {generated_path}")
+
+    # Copie vers ~/Livrables/<expert>/Videos/
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    shutil.copy2(generated_path, dest_path)
 
-    try:
-        download_req = urllib.request.Request(video_url, headers=headers)
-        with urllib.request.urlopen(download_req, timeout=120) as resp, open(dest_path, "wb") as out_file:
-            while chunk := resp.read(64 * 1024):
-                out_file.write(chunk)
-    except Exception as e:
-        print(f"❌ Échec du téléchargement du fichier vidéo : {e}", file=sys.stderr)
-        sys.exit(1)
+    # Nettoyage du dossier temporaire de la tâche pour préserver l'espace disque du conteneur
+    if task_id and task_id != "local_cli":
+        task_storage_dir = os.path.join(mpt_dir, "storage", "tasks", str(task_id))
+        if os.path.isdir(task_storage_dir):
+            shutil.rmtree(task_storage_dir, ignore_errors=True)
 
     size_mb = os.path.getsize(dest_path) / (1024 * 1024)
-    print(f"✅ Vidéo enregistrée dans vos Livrables !")
-    print(f"   Fichier : {dest_path} ({size_mb:.2f} Mo)")
 
-    # Sortie JSON structurée pour l'agent
+    if echantillon:
+        print(f"✅ Échantillon vocal enregistré dans vos Livrables !")
+    else:
+        print(f"✅ Vidéo enregistrée dans vos Livrables !")
+    print(f"   Fichier : {dest_path} ({size_mb:.2f} Mo)")
+    print(f"   Moteur  : CLI autonome MoneyPrinterTurbo")
+
     result = {
         "ok": True,
+        "sample": echantillon,
         "taskId": task_id,
         "file": dest_path,
         "filename": os.path.basename(dest_path),
         "sizeMb": round(size_mb, 2),
+        "mode": "cli",
     }
     print(f"\nRESULT_JSON:{json.dumps(result)}")
+    return result
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Générateur de vidéo pour agents Yelema via MoneyPrinterTurbo (CLI)")
+    parser.add_argument("--sujet", required=True, help="Sujet ou titre de la vidéo")
+    parser.add_argument("--script", default="", help="Script détaillé de la vidéo (optionnel)")
+    parser.add_argument("--expert", default=None, help="Nom de l'expert (détecté automatiquement si omis)")
+    parser.add_argument("--aspect", choices=["9:16", "16:9", "1:1"], default="9:16", help="Format vidéo")
+    parser.add_argument("--voix", default=None, help="Voix TTS (défaut: fr-FR-VivienneMultilingualNeural)")
+    parser.add_argument("--voix-validee", action="store_true", help="Confirme que l'utilisateur a validé la voix (compatibilité skill)")
+    parser.add_argument("--echantillon", action="store_true", help="Génère uniquement un échantillon vocal (.mp3) pour validation")
+    parser.add_argument("--sortie", default="", help="Chemin du fichier de sortie (.mp4 ou .mp3)")
+    parser.add_argument("--source", default="pexels", help="Source des médias vidéo (pexels, pixabay, local)")
+    parser.add_argument("--materiaux", default="", help="Chemins de vidéos/images locales séparés par virgule (si source=local)")
+    parser.add_argument("--materiel", nargs="*", default=[], help="Liste de fichiers locaux pour le montage (alias compatibilité skill)")
+    parser.add_argument("--termes", default="", help="Mots-clés de recherche vidéo séparés par virgule")
+    parser.add_argument("--timeout-attente", type=int, default=300, help="Délai max d'attente en secondes")
+    parser.add_argument("--delai", type=int, default=None, help="Alias de --timeout-attente (compatibilité skill)")
+
+    args = parser.parse_args()
+
+    expert = remove_accents(args.expert.strip()).capitalize() if args.expert else detect_expert()
+    dest_path = args.sortie or get_default_dest(expert, args.sujet, echantillon=args.echantillon)
+    dest_path = os.path.expanduser(dest_path)
+    voice_name = args.voix or os.environ.get("MONEYPRINTER_DEFAULT_VOICE") or "fr-FR-VivienneMultilingualNeural"
+    timeout_sec = args.delai if args.delai is not None else args.timeout_attente
+
+    materiaux_list: List[str] = []
+    if args.materiaux:
+        materiaux_list.extend(os.path.abspath(os.path.expanduser(m.strip())) for m in args.materiaux.split(",") if m.strip())
+    if args.materiel:
+        materiaux_list.extend(os.path.abspath(os.path.expanduser(m.strip())) for m in args.materiel if m.strip())
+    materiaux_str = ",".join(materiaux_list)
+    source = "local" if (materiaux_str and args.source == "pexels") else args.source
+
+    mpt_dir, runner_prefix = find_local_mpt()
+    if not mpt_dir or not runner_prefix:
+        print(
+            "❌ Aucune installation de MoneyPrinterTurbo (cli.py) n'a été trouvée sur cette instance.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    try:
+        run_cli_generation(
+            mpt_dir=mpt_dir,
+            runner_prefix=runner_prefix,
+            sujet=args.sujet,
+            script=args.script,
+            aspect=args.aspect,
+            voix=voice_name,
+            dest_path=dest_path,
+            expert=expert,
+            source=source,
+            materiaux=materiaux_str,
+            termes=args.termes,
+            echantillon=args.echantillon,
+            timeout_sec=timeout_sec,
+        )
+    except Exception as e:
+        print(f"❌ Erreur lors de l'exécution CLI : {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
