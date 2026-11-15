@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
 import { ANGLED, BARE, citedFolder, CODE, FOLDER_BARE, FOLDER_CODE, isHiddenInChat, LINKED, normDrivePath, noteFolder, openTarget, safeDecode } from "@/lib/drive-links";
+import { paragraphCache } from "@/lib/paragraph-cache";
 import { replyLines } from "@/lib/reply-lines";
 import { agentTabPath } from "@/lib/expert-tabs";
 import type { FileEntry } from "@/components/files/types";
@@ -122,10 +123,22 @@ export const Markdown = memo(function Markdown({ content, agentId, profileId }: 
   };
   // A delivered file opens in its preview, with « Télécharger » there, rather than downloading at once
   // (PDF du 30/10 : « aperçu et téléchargement dans le chat »).
+  // A live answer grows by the delta: its finished paragraphs are linked once (no rewrite spans a blank line).
+  const linked = useMemo(
+    () =>
+      paragraphCache(
+        (part: string) => {
+          const files = new Map<string, string>();
+          return { text: agentId ? linkDriveFiles(part, agentId, profileId, files) : part, files };
+        },
+        (a, b) => ({ text: a.text + b.text, files: b.files.size ? new Map([...a.files, ...b.files]) : a.files })
+      ),
+    [agentId, profileId]
+  );
   const { text, files } = useMemo(() => {
-    const files = new Map<string, string>();
-    return { text: replyLines(agentId ? linkDriveFiles(content, agentId, profileId, files) : content), files };
-  }, [content, agentId, profileId]);
+    const out = linked(content);
+    return { text: replyLines(out.text), files: out.files };
+  }, [content, linked]);
   const [preview, setPreview] = useState<FileEntry | null>(null);
   const onClick = (e: MouseEvent<HTMLDivElement>) => {
     const el = (e.target as Element).closest?.("[data-streamdown=link]");

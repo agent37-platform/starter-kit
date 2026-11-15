@@ -101,5 +101,5 @@ export async function POST(request: Request, { params }: Ctx) {
   }
 }
 
-// Chat turns (especially with tools) can run for a while; allow a generous ceiling.
-export const maxDuration = 300;
+// Chat turns (especially with tools) can run for a while: the ceiling of Vercel Fluid Compute (Pro).
+export const maxDuration = 800;

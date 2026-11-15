@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useOwnAgentId } from "@/components/conversations/useAllConversations";
-import { apiFetch } from "@/lib/api";
+import { wakeInstance } from "./wake";
 
 // The instance sleeps after 30 idle minutes, and the member's next message waits for it to wake.
 // While the app is on screen, one light read every 25 minutes keeps it up; a tab left in the
@@ -24,7 +24,7 @@ export function ReadAhead() {
     };
     const wake = () => {
       lastRead = Date.now();
-      apiFetch(`/api/agents/${ownAgentId}/chat/sessions`).catch(() => {});
+      wakeInstance(ownAgentId, true);
     };
     const timer = setInterval(() => {
       if (document.visibilityState === "visible" && Date.now() - lastSeen < AWAY_MS) wake();

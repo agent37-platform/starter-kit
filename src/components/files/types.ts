@@ -82,8 +82,10 @@ export function previewKind(name: string): PreviewKind {
 
 // The browser never holds the sk_live_ key — preview/download point at the BFF content route,
 // which streams the bytes server-side with the key attached.
-export function contentUrl(agentId: string, path: string, disposition: "inline" | "attachment"): string {
-  return `/api/agents/${agentId}/files/content?path=${encodeURIComponent(path)}&disposition=${disposition}`;
+/** `modified` versions it, as thumbUrl: the browser then keeps that version a day. */
+export function contentUrl(agentId: string, path: string, disposition: "inline" | "attachment", modified?: number | null): string {
+  const v = modified ? `&v=${Math.trunc(modified)}` : "";
+  return `/api/agents/${agentId}/files/content?path=${encodeURIComponent(path)}&disposition=${disposition}${v}`;
 }
 
 /** A reduced copy of a drive picture (thumb route); `modified` versions it so the browser keeps it. */

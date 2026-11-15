@@ -186,9 +186,23 @@
 .chat-markdown {
   overflow-wrap: anywhere;
 }
-.chat-markdown a {
+/* Every link, ours (<a>) or external (a <button> that asks first), in the link colour: the brand violet
+   is too pale on a tinted bubble. An external one carries ↗. */
+.chat-markdown a,
+.chat-markdown button[data-streamdown="link"] {
   color: var(--link);
+  font-weight: 600;
   text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.chat-markdown button[data-streamdown="link"]:not(:has(> [data-streamdown="strong"]:only-child))::after {
+  content: " ↗";
+  text-decoration: none;
+}
+.chat-markdown a:hover,
+.chat-markdown button[data-streamdown="link"]:hover {
+  text-decoration-thickness: 2px;
 }
 /* Air between blocks (Leslie, 30/10), and a drawn rule is a real one (lib/reply-lines.ts). */
 .chat-markdown p + p {

@@ -1,8 +1,9 @@
-// The choices a finished reply ends on (« A) …, B) … »), answered in one click (Leslie, 04/11), read
+// The choices a finished reply ends on (« A) …, B) … » or « 1. …, 2. … »), answered in one click, read
 // from the text itself so they also hold after a reload.
 // Anything that does not clearly match stays plain text: a reply is never rewritten by a guess.
 
 export interface ReplyChoice {
+  /** « A »… or « 1 »…, as the expert wrote it. */
   letter: string;
   label: string;
   /** Marked « (par défaut) » by the expert. */
@@ -19,7 +20,7 @@ export interface ReplyParts {
   choicesNote: string | null;
 }
 
-const OPTION = /^\s*(?:[-*•]\s+)?(?:\*\*|__)?([A-F])(?:\*\*|__)?\s*(?:[).:–—-]|\s:)\s*(?:\*\*|__)?\s*(\S.*)$/;
+const OPTION = /^\s*(?:[-*•]\s+)?(?:\*\*|__)?([A-F]|[1-9])(?:\*\*|__)?\s*(?:[).:–—-]|\s:)\s*(?:\*\*|__)?\s*(\S.*)$/;
 const DEFAULT_MARK = /\s*[([]?\s*par défaut\s*[)\]]?\s*[.,]?\s*$/i;
 const MAX_LABEL = 100;
 const MAX_NOTE = 140;
@@ -64,7 +65,9 @@ function readChoices(lines: string[]): { items: ReplyChoice[]; note: string | nu
     found.unshift({ letter: m[1], label: plain(m[2]), line: i });
   }
   if (found.length < 2) return null;
-  if (found.some((f, k) => f.letter !== String.fromCharCode(65 + k) || f.label.length > MAX_LABEL || !f.label)) return null;
+  // One series, in order from its start: A, B, C… or 1, 2, 3…
+  const nth = (k: number) => (/\d/.test(found[0].letter) ? String(k + 1) : String.fromCharCode(65 + k));
+  if (found.some((f, k) => f.letter !== nth(k) || f.label.length > MAX_LABEL || !f.label)) return null;
 
   // They answer something: the line above asks, or announces them. A plan written as « A) … » does not.
   if (i < 0) return null;

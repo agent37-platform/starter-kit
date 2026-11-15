@@ -2,7 +2,8 @@
 
 import { cached, cachedFetch, remember } from "@/lib/client-cache";
 import { sessionsKey } from "@/components/experts/expert-preload";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useHydrated } from "@/components/useHydrated";
 import { apiFetch } from "@/lib/api";
 import { profileQuery } from "@/lib/profile-id";
 import { driveTree } from "@/lib/drive-store";
@@ -15,6 +16,7 @@ import { useWorkspace } from "@/components/WorkspaceProvider";
 import { useMyAgents } from "@/components/useMyAgents";
 import { useExpertsContext } from "@/components/experts/ExpertsProvider";
 import { toMs } from "@/lib/activity";
+import { spaceKey } from "@/lib/first-screen";
 
 /** The member's own instance: with no Expert chosen, it is their chat d'entreprise. */
 export function useOwnAgentId(): string | null {
@@ -34,38 +36,45 @@ export interface ConversationRow {
 }
 
 
+type Space = { agentId: string; expert: Expert | null };
+const spacesOf = (ownAgentId: string, experts: Expert[]): Space[] => [{ agentId: ownAgentId, expert: null }, ...experts.map((e) => ({ agentId: e.agentId, expert: e }))];
+const rowsOf = ({ agentId, expert }: Space, sessions: ChatSession[]): ConversationRow[] =>
+  sessions.map((session) => ({
+    session,
+    expert,
+    at: toMs(session.last_active),
+    href: `${agentTabPath(agentId, "chat", expert?.profileId)}?session=${encodeURIComponent(session.session_id)}`,
+  }));
+const newestFirst = (all: ConversationRow[][]) => all.flat().sort((a, b) => b.at - a.at);
+
 // Every conversation of the member: the chat d'entreprise's (the instance with no profile) and each
 // Expert's, newest first. One read per space, in parallel; a space that does not answer is left out.
-// The list as last read in this tab shows at once (Leslie, 27/10: the search was slow to show them);
-// the fresh reading replaces it behind.
-export function useAllConversations(ownAgentId: string | null, experts: Expert[], enabled = true) {
+// The list as last read in this tab shows at once, else the one the page read on the server
+// (`initial`, by spaceKey); the fresh reading replaces it behind.
+export function useAllConversations(ownAgentId: string | null, experts: Expert[], enabled = true, initial: Record<string, ChatSession[]> | null = null) {
   const key = experts.map((e) => `${e.agentId}:${e.profileId}`).join(",");
   const store = ownAgentId ? `conversations:${ownAgentId}:${key}` : null;
   const [rows, setRows] = useState<ConversationRow[] | null>(() => (store && cached<ConversationRow[]>(store)) || null);
+  const hydrated = useHydrated();
+  const seed = useMemo(
+    () => (initial && ownAgentId ? newestFirst(spacesOf(ownAgentId, experts).map((s) => rowsOf(s, initial[spaceKey(s.agentId, s.expert?.profileId ?? null)] ?? []))) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [initial, ownAgentId, key]
+  );
 
   useEffect(() => {
     if (!enabled || !ownAgentId) return;
     let live = true;
-    const spaces: { agentId: string; expert: Expert | null }[] = [
-      { agentId: ownAgentId, expert: null },
-      ...experts.map((e) => ({ agentId: e.agentId, expert: e })),
-    ];
     void Promise.all(
-      spaces.map(({ agentId, expert }) =>
+      spacesOf(ownAgentId, experts).map((space) =>
         // Shared with each space's own rail and the menu's read-ahead: read at most every 30 s.
-        cachedFetch(sessionsKey(agentId, expert?.profileId ?? null), () => apiFetch<{ sessions: ChatSession[] }>(`/api/agents/${agentId}/chat/sessions${profileQuery(expert?.profileId)}`).then((r) => r.sessions), 30_000).then(
-          (sessions) =>
-            sessions.map((session) => ({
-              session,
-              expert,
-              at: toMs(session.last_active),
-              href: `${agentTabPath(agentId, "chat", expert?.profileId)}?session=${encodeURIComponent(session.session_id)}`,
-            })),
+        cachedFetch(sessionsKey(space.agentId, space.expert?.profileId ?? null), () => apiFetch<{ sessions: ChatSession[] }>(`/api/agents/${space.agentId}/chat/sessions${profileQuery(space.expert?.profileId)}`).then((r) => r.sessions), 30_000).then(
+          (sessions) => rowsOf(space, sessions),
           () => [] as ConversationRow[]
         )
       )
     ).then((all) => {
-      const sorted = all.flat().sort((a, b) => b.at - a.at);
+      const sorted = newestFirst(all);
       if (store) remember(store, sorted);
       if (live) setRows(sorted);
     });
@@ -75,7 +84,7 @@ export function useAllConversations(ownAgentId: string | null, experts: Expert[]
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownAgentId, key, enabled]);
 
-  return rows;
+  return rows ?? (hydrated ? seed : null);
 }
 
 // The drive's files, at its root and one level down (each Expert keeps its own folder there),

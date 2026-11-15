@@ -1,29 +1,6 @@
-"use client";
+import { MembersPage } from "@/components/MembersPage";
+import { initialMembers } from "@/lib/first-screen-server";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { MembersView } from "@/components/MembersView";
-import { usePublicConfig } from "@/components/PublicConfigProvider";
-import { PageBody } from "@/components/app/PageBody";
-import { useWorkspace } from "@/components/WorkspaceProvider";
-
-// Administration : pour un admin, la liste des membres de l'espace, en lecture (l'espace, ses
-// membres et leurs instances se gèrent dans le back-office Yelema). Un membre n'a ici que
-// l'onglet Entreprise, là où le back-office connecte ; sinon rien, et il est renvoyé aux intégrations.
-export default function Page() {
-  const router = useRouter();
-  const { current } = useWorkspace();
-  const { authVia } = usePublicConfig();
-  const admin = current?.role === "admin";
-
-  useEffect(() => {
-    if (current && !admin) router.replace(authVia === "backoffice" ? "/parametres/entreprise" : "/integrations/connecteurs");
-  }, [current, admin, authVia, router]);
-
-  if (!admin) return null;
-  return (
-    <PageBody>
-      <MembersView />
-    </PageBody>
-  );
+export default async function Page() {
+  return <MembersPage initial={await initialMembers()} />;
 }

@@ -27,6 +27,7 @@ import { ChatSessionsPanel } from "./ChatSessionsPanel";
 import { setChatFull, setChatListHidden, useChatFull, useChatListHidden, useChatSidePanel } from "./chat-layout";
 import { useChatContext } from "./ChatProvider";
 import { useChat } from "./useChat";
+import { wakeInstance } from "@/components/app/wake";
 import { useChatAttachments } from "./useChatAttachments";
 import { rememberedSettings } from "./rememberedSettings";
 
@@ -86,6 +87,9 @@ export function ChatView({
     onSessionCreated,
     onActivity: bumpSession,
   });
+
+  // The instance may be asleep: woken as the chat opens, not when the first message is sent.
+  useEffect(() => wakeInstance(agentId), [agentId]);
 
   // Deleting a thread from the rail must also stop any turn still streaming on it.
   useEffect(() => registerRunKiller(killRun), [registerRunKiller, killRun]);
@@ -356,7 +360,7 @@ export function ChatView({
 
       {/* Composer wrapper — the STABLE 2nd child. Docked, it leaves the bottom-right corner to Yélé. Its chrome (docked vs bare centered) is a
           className swap so the ChatComposer inside never changes tree position. */}
-      <div className={cn("relative", showWelcome ? "w-full px-4 sm:px-6" : "bg-background px-4 py-3 sm:py-4 sm:pl-6 sm:pr-24")}>
+      <div onFocusCapture={() => wakeInstance(agentId)} className={cn("relative", showWelcome ? "w-full px-4 sm:px-6" : "bg-background px-4 py-3 sm:py-4 sm:pl-6 sm:pr-24")}>
         {/* No hard divider — a short fade dissolves the transcript into the composer instead. */}
         {!showWelcome && (
           <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-background to-transparent" />

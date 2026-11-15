@@ -1,11 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { FileText, FolderOpen } from "lucide-react";
 import { useDriveFiles } from "@/components/conversations/useAllConversations";
-import { FilePreview } from "@/components/files/FilePreview";
 import { formatMtime, type FileEntry } from "@/components/files/types";
 import { fileLabel, isMemberUpload } from "@/lib/drive-paths";
+
+// Loaded on a click only: the preview carries the markdown renderer.
+const FilePreview = dynamic(() => import("@/components/files/FilePreview").then((m) => m.FilePreview), { ssr: false });
 
 const SHOWN = 6;
 
@@ -46,7 +49,7 @@ export function RecentDeliverables({ agentId }: { agentId: string }) {
           ))}
         </div>
       )}
-      <FilePreview agentId={agentId} entry={preview} onClose={() => setPreview(null)} />
+      {preview && <FilePreview agentId={agentId} entry={preview} onClose={() => setPreview(null)} />}
     </section>
   );
 }

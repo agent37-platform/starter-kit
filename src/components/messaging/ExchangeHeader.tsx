@@ -5,15 +5,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/app/NotificationBell";
 
-// La bande du haut d'Échanges, comme celle d'un Expert : à gauche ce qui est ouvert (Échanges › son nom, ses
-// participants), puis les onglets soulignés (Discussion, Livrables d'un salon), à droite « Ajouter ».
+// La bande du haut d'Échanges, comme celle d'un Expert : à gauche ce qui est ouvert (Échanges › son nom), puis
+// les onglets soulignés (Discussion, et pour un salon Livrables et Participants), à droite « Ajouter ».
 
-export type ExchangePane = "fil" | "livrables";
+export type ExchangePane = "fil" | "livrables" | "participants";
 
 export interface HeaderProps {
   title: string | null;
   kind: "unite" | "salon" | "direct" | null;
-  who: string[];
   pane: ExchangePane;
   canAdd: boolean;
   onPane: (p: ExchangePane) => void;
@@ -22,7 +21,7 @@ export interface HeaderProps {
 }
 
 export function ExchangeHeader(p: HeaderProps) {
-  const tabs: { id: ExchangePane; label: string }[] = p.kind === "unite" || p.kind === "salon" ? [{ id: "fil", label: "Discussion" }, { id: "livrables", label: "Livrables" }] : p.kind ? [{ id: "fil", label: "Discussion" }] : [];
+  const tabs: { id: ExchangePane; label: string }[] = p.kind === "unite" || p.kind === "salon" ? [{ id: "fil", label: "Discussion" }, { id: "livrables", label: "Livrables" }, { id: "participants", label: "Participants" }] : p.kind ? [{ id: "fil", label: "Discussion" }] : [];
   const Icon = p.kind === "unite" ? Users : p.kind === "salon" ? Hash : p.kind === "direct" ? User : MessagesSquare;
   return (
     <div className="shrink-0 border-b border-line bg-surface">
@@ -42,7 +41,7 @@ export function ExchangeHeader(p: HeaderProps) {
               {p.title && <span aria-hidden>›</span>}
               {p.title && <span className="truncate">{p.kind === "unite" ? "Salon d’équipe" : p.kind === "salon" ? "Salon" : "Direct"}</span>}
             </span>
-            <span className="block truncate font-display text-sm font-bold leading-tight text-ink lg:text-[17px]" title={p.who.join(", ")}>{p.title ?? "Vos échanges"}</span>
+            <span className="block truncate font-display text-sm font-bold leading-tight text-ink lg:text-[17px]">{p.title ?? "Vos échanges"}</span>
           </span>
         </div>
         {tabs.length > 0 && (
@@ -67,7 +66,6 @@ export function ExchangeHeader(p: HeaderProps) {
           </nav>
         )}
         <div className="order-2 flex shrink-0 items-center gap-2 pr-4 pt-1.5 lg:order-3 lg:ml-auto lg:p-0">
-          {p.who.length > 0 && <span className="hidden max-w-[320px] truncate text-[12.5px] text-ink-3 xl:inline">{p.who.join(", ")}</span>}
           {p.canAdd && (
             <Button variant="outline" size="sm" onClick={p.onAdd}>
               <UserPlus /> Ajouter

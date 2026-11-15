@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useHydrated } from "@/components/useHydrated";
 import { cached, remember } from "@/lib/client-cache";
 import { deliverableItems, type DeliverableItem } from "@/lib/deliverable-folders";
 import { splitVersions } from "@/lib/drive-versions";
-import { seatFolderOf } from "@/lib/drive-paths";
+import { seatFolderOf, type DriveTree } from "@/lib/drive-paths";
 import { driveTree, onDriveChanged } from "@/lib/drive-store";
 import { agentTabPath } from "@/lib/expert-tabs";
 import type { Expert } from "@/lib/types";
@@ -41,13 +42,36 @@ function latestOnly(items: DeliverableItem[]): DeliverableItem[] {
   return items.filter((i) => kept.has(i));
 }
 
-/** Every deliverable of the member's instances, newest first; null until read. */
-export function useAllDeliverables(ownAgentId: string | null, experts: Expert[]): Deliverable[] | null {
+function deliverablesOf(agentId: string, tree: DriveTree, experts: Expert[]): Deliverable[] {
+  return latestOnly(deliverableItems(tree.entries ?? [])).flatMap((item): Deliverable[] => {
+    const seat = seatFolderOf([item.owner]);
+    const expert = seat ? null : ownerOf(experts, agentId, item.owner);
+    // A folder that is no Expert's and not the chat d'entreprise's is the member's own.
+    if (!seat && !expert) return [];
+    const tab = agentTabPath(agentId, "files", expert?.profileId);
+    const at = item.folder ? item.path : item.path.slice(0, item.path.lastIndexOf("/"));
+    return [{ ...item, agentId, expert, href: `${tab}?dossier=${encodeURIComponent(at)}` }];
+  });
+}
+
+const newestFirst = (all: Deliverable[][]) => all.flat().sort((a, b) => b.modified - a.modified);
+
+/**
+ * Every deliverable of the member's instances, newest first; null until read. `initial`: the drives the
+ * page read on the server, by agent id, shown until the fresh reading replaces them.
+ */
+export function useAllDeliverables(ownAgentId: string | null, experts: Expert[], initial: Record<string, DriveTree> | null = null): Deliverable[] | null {
   const agentIds = [...new Set([ownAgentId, ...experts.map((e) => e.agentId)].filter((a): a is string => !!a))];
   const key = `all-deliverables:${agentIds.join(",")}`;
   const [items, setItems] = useState<Deliverable[] | null>(() => cached<Deliverable[]>(key) ?? null);
   const [tick, setTick] = useState(0);
   const expertsKey = experts.map((e) => `${e.agentId}:${e.profileId}:${e.driveFolder ?? ""}`).join(",");
+  const hydrated = useHydrated();
+  const seed = useMemo(
+    () => (initial && agentIds.length ? newestFirst(agentIds.map((a) => (initial[a] ? deliverablesOf(a, initial[a], experts) : []))) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [initial, key, expertsKey]
+  );
 
   useEffect(() => {
     const offs = agentIds.map((a) => onDriveChanged(a, () => setTick((t) => t + 1)));
@@ -62,21 +86,11 @@ export function useAllDeliverables(ownAgentId: string | null, experts: Expert[])
       agentIds.map((agentId) =>
         // A tree that cannot be read or walked counts as empty: never a list stuck on « Chargement ».
         driveTree(agentId)
-          .then((tree) =>
-            latestOnly(deliverableItems(tree.entries ?? [])).flatMap((item): Deliverable[] => {
-              const seat = seatFolderOf([item.owner]);
-              const expert = seat ? null : ownerOf(experts, agentId, item.owner);
-              // A folder that is no Expert's and not the chat d'entreprise's is the member's own.
-              if (!seat && !expert) return [];
-              const tab = agentTabPath(agentId, "files", expert?.profileId);
-              const at = item.folder ? item.path : item.path.slice(0, item.path.lastIndexOf("/"));
-              return [{ ...item, agentId, expert, href: `${tab}?dossier=${encodeURIComponent(at)}` }];
-            })
-          )
+          .then((tree) => deliverablesOf(agentId, tree, experts))
           .catch(() => [] as Deliverable[])
       )
     ).then((all) => {
-      const sorted = all.flat().sort((a, b) => b.modified - a.modified);
+      const sorted = newestFirst(all);
       remember(key, sorted);
       if (live) setItems(sorted);
     });
@@ -86,7 +100,7 @@ export function useAllDeliverables(ownAgentId: string | null, experts: Expert[])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, expertsKey, tick]);
 
-  return items;
+  return items ?? (hydrated ? seed : null);
 }
 
 // « Nouveau »: changed in the last three days and not opened from this browser since.

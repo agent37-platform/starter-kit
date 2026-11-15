@@ -1,5 +1,6 @@
 import "server-only";
 import { coldStartWait } from "./cold-start";
+import type { DriveTree } from "./drive-paths";
 import { EXEC_TIMEOUT_MS, JSON_TIMEOUT_MS, withTimeout } from "./fetch-timeout";
 import { authViaBackoffice } from "./runtime-config";
 import type { RunOutcome } from "./routines";
@@ -321,6 +322,11 @@ export const agent37 = {
   // errors (e.g. not_a_directory) ride back as Agent37Error and keep their code/status.
   listFiles: (id: string, path?: string) =>
     instanceCall<FileListResponse>(id, `/v1/files${path ? `?path=${encodeURIComponent(path)}` : ""}`),
+  // The drive walked by the runtime gateway (same shape as /api/agents/[id]/files/tree); 404 where not deployed.
+  fileTree: async (id: string, root: string, depth: number): Promise<DriveTree> => {
+    if (!runtimeGateway()) throw new Agent37Error(404, "not_found", "No runtime gateway");
+    return instanceCall<DriveTree>(id, `/v1/files/tree?root=${encodeURIComponent(root)}&depth=${Math.trunc(depth)}`);
+  },
   // Recursive force delete (rm -rf, no guards); removes a symlink itself rather than following it.
   deleteFile: (id: string, path: string) =>
     instanceCall<{ ok: boolean }>(id, `/v1/files?path=${encodeURIComponent(path)}`, { method: "DELETE" }),

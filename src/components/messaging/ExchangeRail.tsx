@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { Archive, Hash, Link2, MoreHorizontal, Pencil, Pin, PinOff, Plus, RotateCw, Search, User, Users, X } from "lucide-react";
+import { Archive, Hash, Link2, MoreHorizontal, Pencil, Pin, PinOff, Plus, RotateCw, Search, Trash2, User, Users, X } from "lucide-react";
 import type { Conversation } from "@/lib/buzz-relay";
 import { fold } from "@/lib/fold";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ExchangeKind } from "@/components/messaging/NewExchange";
 
 // La colonne des échanges, sur le modèle de celle des conversations d'un Expert : recherche, filtres, groupes
-// (Épinglés, Salons, Conversations, Archivés replié) et, par ligne, « … » : renommer, épingler, copier, archiver.
+// (Épinglés, Salons, Conversations, Archivés replié) et, par ligne, « … » : renommer, épingler, copier, archiver, supprimer.
 
 type Filter = "all" | "salons" | "direct";
 const FILTERS: { id: Filter; label: string }[] = [
@@ -35,6 +36,7 @@ export interface RailProps {
   onMark: (id: string, kind: "pinned" | "archived", on: boolean) => void;
   onCopy: (c: Conversation) => void;
   onRename: (c: Conversation, nom: string) => Promise<void>;
+  onDelete: (c: Conversation) => Promise<void>;
 }
 
 export function ExchangeRail(p: RailProps) {
@@ -43,6 +45,7 @@ export function ExchangeRail(p: RailProps) {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [deleting, setDeleting] = useState<Conversation | null>(null);
 
   const groups = useMemo(() => {
     const q = fold(query.trim());
@@ -109,6 +112,11 @@ export function ExchangeRail(p: RailProps) {
             <DropdownMenuItem onSelect={() => p.onMark(c.id, "archived", !p.archived.has(c.id))} className="gap-2.5 rounded-[10px] px-2.5 py-2 text-sm">
               <Archive className="size-4" /> {p.archived.has(c.id) ? "Désarchiver" : "Archiver"}
             </DropdownMenuItem>
+            {renamable && (
+              <DropdownMenuItem onSelect={() => setDeleting(c)} className="gap-2.5 rounded-[10px] px-2.5 py-2 text-sm text-ko">
+                <Trash2 className="size-4" /> Supprimer
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -167,6 +175,19 @@ export function ExchangeRail(p: RailProps) {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+        title="Supprimer le salon ?"
+        description={deleting ? `« ${p.nameOf(deleting)} » et ses messages seront supprimés pour tous ses participants. Les livrables de ses Experts restent dans Livrables. Cette action est définitive.` : undefined}
+        confirmText="Supprimer"
+        destructive
+        onConfirm={async () => {
+          if (deleting) await p.onDelete(deleting);
+        }}
+      />
     </div>
   );
 }

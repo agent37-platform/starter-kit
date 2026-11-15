@@ -31,7 +31,9 @@ export default function ResetPasswordPage() {
     // rediriger ici. Pas d'utilisateur = lien invalide, déjà utilisé, expiré, ou ouvert
     // dans un autre navigateur que celui qui l'a demandé.
     if (supabase) {
-      supabase.auth.getUser().then(({ data }) => setHasSession(!!data.user));
+      supabase()
+        .then((c) => c.auth.getUser())
+        .then(({ data }) => setHasSession(!!data.user));
       return;
     }
     // Through the back office the link is not consumed on arrival: it rides the URL until the new
@@ -53,7 +55,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
     let failure: string | null = null;
     if (supabase) {
-      failure = (await supabase.auth.updateUser({ password })).error?.message ?? null;
+      failure = (await (await supabase()).auth.updateUser({ password })).error?.message ?? null;
     } else {
       try {
         const res = await fetch("/api/auth/accept", {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { conversationName, isSalonName, labelsOf, myExpertsIn, participants, peopleOf, working, type BuzzEntry } from "./buzz.ts";
+import { conversationName, isSalonName, labelsOf, myExpertsIn, participants, peopleOf, salonPeople, shortName, startsRun, withPhotos, working, type BuzzEntry } from "./buzz.ts";
 
 const k = (c: string) => c.repeat(64);
 const directory: BuzzEntry[] = [
@@ -51,4 +51,26 @@ test("salon : un Expert « travaille » tant qu'il n'a pas répondu à ma derni�
   assert.deepEqual(working([ask], [k("d")], [dj]).length, 1);
   assert.deepEqual(working([ask, { author: k("e"), at: 12, mentions: [] }], [k("d")], [dj]).length, 0);
   assert.deepEqual(working([{ author: k("a"), at: 10, mentions: [k("e")] }], [k("d")], [dj]).length, 0, "la mention d'un collègue ne la fait pas travailler");
+});
+
+test("participants d'un salon : par personne, soi en tête, l'Expert d'un absent sous son nom", () => {
+  const dir: BuzzEntry[] = [...directory, { nom: "Djénéba (de Selim)", type: "expert", membre: "21", cles: [k("e")], profil: "djeneba" }];
+  const groups = salonPeople(dir, [k("c"), k("d"), k("e"), k("f")], [k("d")]);
+  assert.deepEqual(groups.map((g) => [g.nom, g.self, g.person?.nom ?? null, g.experts.map((e) => shortName(e.nom))]), [
+    ["Selim", true, "Selim", ["Djénéba"]],
+    ["Leslie", false, null, ["Mamadou"]],
+  ]);
+});
+
+test("portrait : un Expert le reçoit d'après son profil, une personne jamais", () => {
+  const dir = withPhotos([...directory, { nom: "Djénéba (de Selim)", type: "expert", membre: "21", cles: [k("e")], profil: "djeneba" }], (p) => (p === "djeneba" ? "/d.webp" : null));
+  assert.equal(dir.find((e) => e.profil === "djeneba")?.photo, "/d.webp");
+  assert.equal(dir[0]?.photo, undefined);
+});
+
+test("un même auteur enchaîne ses messages sans répéter son visage, sauf après 5 minutes", () => {
+  assert.equal(startsRun(undefined, { author: "a", at: 0 }), true);
+  assert.equal(startsRun({ author: "a", at: 0 }, { author: "a", at: 60 }), false);
+  assert.equal(startsRun({ author: "a", at: 0 }, { author: "b", at: 60 }), true);
+  assert.equal(startsRun({ author: "a", at: 0 }, { author: "a", at: 301 }), true);
 });

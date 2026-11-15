@@ -13,6 +13,7 @@ import { ReducedImage } from "@/components/files/FilePreview";
 import { FilePreview } from "@/components/files/FilePreview";
 import { contentUrl, formatMtime, thumbUrl, type FileEntry } from "@/components/files/types";
 import { isNew, markSeen, useAllDeliverables, type Deliverable } from "@/components/files/useAllDeliverables";
+import type { DriveTree } from "@/lib/drive-paths";
 import { docKind } from "@/lib/drive-links";
 import { expertCycle } from "@/lib/expert-cycle";
 import { matchesDriveQuery } from "@/lib/drive-order";
@@ -26,11 +27,11 @@ const expertId = (e: Expert) => `${e.agentId}:${e.profileId}`;
 // Every deliverable in one list (Myriel, Leslie 30/10), opened by « Voir tous » under the home's
 // latest deliverables, never from the menu. One row per subject, the Expert who made it as a column
 // and as a filter, newest first. A folder opens in its Expert's Livrables, a loose file in its preview.
-export function AllDeliverables() {
+export function AllDeliverables({ initial = null }: { initial?: Record<string, DriveTree> | null }) {
   const router = useRouter();
   const ownAgentId = useOwnAgentId();
   const { experts } = useExpertsContext();
-  const all = useAllDeliverables(ownAgentId, experts);
+  const all = useAllDeliverables(ownAgentId, experts, initial);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"recent" | "name">("recent");
   const [onlyNew, setOnlyNew] = useState(false);

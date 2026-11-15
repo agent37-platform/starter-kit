@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { VoiceCall, webPlatform, type AethexError, type WebRTCPlatform } from "@aethexai/react/core";
+import type { AethexError, VoiceCall, WebRTCPlatform } from "@aethexai/react/core";
 import type { VoiceLanguage } from "@/lib/voice";
 import { firstTurn, stepTurn, type CallPhase, type TurnState } from "@/lib/call-turns";
 import { micMeter, withMicTap, type MicMeter } from "@/lib/mic-tap";
@@ -83,6 +83,8 @@ export function useVoiceCall(): UseVoiceCall {
   const switches = useRef({ muted: false, longer: false, holding: false });
   const answered = useRef(false);
   const unlisten = useRef<(() => void) | null>(null);
+  // Bumped by every release: an SDK still loading for an abandoned call is dropped.
+  const attempt = useRef(0);
 
   const go = useCallback((next: CallPhase) => {
     if (phaseRef.current === "ended" || phaseRef.current === "unreachable") return;
@@ -93,6 +95,7 @@ export function useVoiceCall(): UseVoiceCall {
   }, []);
 
   const release = useCallback(() => {
+    attempt.current++;
     tools.current.clear();
     setTool(false);
     timers.current.forEach(clearInterval);
@@ -191,92 +194,97 @@ export function useVoiceCall(): UseVoiceCall {
       setCaptions([]);
       tools.current.clear();
       setTool(false);
-      // The SDK's own browser adapter, every field kept, with the microphone stream also measured and
-      // the data channels listened to.
-      const platform = listening(
-        withMicTap(webPlatform, (stream) => {
-          mic.current?.close();
-          mic.current = micMeter(stream);
-        }),
-        onServerMessage
-      );
-      let refusal: string | null = null;
-      // The back office's refusal ("Cet expert n'est pas encore disponible.") is in the body, which the SDK does not read.
-      const fetchImpl: typeof fetch = async (input, init) => {
-        const res = await fetch(input, init);
-        if (!res.ok && String(input).endsWith(`${VOICE_BASE}/calls`)) {
-          refusal = ((await res.clone().json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? null;
-        }
-        return res;
-      };
-      let connected = false;
-      let peer: RTCPeerConnectionState = "new";
-      const back = () => {
-        go("listening");
-        if (switches.current.holding) call.current?.send({ type: "hold-floor", on: true });
-      };
-      try {
-        const c = new VoiceCall({
-          agentId: "yelema", // ignored: the back office picks the agent
-          apiBaseUrl: VOICE_BASE,
-          endpoints: { connect: "calls", offer: "calls/:id/offer", ice: "calls/:id/ice", end: "calls/:id/end", status: "calls/:id/status" },
-          headers: { "X-Yelema-Expert": expert, "X-Yelema-Language": language, ...(voice ? { "X-Yelema-Voice": voice } : {}) },
-          fetchImpl,
-          platform,
-          callbacks: {
-            onStatusChange: (s) => {
-              if (s === "connected" && !connected) {
-                connected = true;
-                answered.current = true;
-                go("listening");
-                const sw = switches.current;
-                if (sw.longer)
-                  sendLonger(true).catch(() => {
-                    if (call.current !== c || !switches.current.longer) return;
-                    switches.current.longer = false;
-                    setLonger(false);
-                  });
-                if (sw.holding) c.send({ type: "hold-floor", on: true });
-                const t0 = Date.now();
-                timers.current.push(setInterval(meter(), LEVEL_MS), setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000));
-                // The browser knows the network is gone seconds before the peer connection does.
-                const offline = () => {
-                  const ph = phaseRef.current;
-                  if (ph === "listening" || ph === "speaking" || ph === "thinking") go("reconnecting");
-                };
-                const online = () => {
-                  if (peer === "connected" && phaseRef.current === "reconnecting") back();
-                };
-                window.addEventListener("offline", offline);
-                window.addEventListener("online", online);
-                unlisten.current = () => {
-                  window.removeEventListener("offline", offline);
-                  window.removeEventListener("online", online);
-                };
-                if (!navigator.onLine) offline();
-              } else if (s === "ended") {
+      const mine = attempt.current;
+      // The SDK loads with the first call, not with every page.
+      import("@aethexai/react/core").then(({ VoiceCall, webPlatform }) => {
+        if (attempt.current !== mine) return;
+        // The SDK's own browser adapter, every field kept, with the microphone stream also measured and
+        // the data channels listened to.
+        const platform = listening(
+          withMicTap(webPlatform, (stream) => {
+            mic.current?.close();
+            mic.current = micMeter(stream);
+          }),
+          onServerMessage
+        );
+        let refusal: string | null = null;
+        // The back office's refusal ("Cet expert n'est pas encore disponible.") is in the body, which the SDK does not read.
+        const fetchImpl: typeof fetch = async (input, init) => {
+          const res = await fetch(input, init);
+          if (!res.ok && String(input).endsWith(`${VOICE_BASE}/calls`)) {
+            refusal = ((await res.clone().json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? null;
+          }
+          return res;
+        };
+        let connected = false;
+        let peer: RTCPeerConnectionState = "new";
+        const back = () => {
+          go("listening");
+          if (switches.current.holding) call.current?.send({ type: "hold-floor", on: true });
+        };
+        try {
+          const c = new VoiceCall({
+            agentId: "yelema", // ignored: the back office picks the agent
+            apiBaseUrl: VOICE_BASE,
+            endpoints: { connect: "calls", offer: "calls/:id/offer", ice: "calls/:id/ice", end: "calls/:id/end", status: "calls/:id/status" },
+            headers: { "X-Yelema-Expert": expert, "X-Yelema-Language": language, ...(voice ? { "X-Yelema-Voice": voice } : {}) },
+            fetchImpl,
+            platform,
+            callbacks: {
+              onStatusChange: (s) => {
+                if (s === "connected" && !connected) {
+                  connected = true;
+                  answered.current = true;
+                  go("listening");
+                  const sw = switches.current;
+                  if (sw.longer)
+                    sendLonger(true).catch(() => {
+                      if (call.current !== c || !switches.current.longer) return;
+                      switches.current.longer = false;
+                      setLonger(false);
+                    });
+                  if (sw.holding) c.send({ type: "hold-floor", on: true });
+                  const t0 = Date.now();
+                  timers.current.push(setInterval(meter(), LEVEL_MS), setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000));
+                  // The browser knows the network is gone seconds before the peer connection does.
+                  const offline = () => {
+                    const ph = phaseRef.current;
+                    if (ph === "listening" || ph === "speaking" || ph === "thinking") go("reconnecting");
+                  };
+                  const online = () => {
+                    if (peer === "connected" && phaseRef.current === "reconnecting") back();
+                  };
+                  window.addEventListener("offline", offline);
+                  window.addEventListener("online", online);
+                  unlisten.current = () => {
+                    window.removeEventListener("offline", offline);
+                    window.removeEventListener("online", online);
+                  };
+                  if (!navigator.onLine) offline();
+                } else if (s === "ended") {
+                  release();
+                  go("ended");
+                }
+              },
+              onPeerStateChange: (p) => {
+                peer = p;
+                if (!connected) return;
+                if (p === "disconnected" || p === "failed") go("reconnecting");
+                else if (p === "connected" && phaseRef.current === "reconnecting" && navigator.onLine) back();
+              },
+              onError: (e) => fail(refusal ?? messageOf(e)),
+              onClose: () => {
                 release();
                 go("ended");
-              }
+              },
             },
-            onPeerStateChange: (p) => {
-              peer = p;
-              if (!connected) return;
-              if (p === "disconnected" || p === "failed") go("reconnecting");
-              else if (p === "connected" && phaseRef.current === "reconnecting" && navigator.onLine) back();
-            },
-            onError: (e) => fail(refusal ?? messageOf(e)),
-            onClose: () => {
-              release();
-              go("ended");
-            },
-          },
-        });
-        call.current = c;
-        c.start().catch(() => fail(refusal));
-      } catch {
-        fail(refusal);
-      }
+          });
+          call.current = c;
+          c.start().catch(() => fail(refusal));
+        } catch {
+          fail(refusal);
+        }
+      }, () => attempt.current === mine && fail(null));
     },
     [fail, go, meter, onServerMessage, release, sendLonger]
   );

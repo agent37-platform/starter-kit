@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { branding } from "@/config/branding";
 import { PublicConfigProvider } from "@/components/PublicConfigProvider";
 import { requestPublicConfig } from "@/lib/tenant";
+import { STRIP_CREDENTIALS_BOOTSTRAP } from "@/lib/site-url";
 import { THEME_BOOTSTRAP } from "@/lib/theme";
 
 // Onest for the interface, Bricolage Grotesque for headings, greetings and expert names
@@ -33,6 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // THEME_BOOTSTRAP adds `dark` to this element before React hydrates it.
     <html lang="fr" className={`${onest.variable} ${bricolage.variable}`} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: STRIP_CREDENTIALS_BOOTSTRAP }} />
         {/* Pose la classe `dark` avant le premier rendu : sans ça, l'écran clignote en clair. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>

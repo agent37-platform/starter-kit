@@ -2,7 +2,8 @@
 // the member's own devices, the directory (people and their experts) and the team salons. Messages
 // themselves never pass through the back office: the browser reads and writes them on the relay.
 
-export interface BuzzEntry { nom: string; type: "personne" | "expert"; membre: string; cles: string[] }
+/** `profil` (experts): their Hermes profile; `photo` is added by this app from the catalogue. */
+export interface BuzzEntry { nom: string; type: "personne" | "expert"; membre: string; cles: string[]; profil?: string; photo?: string | null }
 export interface BuzzOverview {
   relais: string;
   appareils: { cle: string; nom: string }[];
@@ -65,4 +66,34 @@ export function working(thread: { author: string; at: number; mentions: string[]
     const asked = thread.filter((m) => mine.includes(m.author) && m.mentions.some((k) => e.cles.includes(k))).at(-1);
     return asked !== undefined && !thread.some((m) => m.at >= asked.at && e.cles.includes(m.author));
   });
+}
+
+/** An expert's name without its owner: « Djénéba (de Selim T) » → « Djénéba ». */
+export const shortName = (nom: string): string => nom.replace(/ \(de .*\)$/, "");
+
+/** Each entry with its portrait (experts only), from a lookup by profile. */
+export function withPhotos(directory: BuzzEntry[], photoOf: (profil: string) => string | null): BuzzEntry[] {
+  return directory.map((e) => (e.type === "expert" && e.profil ? { ...e, photo: photoOf(e.profil) } : e));
+}
+
+export interface SalonGroup { membre: string; nom: string; self: boolean; person: BuzzEntry | null; experts: BuzzEntry[] }
+
+/** Who is in a salon, by member: the person (if one of their keys is in it) and their experts there; oneself first. */
+export function salonPeople(directory: BuzzEntry[], members: string[], mine: string[]): SalonGroup[] {
+  const me = myMember(directory, mine);
+  const inIt = (e: BuzzEntry) => e.cles.some((k) => members.includes(k));
+  const groups = new Map<string, SalonGroup>();
+  const group = (e: BuzzEntry) => groups.get(e.membre) ?? groups.set(e.membre, { membre: e.membre, nom: e.nom, self: e.membre === me, person: null, experts: [] }).get(e.membre)!;
+  for (const e of directory) if (e.type === "personne") group(e).nom = e.nom;
+  for (const e of directory.filter(inIt)) {
+    if (e.type === "personne") group(e).person = e;
+    else group(e).experts.push(e);
+  }
+  if (me && mine.some((k) => members.includes(k))) groups.get(me)!.person ??= directory.find((e) => e.type === "personne" && e.membre === me) ?? null;
+  return [...groups.values()].filter((g) => g.person || g.experts.length).sort((a, b) => Number(b.self) - Number(a.self) || a.nom.localeCompare(b.nom, "fr"));
+}
+
+/** Whether a message opens a run: its author differs from the previous one's, or more than 5 minutes passed. */
+export function startsRun(prev: { author: string; at: number } | undefined, m: { author: string; at: number }): boolean {
+  return !prev || prev.author !== m.author || m.at - prev.at > 5 * 60;
 }

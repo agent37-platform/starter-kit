@@ -12,6 +12,7 @@ import { convKey } from "@/lib/activity";
 import { arrange } from "@/lib/chat-marks";
 import { fold, useAllConversations, useOwnAgentId, type ConversationRow } from "./useAllConversations";
 import { useChatMarks } from "./useChatMarks";
+import type { ChatSession } from "@/components/chat/types";
 
 type Filter = "tout" | "non-lues" | "routines" | "archivees";
 const DAY = 86_400_000;
@@ -41,10 +42,10 @@ const time = (at: number) =>
 // with a search, Tout / Non lues / Routines / Archivées, the Expert and the dates. Pinned ones head
 // the list; archived ones only show under « Archivées », where they can be brought back. A row opens
 // the conversation in its space; « Tout marquer comme lu » clears the bell's marks.
-export function AllConversations() {
+export function AllConversations({ initial = null }: { initial?: Record<string, ChatSession[]> | null }) {
   const ownAgentId = useOwnAgentId();
   const { experts } = useExpertsContext();
-  const rows = useAllConversations(ownAgentId, experts);
+  const rows = useAllConversations(ownAgentId, experts, true, initial);
   const bell = useNotifications();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("tout");

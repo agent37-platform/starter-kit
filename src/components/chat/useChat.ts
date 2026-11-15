@@ -16,6 +16,7 @@ import { useTurnReporter } from "@/components/activity/hooks";
 import { FILES_ONLY_PROMPT, type SessionDetail } from "@/lib/types";
 import { uid, type ChatMessage, type ChatSettings, type MessageAttachment, type ToolEvent, type ToolStatus } from "./types";
 import { toMs } from "@/lib/activity";
+import { frameBatch } from "@/lib/frame-batch";
 
 export interface SendSettings extends Partial<ChatSettings> {
   files?: string[];
@@ -239,25 +240,33 @@ export function useChat({ agentId, profile, sessionId, refreshToken = 0, onSessi
     return run.sessionId ? activeSessionRef.current === run.sessionId : newChatRunRef.current === run;
   }, []);
 
+  // The on-screen snapshots of the live runs, one state update per frame however many deltas arrive.
+  const [frames] = useState(() =>
+    frameBatch<LiveRun, ChatMessage>((pending) => {
+      const shown = [...pending].filter(([run]) => isViewed(run)).map(([, snapshot]) => snapshot);
+      if (!shown.length) return;
+      setMessages((prev) => {
+        let next = prev;
+        for (const snapshot of shown) {
+          const i = prev.findLastIndex((m) => m.id === snapshot.id);
+          if (i < 0) continue;
+          if (next === prev) next = [...prev];
+          next[i] = snapshot;
+        }
+        return next;
+      });
+    })
+  );
+  useEffect(() => () => frames.cancel(), [frames]);
+
   // Update a run's assistant snapshot, and mirror it into the visible messages when its thread
   // is on screen. Backgrounded runs just accumulate — re-merged when the user returns.
   const patchRun = useCallback(
     (run: LiveRun, fn: (m: ChatMessage) => ChatMessage) => {
       run.assistant = fn(run.assistant);
-      if (!isViewed(run)) return;
-      const snapshot = run.assistant;
-      setMessages((prev) => {
-        for (let i = prev.length - 1; i >= 0; i--) {
-          if (prev[i].id === snapshot.id) {
-            const next = [...prev];
-            next[i] = snapshot;
-            return next;
-          }
-        }
-        return prev;
-      });
+      if (isViewed(run)) frames.push(run, run.assistant);
     },
-    [isViewed]
+    [isViewed, frames]
   );
 
   // Drop a run everywhere: registry and new-chat binding.
@@ -403,6 +412,8 @@ export function useChat({ agentId, profile, sessionId, refreshToken = 0, onSessi
           content: m.content || (streamError ? `_${streamError}_` : ""),
           tools: (m.tools ?? []).map((t) => (t.status === "running" ? { ...t, status: "completed" as const } : t)),
         }));
+        // The end shows at once, before the streaming flag drops.
+        frames.flush();
         // The queued messages go out together on the same session — unless the user stopped or
         // deleted the thread. A stream that died without a terminal event may leave the session
         // busy a while longer; startTurn waits out the 409.
@@ -428,7 +439,7 @@ export function useChat({ agentId, profile, sessionId, refreshToken = 0, onSessi
         if (next.length) startTurnRef.current(run.sessionId, next);
       }
     },
-    [patchRun, isViewed, forgetRun, refreshHistory, turns, profile]
+    [patchRun, isViewed, forgetRun, refreshHistory, turns, profile, frames]
   );
 
   // Reattach to a turn that outlived this component (page reload / workspace re-entry): register

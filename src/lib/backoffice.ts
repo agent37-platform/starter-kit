@@ -663,6 +663,7 @@ export const backoffice = {
   buzzRemoveDevice: (token: string, pubkey: string) => call<{ ok: true }>("/app/buzz/devices", { method: "DELETE", token, body: { pubkey } }),
   buzzSalon: (token: string, salon: { nom: string; cles: string[] }) => call<{ id: string; nom: string }>("/app/buzz/salons", { method: "POST", token, body: salon, timeoutMs: 90_000 }),
   buzzRenameSalon: (token: string, id: string, nom: string) => call<{ id: string; nom: string }>(`/app/buzz/salons/${encodeURIComponent(id)}`, { method: "PATCH", token, body: { nom }, timeoutMs: 60_000 }),
+  buzzDeleteSalon: (token: string, id: string) => call<{ ok: true }>(`/app/buzz/salons/${encodeURIComponent(id)}`, { method: "DELETE", token, timeoutMs: 60_000 }),
   buzzAddSalonMembers: (token: string, id: string, cles: string[]) => call<{ ok: true; ajoutes: number }>(`/app/buzz/salons/${encodeURIComponent(id)}/membres`, { method: "POST", token, body: { cles }, timeoutMs: 90_000 }),
   buzzSalonDeliverables: (token: string, id: string) => call<{ items: SalonDeliverable[] }>(`/app/buzz/salons/${encodeURIComponent(id)}/livrables`, { token, timeoutMs: 30_000 }),
   buzzSent: (token: string, sent: { kind: string; recipients: string[] }) => call<{ ok: true }>("/app/buzz/outbox", { method: "POST", token, body: sent }),

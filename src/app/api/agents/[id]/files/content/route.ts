@@ -33,6 +33,8 @@ export async function GET(request: Request, { params }: Ctx) {
     const qs = new URLSearchParams();
     const path = assertInDrive(requireTrimmed(searchParams.get("path"), "Chemin manquant"));
     const disposition = searchParams.get("disposition");
+    // `v` (the file's mtime) names the version: that answer cannot change, the browser keeps it.
+    const versioned = /^\d{1,15}$/.test(searchParams.get("v") ?? "");
     qs.set("path", path);
     if (disposition) qs.set("disposition", disposition);
 
@@ -58,7 +60,7 @@ export async function GET(request: Request, { params }: Ctx) {
     if (cr) headers.set("Content-Range", cr);
     const ar = upstream.headers.get("Accept-Ranges");
     headers.set("Accept-Ranges", ar || "bytes");
-    headers.set("Cache-Control", "no-store");
+    headers.set("Cache-Control", versioned ? "private, max-age=86400, immutable" : "no-store");
     headers.set("X-Content-Type-Options", "nosniff");
     if (!INERT_TYPE.test(ct ?? "")) headers.set("Content-Security-Policy", "sandbox");
 

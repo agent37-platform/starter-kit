@@ -236,6 +236,8 @@ Browser ─▶ Next.js (this app) ─▶ control plane  https://api.agent37.com/
 | `src/lib/expert-tools.ts` (+ `.test.ts`), `src/app/api/agents/[id]/experts/[profile]/outils/`, `src/components/experts/ExpertTools.tsx` | Outils tab: the pack's `outils-recommandes.json` read from the profile, validated, matched to the member's connectors and MCP servers (to connect / ready / included) |
 | `src/lib/tool-steps.ts` (+ `.test.ts`), `src/components/chat/ChatSteps.tsx` | What the expert is doing, in plain French, from the chat stream's tool calls: the live line and the folded « Étapes » |
 | `src/lib/chat-queue.ts` (+ `.test.ts`) | Messages sent during an answer, sent together as the next turn |
+| `src/lib/frame-batch.ts`, `src/lib/paragraph-cache.ts` (+ `.test.ts`) | A streaming reply: deltas applied once per frame (`useChat`), its finished paragraphs linked once (`Markdown`) |
+| `src/lib/once-per.ts` (+ `.test.ts`), `src/components/app/wake.ts` | The instance woken as an expert's chat opens or its composer gets focus, at most once per 5 minutes (and by `ReadAhead`) |
 | `src/lib/paginate.ts` (+ `.test.ts`), `src/components/Pager.tsx` | One page of a list, and the pager under it |
 | `src/lib/fr-dates.ts` (+ `.test.ts`) | Relative and full French dates, in the routines' time zone |
 | `src/components/memory/MemoryGroups.tsx` | Enterprise memory deposits, one folding block per compartment |

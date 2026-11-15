@@ -46,6 +46,9 @@ export function createEventHub() {
 
 export type EventHub = ReturnType<typeof createEventHub>;
 
+/** A poll's turn: always without the stream; with it, only as a safety net once `safetyMs` passed without a reading. */
+export const pollDue = (connected: boolean, sinceLastMs: number, safetyMs = 30_000): boolean => !connected || sinceLastMs >= safetyMs;
+
 /** Resolves on the next `type` event of the instance, or when `signal` aborts. */
 export function nextEvent(hub: EventHub, agentId: string, type: InstanceEventType, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {

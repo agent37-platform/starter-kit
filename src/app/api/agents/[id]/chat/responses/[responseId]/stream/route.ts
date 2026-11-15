@@ -39,4 +39,4 @@ export async function GET(_request: Request, { params }: Ctx) {
 }
 
 // Reattached streams can ride along for the rest of a long turn, same as the POST stream.
-export const maxDuration = 300;
+export const maxDuration = 800;

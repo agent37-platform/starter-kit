@@ -55,3 +55,13 @@ test("a list announced by « : » without a choice is not turned into buttons", 
   assert.deepEqual(replyParts("Deux pistes :\nA) Salon\nB) Radio\nLaquelle te va ?").choices.map((c) => c.letter), ["A", "B"]);
   assert.deepEqual(replyParts("Quelle version préférez-vous :\nA) Courte\nB) Longue").choices.map((c) => c.letter), ["A", "B"]);
 });
+
+test("numbered choices work like lettered ones", () => {
+  const p = replyParts("Quelle option préférez-vous ?\n\n1. Envoyer ce soir (par défaut)\n2. Attendre lundi\n3) Annuler");
+  assert.deepEqual(p.choices.map((c) => [c.letter, c.label, c.isDefault]), [["1", "Envoyer ce soir", true], ["2", "Attendre lundi", false], ["3", "Annuler", false]]);
+  assert.equal(p.body, "Quelle option préférez-vous ?");
+  assert.equal(choiceMessage(p.choices[1]), "2 : Attendre lundi");
+  for (const t of ["Voici les étapes :\n1. Préparer\n2. Livrer", "On fait comment ?\n1. Oui\n3. Non", "On fait comment ?\nA) Oui\n2) Non", "On fait comment ?\n2. Oui\n3. Non", "1. Oui\n2. Non"]) {
+    assert.deepEqual(replyParts(t).choices, [], t);
+  }
+});

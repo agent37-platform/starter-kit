@@ -3,6 +3,7 @@ import { shareForBrowser, shareUrlOf } from "@/lib/dashboard-share";
 import { agent37, instanceFetch } from "@/lib/agent37";
 import { requireAgentAccess } from "@/lib/auth";
 import { fetchCachedDashboardState } from "@/lib/dashboard-cache";
+import { filesAndLink } from "@/lib/dashboard-link";
 import { expertDriveFolders } from "@/lib/expert-folders";
 import { getDashboardMeta, isTrustedDashboardUrl } from "@/lib/dashboards";
 import { JSON_TIMEOUT_MS, withTimeout } from "@/lib/fetch-timeout";
@@ -123,9 +124,13 @@ async function instanceView(id: string, profile: string): Promise<InstanceView> 
   ]);
   const lien = trusted(state?.lien);
   const folder = typeof state?.fichiers === "string" ? state.fichiers.trim().replace(/\/+$/, "") : "";
-  const own = folder && !folder.split("/").includes("..") ? await deliverableFiles(id, folders.map((f) => `Livrables/${f}/${folder}`)) : null;
+  const [own, found] = await filesAndLink(
+    lien,
+    folder && !folder.split("/").includes("..") ? deliverableFiles(id, folders.map((f) => `Livrables/${f}/${folder}`)) : Promise.resolve(null),
+    () => linkFromSessions(id, profile),
+  );
   return {
-    lien: lien ?? (await linkFromSessions(id, profile)),
+    lien: found,
     hebergeur: lien && typeof state?.hebergeur === "string" ? state.hebergeur : "render",
     maj: typeof state?.maj === "string" ? state.maj : null,
     pdfPath: drivePath(state?.pdfPath, ".pdf") ?? own?.pdfPath ?? defaultFiles.pdfPath,
@@ -135,7 +140,7 @@ async function instanceView(id: string, profile: string): Promise<InstanceView> 
   };
 }
 
-export async function GET(_request: Request, { params }: Ctx) {
+export async function GET(request: Request, { params }: Ctx) {
   try {
     const { id, profile } = await params;
     if (!profile || !/^[a-z0-9_-]+$/i.test(profile)) {
@@ -154,8 +159,11 @@ export async function GET(_request: Request, { params }: Ctx) {
     // Who may read it is the back office's; a share it cannot read is shown as not shared.
     const session = authViaBackoffice() ? await readSession() : null;
     const sharing = session !== null;
+    // `?fresh=1`: asked after an instance event (a file written, a turn ended), the kept reading is stale.
+    const key = `${id}:${profile.toLowerCase()}`;
+    if (new URL(request.url).searchParams.get("fresh") === "1") views.drop(key);
     const [view, share] = await Promise.all([
-      views.get(`${id}:${profile.toLowerCase()}`, () => instanceView(id, profile)),
+      views.get(key, () => instanceView(id, profile)),
       session ? backoffice.dashboardShare(session.accessToken, profile).catch(() => null) : Promise.resolve(null),
     ]);
 

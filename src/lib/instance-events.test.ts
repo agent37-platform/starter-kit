@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createEventHub, eventStreamOn, nextEvent, reconnectDelay } from "./instance-events.ts";
+import { createEventHub, eventStreamOn, nextEvent, pollDue, reconnectDelay } from "./instance-events.ts";
 
 const GW = { RUNTIME_GATEWAY_URL: "https://gw", RUNTIME_GATEWAY_TOKEN: "t".repeat(32) };
 
@@ -54,5 +54,13 @@ describe("instance event stream", () => {
     const q = nextEvent(hub, "a", "turn.ended", aborted.signal);
     aborted.abort();
     await q;
+  });
+});
+
+describe("dashboard poll beside the stream", () => {
+  it("polls as before without the stream; with it, only past the safety delay", () => {
+    assert.equal(pollDue(false, 0), true);
+    assert.equal(pollDue(true, 5_000), false);
+    assert.equal(pollDue(true, 30_000), true);
   });
 });

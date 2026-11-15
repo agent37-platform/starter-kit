@@ -153,7 +153,7 @@ function FormatThumb({ doc, failed }: { doc: TurnDoc; failed?: boolean }) {
  * rows of the first sheet, the whole text, every slide), scrolling.
  */
 export function Preview({ agentId, doc, full }: { agentId: string; doc: TurnDoc; full?: boolean }) {
-  const url = contentUrl(agentId, doc.path, "inline");
+  const url = contentUrl(agentId, doc.path, "inline", doc.modified);
   const e = ext(doc.name);
   if ((doc.size ?? 0) > MAX_PREVIEW_BYTES) return <FormatThumb doc={doc} failed={full} />;
   if (doc.kind === "image") return <ImagePreview url={url} thumb={thumbUrl(agentId, doc.path, 960, doc.modified)} doc={doc} />;
@@ -268,6 +268,7 @@ function Lazy({ doc, url, render, full = false }: { doc: TurnDoc; url: string; r
 // --- PDF: the first page, drawn by pdf.js (loaded on demand, its worker beside it) ----------------
 
 let pdfWorker: Worker | null = null;
+const PDF_THUMB_MAX = 720;
 
 const renderPdf: Render = async (data, _doc, width) => {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -284,7 +285,8 @@ const renderPdf: Render = async (data, _doc, width) => {
     const page = await pdf.getPage(1);
     const base = page.getViewport({ scale: 1 });
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    const viewport = page.getViewport({ scale: (width * ratio) / base.width });
+    // A thumbnail: never drawn wider than a card on a sharp screen.
+    const viewport = page.getViewport({ scale: (Math.min(width, PDF_THUMB_MAX) * ratio) / base.width });
     const canvas = document.createElement("canvas");
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);

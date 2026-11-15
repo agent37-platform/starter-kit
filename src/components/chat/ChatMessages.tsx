@@ -2,9 +2,9 @@
 
 import { useSafeDashboard } from "@/components/experts/DashboardProvider";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, ClipboardCheck, Copy, CornerDownLeft, FileText, Image as ImageIcon, Loader2, PhoneCall, Repeat } from "lucide-react";
-import { turnDocs, type TurnDoc } from "@/lib/drive-links";
+import { turnDocs, type DriveFile, type TurnDoc } from "@/lib/drive-links";
 import { kanbanNotice } from "@/lib/kanban-notice";
 import { isRoutineRun, isSilentRun, routinePlainText, SILENT_RUN_LABEL } from "@/lib/routines";
 import { isCallTranscript } from "@/lib/voice";
@@ -126,6 +126,16 @@ function RoutineBrief({ content, name }: { content: string; name: string | null 
   );
 }
 
+// Every message but the live reply, the same array while only the live reply changes: what is derived
+// from the finished replies (documents, Google files) is not read again on every delta.
+function useSettled(messages: ChatMessage[], liveIndex: number): ChatMessage[] {
+  const ref = useRef<ChatMessage[]>([]);
+  const next = liveIndex < 0 ? messages : messages.filter((_, i) => i !== liveIndex);
+  const prev = ref.current;
+  if (prev.length !== next.length || next.some((m, i) => m !== prev[i])) ref.current = next;
+  return ref.current;
+}
+
 // `face` is the expert whose replies these are: its portrait sits beside each one. Null on the
 // instance's default home, which has no persona.
 export function ChatMessages({
@@ -170,9 +180,10 @@ export function ChatMessages({
   const liveIndex = isStreaming ? messages.findLastIndex((m) => m.role === "assistant") : -1;
   // The drive is listed once for all finished replies (from the oldest, to the minute), again after each turn:
   // it gives the cards their size and date, and tells a made-up path from a real one.
+  const settled = useSettled(messages, liveIndex);
   const oldest = useMemo(
-    () => messages.reduce<number | null>((min, m, i) => (m.role === "assistant" && i !== liveIndex && m.at != null && (min == null || m.at < min) ? m.at : min), null),
-    [messages, liveIndex]
+    () => settled.reduce<number | null>((min, m) => (m.role === "assistant" && m.at != null && (min == null || m.at < min) ? m.at : min), null),
+    [settled]
   );
   // A long conversation (the full history, compressions included) opens on its last messages.
   const [shown, setShown] = useState(PAGE);
@@ -181,18 +192,24 @@ export function ChatMessages({
   const listing = useDriveListing(agentId, isStreaming ? null : driveFolder, since, String(messages.length));
   const allDocs = useMemo(() => {
     const seen = new Map<string, TurnDoc>();
-    messages.forEach((m, i) => {
-      if (m.role !== "assistant" || i === liveIndex || !m.content) return;
+    settled.forEach((m) => {
+      if (m.role !== "assistant" || !m.content) return;
       for (const d of turnDocs(cleanReply(m.content), listing, [...(m.files ?? []), ...mediaTags(m.content).paths])) seen.set(d.path, d);
     });
     return [...seen.values()];
-  }, [messages, liveIndex, listing]);
+  }, [settled, listing]);
   useEffect(() => onDocs?.(allDocs), [allDocs, onDocs]);
   const allGoogle = useMemo(
-    () => usedGoogleDocs(messages.flatMap((m, i) => (m.role === "assistant" && i !== liveIndex && m.content ? [{ text: cleanReply(m.content), at: m.at ?? null }] : []))),
-    [messages, liveIndex]
+    () => usedGoogleDocs(settled.flatMap((m) => (m.role === "assistant" && m.content ? [{ text: cleanReply(m.content), at: m.at ?? null }] : []))),
+    [settled]
   );
   useEffect(() => onGoogle?.(allGoogle), [allGoogle, onGoogle]);
+  // Stable across the parent's renders, so the memoized rows stay put while a reply streams.
+  const stableFace = useMemo(() => face, [face?.displayName, face?.photoUrl, face?.gateway]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handlers = useRef({ onReply, onUnqueue });
+  handlers.current = { onReply, onUnqueue };
+  const reply = useCallback((text: string) => handlers.current.onReply?.(text), []);
+  const unqueue = useCallback((id: string) => handlers.current.onUnqueue?.(id), []);
       const dashboard = useSafeDashboard();
 
   const handleContainerClick = (e: React.MouseEvent) => {
@@ -231,107 +248,164 @@ export function ChatMessages({
       )}
       {messages.slice(start).map((m, j) => {
         const i = start + j;
-        if (m.role === "user" && isCallTranscript(m.content)) {
-          return (
-            <p key={m.id} className="flex items-center justify-center gap-2 text-xs text-ink-3">
-              <PhoneCall className="h-3.5 w-3.5" /> Transcription de l’appel transmise à l’Expert
-            </p>
-          );
-        }
-        const notice = m.role === "user" ? kanbanNotice(m.content) : null;
-        if (notice) {
-          return (
-            <p key={m.id} className="flex items-center justify-center gap-2 text-center text-xs text-ink-3">
-              <ClipboardCheck className="h-3.5 w-3.5 shrink-0" /> {notice.who} {notice.verb} la tâche confiée : « {notice.title} »
-            </p>
-          );
-        }
-        if (m.role === "system") {
-          return (
-            <p key={m.id} className="flex items-center gap-3 text-center text-xs text-ink-3 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
-              {m.content}
-            </p>
-          );
-        }
-        if (m.role === "user" && isResumeSeed(m.content)) {
-          return (
-            <p key={m.id} className="flex items-center justify-center gap-2 text-center text-xs text-ink-3">
-              <CornerDownLeft className="h-3.5 w-3.5 shrink-0" /> Conversation partagée reprise ici : l’Expert en a le contexte
-            </p>
-          );
-        }
-        if (m.role === "user" && isRoutineRun(m.content)) {
-          return <RoutineBrief key={m.id} content={m.content} name={routine} />;
-        }
-        if (m.role === "user") {
-          const attachments = m.attachments ?? [];
-          return (
-            <div key={m.id} className="flex justify-end">
-              <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-1.5">
-                {attachments.length > 0 && <MessageAttachments attachments={attachments} agentId={agentId} />}
-                {m.content && (
-                  <div className={cn("max-w-full whitespace-pre-wrap rounded-[18px] rounded-br-md bg-brand [overflow-wrap:anywhere] px-4 py-2.5 text-[15px] text-on-brand", m.queued && "opacity-60", m.steered && !m.queued && "bg-brand/80")}>
-                    {commandText(m.content, pronoun)}
-                  </div>
-                )}
-                {m.queued && (
-                  <span className="flex items-center gap-2 text-xs text-ink-3">
-                    En attente
-                    {onUnqueue && (
-                      <button type="button" onClick={() => onUnqueue(m.id)} className="-my-2 inline-flex min-h-8 items-center rounded-lg px-1.5 font-semibold text-ink-2 hover:bg-soft hover:text-ink">
-                        Retirer
-                      </button>
-                    )}
-                  </span>
-                )}
-                {m.steered && !m.queued && (
-                  <span className="flex items-center gap-1 text-xs text-ink-3">
-                    <CornerDownLeft className="h-3 w-3" /> Ajouté pendant la réponse, pris en compte dans celle-ci
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        }
-
         const live = i === liveIndex;
-        const tools = m.tools ?? [];
-        // Once the expert works with tools, the turn shows one live step line; its reply appears when the turn ends.
-        const working = live && tools.length > 0;
-        const showDots = live && !working && !m.content && !m.thinking;
-        // Only the conversation's last reply can still be answered in a click; an older question reads as written.
-        const finished = !live && m.content ? replyParts(withoutGoogleActions(cleanReply(m.content))) : null;
-        const answerable = finished && onReply && !isStreaming && !routineThread && i === messages.length - 1 && finished.choices.length > 0;
-
         return (
-          <div key={m.id} className="flex items-start gap-3">
-            {face && <ExpertAvatar expert={face} size="xs" className="mt-0.5" />}
-            <div className="min-w-0 max-w-full flex-1 text-[15px] text-ink">
-              {m.thinking && <ThinkingBlock content={m.thinking} live={live && !m.content} />}
-              {(working || (showDots && !updating)) && <LiveWait tools={tools} name={face?.displayName ?? null} since={messages.slice(0, i).findLast((x) => x.role === "user")?.at} />}
-              {!live && tools.length > 0 && <StepsList tools={tools} />}
-              {routineThread && !live && isSilentRun(m.content) ? (
-                <p className="text-sm italic text-ink-3">{SILENT_RUN_LABEL}</p>
-              ) : m.content && !working ? (
-                <Markdown content={!finished ? cleanReply(m.content) : answerable ? finished.body : finished.text} agentId={agentId} profileId={profile} />
-              ) : showDots && updating ? (
-                // A reply held by the update: said to be received, so the wait does not read as a bug.
-                <p role="status" className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3.5 py-2 text-sm font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                  <UpdateSpinner />
-                  {face ? `${face.displayName} reprend` : "Votre Expert reprend"} dans un instant, votre message est bien reçu.
-                </p>
-              ) : null}
-              {answerable && <ReplyChoices choices={finished.choices} note={finished.choicesNote} onSend={onReply} />}
-              {!live && m.content && <GoogleDocCards docs={googleDocs(cleanReply(m.content))} />}
-              {!live && m.content && <DocumentCards agentId={agentId} docs={turnDocs(cleanReply(m.content), listing, [...(m.files ?? []), ...mediaTags(m.content).paths])} />}
-              {!live && m.content && !(routineThread && isSilentRun(m.content)) && <CopyReply text={cleanReply(m.content)} />}
-            </div>
-          </div>
+          <MessageRow
+            key={m.id}
+            m={m}
+            live={live}
+            last={i === messages.length - 1}
+            // When the member asked: read for the live reply only (its wait line).
+            since={live ? messages.slice(0, i).findLast((x) => x.role === "user")?.at : undefined}
+            isStreaming={isStreaming}
+            routineThread={routineThread}
+            updating={updating}
+            face={stableFace}
+            agentId={agentId}
+            profile={profile}
+            listing={listing}
+            routine={routine}
+            pronoun={pronoun}
+            onReply={onReply ? reply : undefined}
+            onUnqueue={onUnqueue ? unqueue : undefined}
+          />
         );
       })}
     </div>
   );
 }
+
+// One message. Memoized: while a reply streams only its own row renders again.
+const MessageRow = memo(function MessageRow({
+  m,
+  live,
+  last,
+  since,
+  isStreaming,
+  routineThread,
+  updating,
+  face,
+  agentId,
+  profile,
+  listing,
+  routine,
+  pronoun,
+  onReply,
+  onUnqueue,
+}: {
+  m: ChatMessage;
+  live: boolean;
+  last: boolean;
+  since: number | undefined;
+  isStreaming: boolean;
+  routineThread: boolean;
+  updating: boolean;
+  face: Pick<Expert, "displayName" | "photoUrl" | "gateway"> | null;
+  agentId: string;
+  profile: string | null;
+  listing: DriveFile[];
+  routine: string | null;
+  pronoun: "elle" | "il" | null;
+  onReply?: (text: string) => void;
+  onUnqueue?: (id: string) => void;
+}) {
+    if (m.role === "user" && isCallTranscript(m.content)) {
+      return (
+        <p className="flex items-center justify-center gap-2 text-xs text-ink-3">
+          <PhoneCall className="h-3.5 w-3.5" /> Transcription de l’appel transmise à l’Expert
+        </p>
+      );
+    }
+    const notice = m.role === "user" ? kanbanNotice(m.content) : null;
+    if (notice) {
+      return (
+        <p className="flex items-center justify-center gap-2 text-center text-xs text-ink-3">
+          <ClipboardCheck className="h-3.5 w-3.5 shrink-0" /> {notice.who} {notice.verb} la tâche confiée : « {notice.title} »
+        </p>
+      );
+    }
+    if (m.role === "system") {
+      return (
+        <p className="flex items-center gap-3 text-center text-xs text-ink-3 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
+          {m.content}
+        </p>
+      );
+    }
+    if (m.role === "user" && isResumeSeed(m.content)) {
+      return (
+        <p className="flex items-center justify-center gap-2 text-center text-xs text-ink-3">
+          <CornerDownLeft className="h-3.5 w-3.5 shrink-0" /> Conversation partagée reprise ici : l’Expert en a le contexte
+        </p>
+      );
+    }
+    if (m.role === "user" && isRoutineRun(m.content)) {
+      return <RoutineBrief content={m.content} name={routine} />;
+    }
+    if (m.role === "user") {
+      const attachments = m.attachments ?? [];
+      return (
+        <div className="flex justify-end">
+          <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-1.5">
+            {attachments.length > 0 && <MessageAttachments attachments={attachments} agentId={agentId} />}
+            {m.content && (
+              <div className={cn("max-w-full whitespace-pre-wrap rounded-[18px] rounded-br-md bg-brand [overflow-wrap:anywhere] px-4 py-2.5 text-[15px] text-on-brand", m.queued && "opacity-60", m.steered && !m.queued && "bg-brand/80")}>
+                {commandText(m.content, pronoun)}
+              </div>
+            )}
+            {m.queued && (
+              <span className="flex items-center gap-2 text-xs text-ink-3">
+                En attente
+                {onUnqueue && (
+                  <button type="button" onClick={() => onUnqueue(m.id)} className="-my-2 inline-flex min-h-8 items-center rounded-lg px-1.5 font-semibold text-ink-2 hover:bg-soft hover:text-ink">
+                    Retirer
+                  </button>
+                )}
+              </span>
+            )}
+            {m.steered && !m.queued && (
+              <span className="flex items-center gap-1 text-xs text-ink-3">
+                <CornerDownLeft className="h-3 w-3" /> Ajouté pendant la réponse, pris en compte dans celle-ci
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const tools = m.tools ?? [];
+    // Once the expert works with tools, the turn shows one live step line; its reply appears when the turn ends.
+    const working = live && tools.length > 0;
+    const showDots = live && !working && !m.content && !m.thinking;
+    // Only the conversation's last reply can still be answered in a click; an older question reads as written.
+    const finished = !live && m.content ? replyParts(withoutGoogleActions(cleanReply(m.content))) : null;
+    const answerable = finished && onReply && !isStreaming && !routineThread && last && finished.choices.length > 0;
+
+    return (
+      <div className="flex items-start gap-3">
+        {face && <ExpertAvatar expert={face} size="xs" className="mt-0.5" />}
+        <div className="min-w-0 max-w-full flex-1 text-[15px] text-ink">
+          {m.thinking && <ThinkingBlock content={m.thinking} live={live && !m.content} />}
+          {(working || (showDots && !updating)) && <LiveWait tools={tools} name={face?.displayName ?? null} since={since} />}
+          {!live && tools.length > 0 && <StepsList tools={tools} />}
+          {routineThread && !live && isSilentRun(m.content) ? (
+            <p className="text-sm italic text-ink-3">{SILENT_RUN_LABEL}</p>
+          ) : m.content && !working ? (
+            <Markdown content={!finished ? cleanReply(m.content) : answerable ? finished.body : finished.text} agentId={agentId} profileId={profile} />
+          ) : showDots && updating ? (
+            // A reply held by the update: said to be received, so the wait does not read as a bug.
+            <p role="status" className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3.5 py-2 text-sm font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+              <UpdateSpinner />
+              {face ? `${face.displayName} reprend` : "Votre Expert reprend"} dans un instant, votre message est bien reçu.
+            </p>
+          ) : null}
+          {answerable && <ReplyChoices choices={finished.choices} note={finished.choicesNote} onSend={onReply} />}
+          {!live && m.content && <GoogleDocCards docs={googleDocs(cleanReply(m.content))} />}
+          {!live && m.content && <DocumentCards agentId={agentId} docs={turnDocs(cleanReply(m.content), listing, [...(m.files ?? []), ...mediaTags(m.content).paths])} />}
+          {!live && m.content && !(routineThread && isSilentRun(m.content)) && <CopyReply text={cleanReply(m.content)} />}
+        </div>
+      </div>
+    );
+});
 
 // Under each finished reply: copies its text, as « Copier » under a ChatGPT answer.
 function CopyReply({ text }: { text: string }) {

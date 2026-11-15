@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, FileText, Folder, Lock, MessageSquare } from "lucide-react";
@@ -7,7 +8,6 @@ import { ExpertAvatar } from "@/components/experts/ExpertAvatar";
 import { CyclePill } from "@/components/experts/ExpertItem";
 import { useExpertsContext } from "@/components/experts/ExpertsProvider";
 import { useCompanySessions } from "@/components/conversations/useCompanySessions";
-import { FilePreview } from "@/components/files/FilePreview";
 import { formatMtime, type FileEntry } from "@/components/files/types";
 import { isNew, markSeen, useAllDeliverables, type Deliverable } from "@/components/files/useAllDeliverables";
 import { agentTabPath } from "@/lib/expert-tabs";
@@ -15,6 +15,9 @@ import { expertCycle, isDjeneba } from "@/lib/expert-cycle";
 import { relativeFr } from "@/lib/fr-dates";
 import { toMs } from "@/lib/activity";
 import { cn } from "@/lib/utils";
+
+// Loaded on a click only: the preview carries the markdown renderer.
+const FilePreview = dynamic(() => import("@/components/files/FilePreview").then((m) => m.FilePreview), { ssr: false });
 
 const KEY = "yelema.accueil-activite";
 

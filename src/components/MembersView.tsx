@@ -36,12 +36,14 @@ const STATUS: Record<string, string> = {
   to_remove: "En cours de retrait",
 };
 
-type Loaded = { members: WorkspaceMember[] } & Partial<MemberRoom>;
+export type LoadedMembers = { members: WorkspaceMember[] } & Partial<MemberRoom>;
+type Loaded = LoadedMembers;
 
-export function MembersView() {
+/** `initial`: the list the page read on the server, shown at once and read again behind. */
+export function MembersView({ initial = null }: { initial?: Loaded | null }) {
   const { current } = useWorkspace();
-  const [data, setData] = useState<Loaded>({ members: [] });
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<Loaded>(initial ?? { members: [] });
+  const [loading, setLoading] = useState(!initial);
   const [inviting, setInviting] = useState(false);
   const [removing, setRemoving] = useState<WorkspaceMember | null>(null);
 
@@ -57,8 +59,9 @@ export function MembersView() {
   }, [current]);
 
   useEffect(() => {
-    setLoading(true);
+    if (!initial) setLoading(true);
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
   if (!current) return <p className="text-sm text-muted-foreground">Aucun espace sélectionné.</p>;

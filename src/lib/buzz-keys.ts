@@ -27,6 +27,24 @@ function fresh(): Uint8Array {
   return sk;
 }
 
+/** The key this browser already holds, if any — enough to open the relay before the back office answers. */
+export function storedKey(): { secret: Uint8Array; pubkey: string } | null {
+  const secret = stored();
+  return secret ? { secret, pubkey: getPublicKey(secret) } : null;
+}
+
+const RELAY = "yelema.buzz.relais";
+
+/** The relay address of the last overview (this tab only), so the next visit dials it at once. */
+export function rememberedRelay(url?: string): string | null {
+  try {
+    if (url) sessionStorage.setItem(RELAY, url);
+    return sessionStorage.getItem(RELAY);
+  } catch {
+    return null;
+  }
+}
+
 const label = (): string => `Navigateur · ${new Date().toLocaleDateString("fr-FR")}`;
 
 /** The browser's key, admitted for this member (a key another member already holds is replaced). */

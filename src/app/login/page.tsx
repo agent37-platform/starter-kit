@@ -82,7 +82,7 @@ export default function LoginPage() {
     setLoading(true);
     let failure: string | null = null;
     if (supabase) {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(mail, {
+      const { error: err } = await (await supabase()).auth.resetPasswordForEmail(mail, {
         redirectTo: callbackUrl("/reset-password"),
       });
       failure = err?.message ?? null;
@@ -109,7 +109,7 @@ export default function LoginPage() {
     setError(null);
     let failure: string | null = null;
     if (supabase) {
-      const { error: err } = await supabase.auth.signInWithPassword({ email: mail, password });
+      const { error: err } = await (await supabase()).auth.signInWithPassword({ email: mail, password });
       failure = err ? "Adresse ou mot de passe incorrect." : null;
     } else {
       // Through the back office: it says a wrong password, a suspended access, or too many tries.
