@@ -67,6 +67,7 @@ export function SendDialog({
   mode,
   expertName,
   fileName,
+  toMe = true,
   onSend,
   onClose,
 }: {
@@ -74,12 +75,14 @@ export function SendDialog({
   mode: "file" | "routine";
   expertName: string;
   fileName?: string;
+  /** « Moi-même » ticked at first (« À quelqu'un d'autre » opens it unticked). */
+  toMe?: boolean;
   /** The instruction, handed to the expert's chat. */
   onSend: (text: string) => void;
   onClose: () => void;
 }) {
   const [what, setWhat] = useState<What>("each");
-  const [me, setMe] = useState(true);
+  const [me, setMe] = useState(toMe);
   const [others, setOthers] = useState("");
   const [channel, setChannel] = useState<Channel>("mail");
   const [ask, setAsk] = useState(true);
