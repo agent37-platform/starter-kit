@@ -8,8 +8,10 @@ import { cached, remember } from "@/lib/client-cache";
 import {
   channelError,
   channelStateLabel,
+  hasChannelAccount,
   isChannelConnected,
   isFeaturedChannel,
+  isSoonChannel,
   type ChannelsResponse,
   type MessagingPlatform,
 } from "@/lib/channels";
@@ -165,9 +167,9 @@ export function ChannelsTab({
   }
 
   const featured = (channels ?? []).filter((c) => isFeaturedChannel(c.id));
-  // The other channels (Discord, Matrix, Signal…) show only once connected: « Autres canaux » is gone,
-  // it does not speak to the market (Leslie, 03/11).
-  const connectedRest = (channels ?? []).filter((c) => !isFeaturedChannel(c.id) && isChannelConnected(c));
+  // The other channels (WhatsApp, Discord, Signal…) show only once an account is linked, in any state, so it
+  // can still be repaired or disconnected.
+  const connectedRest = (channels ?? []).filter((c) => !isFeaturedChannel(c.id) && hasChannelAccount(c));
 
   return (
     <div className="space-y-6">
@@ -179,7 +181,7 @@ export function ChannelsTab({
       </div>
 
       {channels === null ? (
-        // Before the image's list arrives, the four first channels are known: their rows show at once.
+        // Before the image's list arrives, the first channels are known: their rows show at once, state pending.
         <div className="divide-y overflow-hidden rounded-[22px] border bg-card">
           {PLACEHOLDERS.map((channel) => (
             <ChannelRow key={channel.id} channel={channel} canManage={false} checking onOpen={() => undefined} />
@@ -263,8 +265,8 @@ const placeholder = (id: string, name: string): MessagingPlatform => ({
   home_channel: null,
   env_vars: [],
 });
-// In the order of the page (Telegram, Slack, Teams, then WhatsApp).
-const PLACEHOLDERS = [placeholder("telegram", "Telegram"), placeholder("slack", "Slack"), placeholder("teams", "Microsoft Teams"), placeholder("whatsapp", "WhatsApp")];
+// In the order of the page (Telegram, Slack, Teams).
+const PLACEHOLDERS = [placeholder("telegram", "Telegram"), placeholder("slack", "Slack"), placeholder("teams", "Microsoft Teams")];
 
 // What each channel is for, in French: the harness's own descriptions are English (Leslie, 05/11).
 const CHANNEL_TEXT: Record<string, string> = {
@@ -289,14 +291,16 @@ function ChannelRow({
   const { Icon, color } = channelBrand(channel.id);
   const connected = isChannelConnected(channel);
   const error = channelError(channel);
+  // Not while checking: an account already linked would flash « Bientôt » before its state arrives.
+  const soon = !checking && isSoonChannel(channel.id) && !hasChannelAccount(channel);
   // One row, one pill of one size on the right, the whole row opens the channel (Leslie, 05/11: « Connecter »
   // alone, « Connecté » on green, the same buttons everywhere).
   return (
     <button
       type="button"
       onClick={onOpen}
-      disabled={!canManage || (checking && !connected && !error)}
-      aria-label={connected || error ? `Gérer ${channel.name}` : `Connecter ${channel.name}`}
+      disabled={soon || !canManage || (checking && !connected && !error)}
+      aria-label={soon ? `${channel.name} : bientôt disponible` : connected || error ? `Gérer ${channel.name}` : `Connecter ${channel.name}`}
       className="flex min-h-[68px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-soft disabled:pointer-events-none"
     >
       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] border bg-muted/20">
@@ -310,6 +314,8 @@ function ChannelRow({
         <StatePill state="connected" />
       ) : error ? (
         <StatePill state="attention" />
+      ) : soon ? (
+        <StatePill state="soon" />
       ) : checking ? (
         <span className="inline-flex h-8 min-w-[108px] items-center justify-center" aria-label="Vérification">
           <Loader2 className="h-4 w-4 animate-spin text-ink-3" />

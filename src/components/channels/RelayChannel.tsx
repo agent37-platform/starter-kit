@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import type { RelayChannel as Channel, RelayLink, RelayStatus } from "@/lib/agent37";
 import { DisconnectButton } from "@/components/channels/DisconnectButton";
+import { StatePill } from "@/components/integrations/StatePill";
 
 const LABELS: Record<Channel, { title: string; intro: string; install: string }> = {
   slack: { title: "Slack", intro: "Écrivez à vos Experts en message direct au bot Yelema, ou mentionnez-le dans un canal.", install: "Ajouter à Slack" },
@@ -56,6 +57,17 @@ export function RelayChannel({ agentId, channel, canManage }: { agentId: string;
   const install = link?.installUrl ?? link?.appUrl ?? link?.botUrl ?? null;
 
   if (!status) return <div className="h-20 animate-pulse rounded-lg border bg-card" />;
+  // Slack and Teams are not tested yet with clients (Leslie, 16/11): « Bientôt » until an account is linked.
+  if (channel !== "telegram" && !status.accounts)
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border bg-card p-4">
+        <div>
+          <p className="text-sm font-semibold">{l.title}</p>
+          <p className="text-xs text-muted-foreground">{l.intro}</p>
+        </div>
+        <StatePill state="soon" />
+      </div>
+    );
   return (
     <div className="space-y-3 rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
