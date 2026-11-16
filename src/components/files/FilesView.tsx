@@ -28,7 +28,11 @@ import { cn } from "@/lib/utils";
 import { fileLabel } from "@/lib/drive-paths";
 import { DropOverlay } from "@/components/DropOverlay";
 import { HiddenFileInput } from "@/components/HiddenFileInput";
-import { FilePreview } from "./FilePreview";
+import { FilePreview, ReducedImage } from "./FilePreview";
+import { Preview as DocPreview } from "@/components/chat/DocumentCards";
+import { docKind } from "@/lib/drive-links";
+import { driveTree } from "@/lib/drive-store";
+import { deliverableItems } from "@/lib/deliverable-folders";
 import { GoogleGlyph } from "@/components/chat/GoogleDocs";
 import { shortcutKind } from "@/lib/google-docs";
 import { MoveDialog } from "./MoveDialog";
@@ -37,7 +41,7 @@ import { groupVariants, isSourceFolder } from "@/lib/visual-variants";
 import { splitVersions } from "@/lib/drive-versions";
 import { useFileBrowser } from "./useFileBrowser";
 import { BackButton } from "@/components/ui/back-button";
-import { archiveUrl, breadcrumbs, contentUrl, formatBytes, formatMtime, isDir, type FileEntry } from "./types";
+import { archiveUrl, breadcrumbs, contentUrl, formatBytes, formatMtime, isDir, thumbUrl, type FileEntry } from "./types";
 
 type ViewMode = "list" | "grid";
 
@@ -56,12 +60,16 @@ export function FilesView({
   openPath,
   openFile,
   inbox,
+  home,
 }: {
   agentId: string;
   initialPath?: string;
   openPath?: string | null;
   openFile?: string | null;
   inbox?: string;
+  /** The Expert's own folder: its Livrables stop there, nothing above it (Leslie, 16/11: « on est censé être dans les
+   * livrables d'un expert, pourquoi est-ce qu'on a tous les experts »). The general page lists everyone's. */
+  home?: string;
 }) {
   const fb = useFileBrowser(agentId, initialPath, inbox);
   // A folder named in the address (« ?dossier= », from a path cited in the chat) opens here.
@@ -85,7 +93,8 @@ export function FilesView({
   const [moving, setMoving] = useState<FileEntry | null>(null);
   // The folder a dragged file of the list is over (Leslie, 30/10: déplacer un livrable dans un dossier).
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // The gallery first, each deliverable seen as it is; the list stays one click away (Leslie, 16/11).
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   // An empty folder (the first day): one sentence and two quiet buttons; the view, sort, search and
@@ -221,7 +230,27 @@ export function FilesView({
     };
   }
 
-  const crumbs = fb.path ? breadcrumbs(fb.path) : [];
+  const crumbs = useMemo(() => {
+    const all = fb.path ? breadcrumbs(fb.path) : [];
+    if (!home || !fb.path || !(fb.path === home || fb.path.startsWith(`${home}/`))) return all;
+    return all.filter((c) => c.path.length >= home.length).map((c) => (c.path === home ? { ...c, label: "Livrables" } : c));
+  }, [fb.path, home]);
+  // A project folder shows its cover, picked like on the general page: its newest picture or PDF.
+  const [covers, setCovers] = useState<Map<string, { path: string; modified: number }>>(new Map());
+  useEffect(() => {
+    let live = true;
+    driveTree(agentId)
+      .then((tree) => {
+        if (!live) return;
+        const m = new Map<string, { path: string; modified: number }>();
+        for (const it of deliverableItems(tree.entries)) if (it.folder && it.cover) m.set(it.path, { path: it.cover, modified: it.coverModified });
+        setCovers(m);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [agentId, fb.entries]);
   // A folder of visuals in variants shows by visual first (« Tous les fichiers » for the plain list),
   // and the editable « source » folder always comes last (Myriel, Leslie 30/10).
   const variants = useMemo(() => groupVariants(fb.visibleEntries.filter((e) => !isDir(e))), [fb.visibleEntries]);
@@ -490,7 +519,7 @@ export function FilesView({
                 </table>
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-3">
                 {listEntries.map((entry) => {
                   const editing = editingPath === entry.path;
                   const selected = selectedEntry?.path === entry.path;
@@ -499,13 +528,14 @@ export function FilesView({
                       key={entry.path}
                       aria-selected={selected}
                       className={cn(
-                        "group flex min-h-44 cursor-default select-none flex-col rounded-lg border bg-card p-3 outline-none transition-colors hover:border-primary/35 hover:bg-secondary/25 focus-visible:ring-2 focus-visible:ring-ring",
+                        "group flex cursor-default select-none flex-col overflow-hidden rounded-lg border bg-card outline-none transition-colors hover:border-primary/35 hover:bg-secondary/25 focus-visible:ring-2 focus-visible:ring-ring",
                         selected && "border-primary/35 bg-primary/10 hover:border-primary/35 hover:bg-primary/10",
                         dropTarget === entry.path && "border-primary bg-primary/15"
                       )}
                       {...entryHandlers(entry)}
                     >
-                      <div className="min-w-0 flex-1">
+                      <EntryCover agentId={agentId} entry={entry} cover={covers.get(entry.path)} />
+                      <div className="min-w-0 flex-1 px-3 pt-2.5">
                         {editing ? (
                           <RenameInput
                             entry={entry}
@@ -519,9 +549,8 @@ export function FilesView({
                           <EntryName entry={entry} layout="grid" selected={selected} />
                         )}
                       </div>
-                      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                        <div className="truncate">{formatMtime(entry.modified) || "Date inconnue"}</div>
-                        <div>{isDir(entry) ? "Dossier" : formatBytes(entry.size) || "Taille inconnue"}</div>
+                      <div className="truncate px-3 pb-3 pt-1 text-xs text-muted-foreground">
+                        {formatMtime(entry.modified) || "Date inconnue"}
                       </div>
                     </div>
                   );
@@ -721,15 +750,15 @@ function EntryName({
       className={cn(
         "min-w-0 text-left",
         layout === "grid"
-          ? "flex w-full flex-col items-start gap-3"
+          ? "flex w-full flex-col items-start"
           : "grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3"
       )}
     >
-      <EntryGlyph entry={entry} large={layout === "grid"} selected={selected} />
+      {layout !== "grid" && <EntryGlyph entry={entry} selected={selected} />}
       <span
         className={cn(
           "min-w-0 truncate",
-          layout === "grid" ? "w-full text-sm" : "text-sm",
+          layout === "grid" ? "w-full text-sm font-semibold" : "text-sm",
           dir ? "font-medium text-foreground" : "text-foreground",
           entry.hidden && "text-muted-foreground"
         )}
@@ -841,3 +870,41 @@ function EmptyFolder({
   );
 }
 
+
+// What a card shows above its name: the deliverable itself (a picture reduced on the server, a PDF's first page),
+// a project's cover, else its kind in large. Same covers as the general page.
+const SEEN = /\.(png|jpe?g|webp|gif|avif|pdf)$/i;
+function EntryCover({ agentId, entry, cover }: { agentId: string; entry: FileEntry; cover?: { path: string; modified: number } }) {
+  const [failed, setFailed] = useState(false);
+  const target = isDir(entry) ? cover ?? null : SEEN.test(entry.name) ? { path: entry.path, modified: entry.modified ?? 0 } : null;
+  const name = target?.path.split("/").pop() ?? "";
+  const kind = target ? docKind(name) : null;
+  return (
+    <span className="relative block aspect-[4/3] w-full overflow-hidden bg-secondary/60">
+      {target && !failed ? (
+        kind === "image" ? (
+          <ReducedImage
+            thumb={thumbUrl(agentId, target.path, 480, target.modified)}
+            original={thumbUrl(agentId, target.path, 480)}
+            alt=""
+            className="size-full object-cover"
+            onFail={() => setFailed(true)}
+          />
+        ) : (
+          <span className="pointer-events-none block size-full">
+            <DocPreview agentId={agentId} doc={{ name, path: target.path, size: null, modified: target.modified, kind: kind! }} />
+          </span>
+        )
+      ) : (
+        <span className="grid size-full place-items-center">
+          <EntryGlyph entry={entry} large />
+        </span>
+      )}
+      {isDir(entry) && target && !failed && (
+        <span className="absolute left-2 top-2 grid size-7 place-items-center rounded-md bg-background/90 text-primary shadow-sm">
+          <Folder className="size-4" />
+        </span>
+      )}
+    </span>
+  );
+}
