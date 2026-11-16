@@ -54,7 +54,7 @@ export function neutralizeHarnessName<T extends string | null | undefined>(text:
 }
 
 // A channel is live when the harness says the gateway has it connected.
-export function isChannelConnected(channel: MessagingPlatform): boolean {
+export function isChannelConnected(channel: Pick<MessagingPlatform, "enabled" | "state">): boolean {
   return channel.enabled && channel.state === "connected";
 }
 

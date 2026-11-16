@@ -1,5 +1,4 @@
-// Protocole MCP JSON-RPC 2.0 pour Yélé (Supervision, Observabilité & Analytique).
-// Expose 6 super-pouvoirs en lecture seule (read-only) pour inspecter l'instance en toute sécurité.
+// Les outils du serveur MCP de Yélé (supervision en lecture seule) : nom, description, paramètres.
 
 export const YELE_TOOLS = [
   {
@@ -79,13 +78,13 @@ export const YELE_TOOLS = [
   {
     name: "consulter_canaux_et_telegram",
     description:
-      "Consulte la configuration et l'état des canaux de communication de l'équipe : groupe Telegram du forum Yelema, bot Telegram officiel, association des topics/fils par expert, lien d'invitation et adresses e-mail d'entreprise (@agentmail.to).",
+      "Consulte la configuration et l'état des canaux de communication de l'équipe : groupe Telegram du forum Yelema, bot Telegram officiel, association des topics/fils par expert, lien d'invitation et adresses e-mail des experts.",
     inputSchema: {
       type: "object",
       properties: {
         expert: {
           type: "string",
-          description: "Optionnel : nom ou identifiant de l'expert (ex: 'djeneba', 'koffi') pour son topic et e-mail dédié.",
+          description: "Optionnel : nom ou identifiant de profil de l'expert, pour son topic et son adresse e-mail.",
         },
       },
     },
@@ -101,6 +100,33 @@ export const YELE_TOOLS = [
           type: "string",
           description: "Optionnel : nom ou identifiant de l'expert pour un audit détaillé de sa consommation.",
         },
+        periode: {
+          type: "string",
+          enum: ["aujourdhui", "7_jours", "30_jours", "tout"],
+          description: "La période, en jours UTC entiers (par défaut 'tout' : depuis le début).",
+        },
+      },
+    },
+  },
+  {
+    name: "consulter_routines_et_planning",
+    description:
+      "Liste les routines de chaque expert (ou d'un expert précis) : actives, en pause ou proposées, leur horaire, leur prochaine et leur dernière exécution.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        expert: { type: "string", description: "Optionnel : nom ou identifiant de l'expert." },
+      },
+    },
+  },
+  {
+    name: "consulter_historique_routine",
+    description:
+      "Dit si les routines ont tourné : dernière exécution et nombre d'exécutions sur 7 jours pour toute l'équipe ; pour un expert précis, ses dernières exécutions avec leur résultat (envoyée, rien à signaler, échec).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        expert: { type: "string", description: "Optionnel : nom ou identifiant de l'expert, pour le résultat de chaque exécution." },
       },
     },
   },
@@ -173,7 +199,7 @@ export const YELE_TOOLS = [
       type: "object",
       properties: {
         besoin: { type: "string", description: "Ce que l'utilisateur veut faire, en ses mots (ex: 'relancer un client', 'faire un devis')." },
-        expert: { type: "string", description: "Optionnel : limiter à un Expert (ex: 'koffi')." },
+        expert: { type: "string", description: "Optionnel : limiter à un Expert (nom ou identifiant de profil)." },
       },
     },
   },
@@ -187,124 +213,3 @@ export const YELE_TOOLS = [
     },
   },
 ] as const;
-
-export interface YeleBackend {
-  analyserActivite(periode?: string): Promise<string>;
-  lireRapportJournalier(date?: string): Promise<string>;
-  auditerOutils(expert?: string): Promise<string>;
-  consulterLivrables(limite?: number): Promise<string>;
-  statistiquesAnalytique(vue?: string): Promise<string>;
-  diagnostiquerConfiguration(): Promise<string>;
-  consulterCanauxTelegram(expert?: string): Promise<string>;
-  analyserConsommationTokens(expert?: string): Promise<string>;
-  consulterAlertesIncidents(expert?: string): Promise<string>;
-  consulterAppelsEtVoix(expert?: string): Promise<string>;
-  rechercherDansLaMemoire(requete: string, expert?: string): Promise<string>;
-  consulterSkillsExperts(expert?: string): Promise<string>;
-  trouverCommande(besoin?: string, expert?: string): Promise<string>;
-}
-
-type Rpc = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
-type RpcAnswer = { jsonrpc: "2.0"; id: string | number | null; result?: unknown; error?: { code: number; message: string } };
-
-const text = (value: string, isError = false) => ({
-  content: [{ type: "text", text: value }],
-  ...(isError ? { isError: true } : {}),
-});
-
-async function callTool(backend: YeleBackend, name: unknown, args: Record<string, unknown>) {
-  switch (name) {
-    case "analyser_activite_experts": {
-      const p = typeof args.periode === "string" ? args.periode : undefined;
-      return text(await backend.analyserActivite(p));
-    }
-    case "lire_rapport_journalier": {
-      const d = typeof args.date === "string" ? args.date : undefined;
-      return text(await backend.lireRapportJournalier(d));
-    }
-    case "auditer_outils_connecteurs": {
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.auditerOutils(e));
-    }
-    case "consulter_livrables_recents": {
-      const l = typeof args.limite === "number" ? args.limite : undefined;
-      return text(await backend.consulterLivrables(l));
-    }
-    case "statistiques_et_analytique": {
-      const v = typeof args.vue === "string" ? args.vue : undefined;
-      return text(await backend.statistiquesAnalytique(v));
-    }
-    case "consulter_canaux_et_telegram": {
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.consulterCanauxTelegram(e));
-    }
-    case "analyser_consommation_tokens_et_couts": {
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.analyserConsommationTokens(e));
-    }
-    case "consulter_alertes_et_incidents": {
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.consulterAlertesIncidents(e));
-    }
-    case "consulter_appels_et_voix": {
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.consulterAppelsEtVoix(e));
-    }
-    case "rechercher_dans_la_memoire": {
-      const q = typeof args.requete === "string" ? args.requete : "";
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.rechercherDansLaMemoire(q, e));
-    }
-    case "consulter_skills_experts": {
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.consulterSkillsExperts(e));
-    }
-    case "trouver_une_commande": {
-      const b = typeof args.besoin === "string" ? args.besoin : undefined;
-      const e = typeof args.expert === "string" ? args.expert : undefined;
-      return text(await backend.trouverCommande(b, e));
-    }
-    case "diagnostiquer_configuration": {
-      return text(await backend.diagnostiquerConfiguration());
-    }
-    default:
-      return text("Outil inconnu.", true);
-  }
-}
-
-/**
- * Traite un message JSON-RPC 2.0 pour le serveur MCP Yélé.
- */
-export async function answerRpc(message: unknown, backend: YeleBackend): Promise<RpcAnswer | null> {
-  const rpc = (message && typeof message === "object" ? message : {}) as Rpc;
-  const id = rpc.id ?? null;
-  if (rpc.jsonrpc !== "2.0" || typeof rpc.method !== "string") {
-    return { jsonrpc: "2.0", id, error: { code: -32600, message: "Invalid Request" } };
-  }
-  if (rpc.id === undefined) return null;
-  const ok = (result: unknown): RpcAnswer => ({ jsonrpc: "2.0", id, result });
-
-  switch (rpc.method) {
-    case "initialize":
-      return ok({
-        protocolVersion: typeof rpc.params?.protocolVersion === "string" ? rpc.params.protocolVersion : "2025-03-26",
-        capabilities: { tools: {} },
-        serverInfo: { name: "yele-supervision", version: "1.0.0" },
-      });
-    case "ping":
-      return ok({});
-    case "tools/list":
-      return ok({ tools: YELE_TOOLS });
-    case "tools/call": {
-      const args = rpc.params?.arguments;
-      try {
-        return ok(await callTool(backend, rpc.params?.name, args && typeof args === "object" ? (args as Record<string, unknown>) : {}));
-      } catch (e) {
-        if ((e as { status?: number }).status === 401) throw e;
-        return ok(text(e instanceof Error && e.message ? e.message : "Erreur lors de l'exécution de l'outil.", true));
-      }
-    }
-    default:
-      return { jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } };
-  }
-}
