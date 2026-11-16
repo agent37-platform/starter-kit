@@ -5,8 +5,7 @@ import { readVoicePrefs } from "@/lib/voice";
 import { downsample, encodeWav } from "@/lib/wav";
 
 // The chat's dictation: the microphone is captured as raw samples and sent as a WAV (the format
-// the speech service reads), in the language chosen for the expert's calls. Ported from the voice dictation of
-// feat/agentMail (ddbf907), which recorded WebM for six speech engines.
+// the speech service reads), in the language chosen for the expert's calls.
 
 /** Two minutes: a WAV at 16 kHz is 32 kB a second, and the host refuses a request over 4 MB before
  * the route sees it (src/lib/upload-limit.ts). Longer, the dictation was lost with a vague error. */
