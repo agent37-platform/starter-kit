@@ -1,6 +1,6 @@
 import { backoffice } from "@/lib/backoffice";
 import { ApiError, handleError, json, readJson } from "@/lib/http";
-import type { MailDraft } from "@/lib/mail";
+import { parseMailDraft } from "@/lib/mail";
 import { mailToken, noStore } from "../../_session";
 
 // The body carries attachments in base64: it stays under the host's own limit on a request.
@@ -23,7 +23,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ expe
 export async function POST(request: Request, { params }: { params: Promise<{ expert: string }> }) {
   try {
     const { expert } = await params;
-    return noStore(json(await backoffice.mailSend(await mailToken(), expert, await readJson<MailDraft>(request))));
+    const draft = parseMailDraft(await readJson<unknown>(request));
+    if (!draft) throw new ApiError(400, "invalid_request", "Ce message est incomplet ou invalide.");
+    return noStore(json(await backoffice.mailSend(await mailToken(), expert, draft)));
   } catch (e) {
     return handleError(e);
   }

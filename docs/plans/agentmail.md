@@ -18,6 +18,10 @@ n'existent plus sur `feat/experts-profils`.
 
 ## 2. Ce qui est décidé (plan maître, § 2)
 
+> **Remplacé pour le modèle des boîtes** par `docs/plans/agentmail-opt-in-backoffice.md` : une boîte par
+> instance (donc par membre) et par expert, créée et supprimée à la demande du membre. Ce qui suit sur
+> la boîte commune ne s'applique plus.
+
 - Une boîte **par client et par expert** (`djeneba.acme@agentmail.to`), commune aux membres qui ont
   cet expert.
 - Trois réglages par boîte, indépendants : **l'expert est autorisé à envoyer** (faux au départ),
