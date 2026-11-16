@@ -214,6 +214,7 @@ export function ChatView({
   }, []);
 
   const showWelcome = !loadingHistory && messages.length === 0;
+  const centered = showWelcome && !profile;
   // Memoized so the per-token re-renders during streaming don't re-scan the thread list.
   const activeTitle = useMemo(
     () => {
@@ -371,7 +372,7 @@ export function ChatView({
         onKeyDown={release}
         className={cn(
           "min-h-0",
-          showWelcome ? "flex flex-1 flex-col items-center justify-end px-4 pb-4" : "flex-1 overflow-y-auto"
+          showWelcome ? cn("flex flex-1 flex-col items-center px-4 pb-4", profile ? "justify-center" : "justify-end") : "flex-1 overflow-y-auto"
         )}
       >
         {loadingHistory ? (
@@ -403,12 +404,14 @@ export function ChatView({
 
       {/* Composer wrapper — the STABLE 2nd child. Docked, it leaves the bottom-right corner to Yélé. Its chrome (docked vs bare centered) is a
           className swap so the ChatComposer inside never changes tree position. */}
-      <div onFocusCapture={() => wakeInstance(agentId)} className={cn("relative", showWelcome ? "w-full px-4 sm:px-6" : "bg-background px-4 py-3 sm:py-4 sm:pl-6 sm:pr-24")}>
+      {/* An expert's chat keeps its bar at the bottom, full width, from the first screen on; only the company chat
+          centres it (Leslie, 16/11). */}
+      <div onFocusCapture={() => wakeInstance(agentId)} className={cn("relative", centered ? "w-full px-4 sm:px-6" : "bg-background px-4 py-3 sm:py-4 sm:pl-6 sm:pr-24")}>
         {/* No hard divider — a short fade dissolves the transcript into the composer instead. */}
-        {!showWelcome && (
+        {!centered && (
           <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-background to-transparent" />
         )}
-        <div className={cn("mx-auto w-full", showWelcome ? "max-w-2xl" : "max-w-3xl")} aria-live="polite">
+        <div className={cn("mx-auto w-full", centered && "max-w-2xl")} aria-live="polite">
           {error && <p className="mb-2 rounded-xl bg-ko-pale px-3 py-2 text-[13px] text-ko">{error}</p>}
         </div>
         {profile && showWelcome && (
@@ -421,8 +424,24 @@ export function ChatView({
             onCommand={(text) => void send(text)}
             onStage={setPrepStage}
             onOpenTools={() => router.push("/integrations/connecteurs")}
-            className={cn("mb-3", showWelcome && "max-w-2xl")}
+            className={cn("mb-3", centered && "max-w-2xl")}
           />
+        )}
+        {/* Only « Faire connaissance », and only for a while: the catalogue's requests are gone, and nothing
+            takes their place, no help sentence either (Leslie, 03/11: « simplifier au max »). Just above the bar. */}
+        {showWelcome && showIntro && (
+          <button
+            type="button"
+            onClick={() => void send("/onboarding")}
+            data-faire-connaissance
+            className="mb-3 flex w-full items-center gap-3.5 rounded-[18px] border-[1.5px] border-brand bg-tint p-3.5 text-left text-ink transition-colors hover:bg-brand/15"
+          >
+            {face && <ExpertAvatar expert={face} size="md" />}
+            <span className="min-w-0 flex-1 text-[16px] font-bold leading-snug">Faire connaissance avec {agentName}</span>
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-on-brand">
+              <ArrowRight className="size-[18px]" />
+            </span>
+          </button>
         )}
         <ChatComposer
           agentId={agentId}
@@ -430,33 +449,14 @@ export function ChatView({
           att={att}
           onSend={send}
           onStop={stop}
-          large={showWelcome}
+          large={centered}
           focusToken={composerFocusToken}
           draft={draft}
         />
       </div>
 
-      {/* Bottom: balances the vertical centering and carries the welcome subtitle. */}
-      {showWelcome && (
-        <div className="flex flex-1 flex-col items-center px-4 pt-3 sm:px-6">
-          {/* Only « Faire connaissance », and only for a while: the catalogue's requests are gone, and nothing
-              takes their place, no help sentence either (Leslie, 03/11: « simplifier au max »). */}
-          {showIntro && (
-            <button
-              type="button"
-              onClick={() => void send("/onboarding")}
-              data-faire-connaissance
-              className="flex w-full max-w-2xl items-center gap-3.5 rounded-[18px] border-[1.5px] border-brand bg-tint p-3.5 text-left text-ink transition-colors hover:bg-brand/15"
-            >
-              {face && <ExpertAvatar expert={face} size="md" />}
-              <span className="min-w-0 flex-1 text-[16px] font-bold leading-snug">Faire connaissance avec {agentName}</span>
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-on-brand">
-                <ArrowRight className="size-[18px]" />
-              </span>
-            </button>
-          )}
-        </div>
-      )}
+      {/* Bottom: balances the vertical centering of the company chat. */}
+      {centered && <div className="flex-1" />}
     </div>
       {hasComputer && (
         <>
