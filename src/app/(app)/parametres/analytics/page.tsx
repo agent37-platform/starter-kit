@@ -1,7 +1,8 @@
-import { AnalyticsDashboard } from "@/components/settings/AnalyticsDashboard";
+import { AnalyticsDashboard } from "@/components/settings/analytics/AnalyticsDashboard";
 import { PageBody } from "@/components/app/PageBody";
 
-// Administration · Analytics : vue chiffrée de la production, de l'activité des experts et des jetons IA.
+// Paramètres · Personnel · Analytics : la consommation de l'instance du membre connecté, et d'elle seule,
+// telle qu'elle l'a enregistrée.
 export default function Page() {
   return (
     <PageBody>

@@ -21,13 +21,14 @@ export const SETTINGS_GROUPS: { label: string; entries: SettingsEntry[] }[] = [
       { href: "/parametres/voix", label: "Voix", icon: Mic, backoffice: true },
       { href: "/parametres/notifications", label: "Notifications", icon: Bell },
       { href: "/parametres/profil", label: "Profil", icon: UserRound, backoffice: true },
+      // Each member's own instance and nothing else: the route serves its owner only.
+      { href: "/parametres/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
   {
     label: "Entreprise",
     entries: [
       { href: "/parametres/membres", label: "Membres", icon: Users, adminOnly: true },
-      { href: "/parametres/analytics", label: "Analytics", icon: BarChart3, adminOnly: true },
       { href: "/parametres/organigramme", label: "Organigramme", icon: Network, adminOnly: true, backoffice: true },
       { href: "/parametres/entreprise", label: "Contexte", icon: Building2, backoffice: true },
       { href: "/parametres/facturation", label: "Facturation", icon: CreditCard, adminOnly: true, backoffice: true },

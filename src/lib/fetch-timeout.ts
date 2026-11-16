@@ -10,6 +10,15 @@ export const JSON_TIMEOUT_MS = 30_000;
 /** A command inside an instance may run longer than a read. */
 export const EXEC_TIMEOUT_MS = 120_000;
 
+/** Résout comme `promise`, ou rejette après `ms` millisecondes. */
+export function beforeDeadline<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} : pas de réponse en ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
+
 /** A deadline on the answer's headers only: the body may then stream as long as it needs. */
 export async function fetchUntilHeaders(url: string, init: RequestInit, ms: number): Promise<Response> {
   const ctl = new AbortController();
