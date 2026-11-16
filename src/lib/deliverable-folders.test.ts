@@ -54,3 +54,9 @@ test("what the member brought, the memory and working files are no deliverables"
   assert.deepEqual(items.map((i) => i.name), ["Plan"]);
   assert.equal(items[0].files, 1);
 });
+
+test("a document shows itself when nothing better is there: slides before pages before sheets", () => {
+  const items = deliverableItems([d("Fatima", 0), d("Fatima/Bilan", 1), f("Fatima/Bilan/chiffres.xlsx", 2, 3), f("Fatima/Bilan/deck.pptx", 2, 2), f("Fatima/note.docx", 1, 4)]);
+  assert.equal(items.find((i) => i.name === "Bilan")?.cover, `${R}/Fatima/Bilan/deck.pptx`);
+  assert.equal(items.find((i) => i.name === "note.docx")?.cover, `${R}/Fatima/note.docx`);
+});
