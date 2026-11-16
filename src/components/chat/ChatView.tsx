@@ -143,6 +143,18 @@ export function ChatView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refParam]);
 
+  // « Envoyer » on a deliverable, « Envoi automatique » in the routines (?dire=): the instruction is
+  // written in the field, for the member to read and send; dropped from the address so a refresh does
+  // not write it again.
+  const sayParam = params.get("dire");
+  useEffect(() => {
+    if (!sayParam) return;
+    setDraft((d) => ({ text: sayParam, token: (d?.token ?? 0) + 1 }));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("dire");
+    window.history.replaceState(window.history.state, "", url);
+  }, [sayParam]);
+
   // A message handed over by the home page ("Demander à mon équipe") is sent once, into a new
   // thread, and dropped from the URL so a refresh does not send it again.
   const sentInitial = useRef(false);
