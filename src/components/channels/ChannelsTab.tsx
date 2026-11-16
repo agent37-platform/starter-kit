@@ -8,6 +8,7 @@ import { cached, remember } from "@/lib/client-cache";
 import {
   channelError,
   channelStateLabel,
+  hasChannelAccount,
   isChannelConnected,
   isFeaturedChannel,
   isSoonChannel,
@@ -166,9 +167,9 @@ export function ChannelsTab({
   }
 
   const featured = (channels ?? []).filter((c) => isFeaturedChannel(c.id));
-  // The other channels (Discord, Matrix, Signal…) show only once connected: « Autres canaux » is gone,
-  // it does not speak to the market (Leslie, 03/11).
-  const connectedRest = (channels ?? []).filter((c) => !isFeaturedChannel(c.id) && isChannelConnected(c));
+  // The other channels (WhatsApp, Discord, Signal…) show only once an account is linked, in any state, so it
+  // can still be repaired or disconnected.
+  const connectedRest = (channels ?? []).filter((c) => !isFeaturedChannel(c.id) && hasChannelAccount(c));
 
   return (
     <div className="space-y-6">
@@ -180,7 +181,7 @@ export function ChannelsTab({
       </div>
 
       {channels === null ? (
-        // Before the image's list arrives, the four first channels are known: their rows show at once.
+        // Before the image's list arrives, the first channels are known: their rows show at once, state pending.
         <div className="divide-y overflow-hidden rounded-[22px] border bg-card">
           {PLACEHOLDERS.map((channel) => (
             <ChannelRow key={channel.id} channel={channel} canManage={false} checking onOpen={() => undefined} />
@@ -290,7 +291,8 @@ function ChannelRow({
   const { Icon, color } = channelBrand(channel.id);
   const connected = isChannelConnected(channel);
   const error = channelError(channel);
-  const soon = isSoonChannel(channel.id) && !connected && !error;
+  // Not while checking: an account already linked would flash « Bientôt » before its state arrives.
+  const soon = !checking && isSoonChannel(channel.id) && !hasChannelAccount(channel);
   // One row, one pill of one size on the right, the whole row opens the channel (Leslie, 05/11: « Connecter »
   // alone, « Connecté » on green, the same buttons everywhere).
   return (
@@ -298,7 +300,7 @@ function ChannelRow({
       type="button"
       onClick={onOpen}
       disabled={soon || !canManage || (checking && !connected && !error)}
-      aria-label={connected || error ? `Gérer ${channel.name}` : `Connecter ${channel.name}`}
+      aria-label={soon ? `${channel.name} : bientôt disponible` : connected || error ? `Gérer ${channel.name}` : `Connecter ${channel.name}`}
       className="flex min-h-[68px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-soft disabled:pointer-events-none"
     >
       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] border bg-muted/20">
