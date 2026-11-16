@@ -32,7 +32,7 @@ import { FilePreview, ReducedImage } from "./FilePreview";
 import { Preview as DocPreview } from "@/components/chat/DocumentCards";
 import { docKind } from "@/lib/drive-links";
 import { driveTree } from "@/lib/drive-store";
-import { deliverableItems } from "@/lib/deliverable-folders";
+import { coverRank, deliverableItems } from "@/lib/deliverable-folders";
 import { GoogleGlyph } from "@/components/chat/GoogleDocs";
 import { shortcutKind } from "@/lib/google-docs";
 import { MoveDialog } from "./MoveDialog";
@@ -872,11 +872,10 @@ function EmptyFolder({
 
 
 // What a card shows above its name: the deliverable itself (a picture reduced on the server, a PDF's first page),
-// a project's cover, else its kind in large. Same covers as the general page.
-const SEEN = /\.(png|jpe?g|webp|gif|avif|pdf)$/i;
+// a slide, a page or a sheet drawn by the app, a project's cover, else its kind in large. Same covers as the general page.
 function EntryCover({ agentId, entry, cover }: { agentId: string; entry: FileEntry; cover?: { path: string; modified: number } }) {
   const [failed, setFailed] = useState(false);
-  const target = isDir(entry) ? cover ?? null : SEEN.test(entry.name) ? { path: entry.path, modified: entry.modified ?? 0 } : null;
+  const target = isDir(entry) ? cover ?? null : coverRank(entry.name) ? { path: entry.path, modified: entry.modified ?? 0 } : null;
   const name = target?.path.split("/").pop() ?? "";
   const kind = target ? docKind(name) : null;
   return (
