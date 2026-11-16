@@ -82,7 +82,15 @@ export function isConnectableChannel(channel: MessagingPlatform): boolean {
 // still offered, folded under "More channels".
 // Telegram, Slack, Teams, then WhatsApp (Leslie, 03/11 and 05/11: Discord and Google Chat are not our market,
 // they show only once connected).
-export const FEATURED_CHANNELS = ["telegram", "slack", "teams", "whatsapp"] as const;
+// WhatsApp is off the list (Leslie, 16/11): it shows only once already connected.
+export const FEATURED_CHANNELS = ["telegram", "slack", "teams"] as const;
+
+// Not tested yet with clients (Leslie, 16/11): « Bientôt », no way to connect, until an account is linked.
+export const SOON_CHANNELS = ["slack", "teams", "discord", "google_chat"] as const;
+
+export function isSoonChannel(id: string): boolean {
+  return (SOON_CHANNELS as readonly string[]).includes(id);
+}
 
 // These connect through their own panel; the rest take the credentials form.
 export const GUIDED_CHANNELS = ["telegram", "whatsapp", "teams", "slack"] as const;

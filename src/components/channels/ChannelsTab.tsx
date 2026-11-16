@@ -10,6 +10,7 @@ import {
   channelStateLabel,
   isChannelConnected,
   isFeaturedChannel,
+  isSoonChannel,
   type ChannelsResponse,
   type MessagingPlatform,
 } from "@/lib/channels";
@@ -263,8 +264,8 @@ const placeholder = (id: string, name: string): MessagingPlatform => ({
   home_channel: null,
   env_vars: [],
 });
-// In the order of the page (Telegram, Slack, Teams, then WhatsApp).
-const PLACEHOLDERS = [placeholder("telegram", "Telegram"), placeholder("slack", "Slack"), placeholder("teams", "Microsoft Teams"), placeholder("whatsapp", "WhatsApp")];
+// In the order of the page (Telegram, Slack, Teams).
+const PLACEHOLDERS = [placeholder("telegram", "Telegram"), placeholder("slack", "Slack"), placeholder("teams", "Microsoft Teams")];
 
 // What each channel is for, in French: the harness's own descriptions are English (Leslie, 05/11).
 const CHANNEL_TEXT: Record<string, string> = {
@@ -289,13 +290,14 @@ function ChannelRow({
   const { Icon, color } = channelBrand(channel.id);
   const connected = isChannelConnected(channel);
   const error = channelError(channel);
+  const soon = isSoonChannel(channel.id) && !connected && !error;
   // One row, one pill of one size on the right, the whole row opens the channel (Leslie, 05/11: « Connecter »
   // alone, « Connecté » on green, the same buttons everywhere).
   return (
     <button
       type="button"
       onClick={onOpen}
-      disabled={!canManage || (checking && !connected && !error)}
+      disabled={soon || !canManage || (checking && !connected && !error)}
       aria-label={connected || error ? `Gérer ${channel.name}` : `Connecter ${channel.name}`}
       className="flex min-h-[68px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-soft disabled:pointer-events-none"
     >
@@ -310,6 +312,8 @@ function ChannelRow({
         <StatePill state="connected" />
       ) : error ? (
         <StatePill state="attention" />
+      ) : soon ? (
+        <StatePill state="soon" />
       ) : checking ? (
         <span className="inline-flex h-8 min-w-[108px] items-center justify-center" aria-label="Vérification">
           <Loader2 className="h-4 w-4 animate-spin text-ink-3" />
