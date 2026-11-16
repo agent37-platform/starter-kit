@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import datetime
-import getpass
 import json
 import os
 import re
+import select
 import shutil
 import subprocess
 import sys
@@ -13,88 +13,102 @@ import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
 
-def remove_accents(text: str) -> str:
-    """Retire les accents pour normaliser un nom de dossier en ASCII."""
+def plain(text: str) -> str:
+    """Texte sans accents et en minuscules, pour comparer des noms de dossiers."""
     nfkd = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).casefold()
 
 
-def detect_expert() -> str:
-    """Détecte dynamiquement le nom de l'expert actif depuis l'environnement ou le profil courant."""
-    for var in ("EXPERT_NAME", "HERMES_PROFILE", "PROFILE", "EXPERT", "AGENT_NAME", "HERMES_AGENT_NAME"):
-        val = os.environ.get(var)
-        if val and val.strip():
-            return remove_accents(val.strip()).capitalize()
+def livrables_root() -> str:
+    """Dossier des livrables de l'instance (~/Livrables), chemin réel."""
+    root = os.environ.get("LIVRABLES_DIR") or os.path.join(os.path.expanduser("~"), "Livrables")
+    return os.path.realpath(os.path.expanduser(root))
 
-    cwd = os.getcwd()
-    curr = cwd
+
+def safe_segment(text: str, max_len: int = 80) -> Optional[str]:
+    """Nom utilisable comme dossier : sans séparateur, sans `..`, sans point initial ; None sinon."""
+    cleaned = re.sub(r"[\\/\x00-\x1f]", " ", text).strip().strip(".")
+    cleaned = re.sub(r"\s+", " ", cleaned)[:max_len].strip()
+    if not cleaned or ".." in cleaned:
+        return None
+    return cleaned
+
+
+def expert_candidates(explicit: Optional[str]) -> List[str]:
+    """Noms possibles de l'expert, le plus sûr d'abord : --expert, variables de nom, SOUL.md, profil Hermes."""
+    names: List[str] = []
+    if explicit and explicit.strip():
+        names.append(explicit.strip())
+    for var in ("EXPERT_NAME", "EXPERT", "AGENT_NAME", "HERMES_AGENT_NAME"):
+        if os.environ.get(var, "").strip():
+            names.append(os.environ[var].strip())
+    curr = os.getcwd()
     for _ in range(4):
         soul = os.path.join(curr, "SOUL.md")
-        if os.path.exists(soul):
+        if os.path.isfile(soul):
             try:
                 with open(soul, "r", encoding="utf-8") as f:
-                    txt = f.read(600)
-                    m = re.search(r"^name:\s*['\"]?([^'\"\r\n]+)", txt, re.MULTILINE)
-                    if m and m.group(1).strip():
-                        return remove_accents(m.group(1).strip()).capitalize()
-            except Exception:
+                    m = re.search(r"^name:\s*['\"]?([^'\"\r\n]+)", f.read(600), re.MULTILINE)
+                if m and m.group(1).strip():
+                    names.append(m.group(1).strip())
+            except OSError:
                 pass
+            break
         parent = os.path.dirname(curr)
         if parent == curr:
             break
         curr = parent
+    profile = next((os.environ[v].strip() for v in ("HERMES_PROFILE", "PROFILE") if os.environ.get(v, "").strip()), "")
+    if not profile:
+        m = re.search(r"/\.hermes/profiles/([^/]+)", os.getcwd())
+        profile = m.group(1) if m else ""
+    if profile and profile not in ("default", "yele"):
+        key = profile.split("__", 1)[-1]
+        names.append(key[:1].upper() + key[1:].lower())
+    return names
 
-    system_reserved = {
-        "workspace", "default", "node", "home", "root", "scripts", "skills", "shared", "videos",
-        getpass.getuser().lower(),
-    }
-    patterns = [
-        r"/\.hermes/profiles/([^/]+)",
-        r"/hermes-experts/([^/]+)",
-        r"/agents/([^/]+)",
-        r"/\.openclaw/workspace-([^/]+)",
-        r"/Livrables/([^/]+)",
-    ]
-    for p in patterns:
-        m = re.search(p, cwd)
-        if m:
-            val = m.group(1).lower()
-            if val not in system_reserved and not val.startswith("."):
-                return remove_accents(m.group(1)).capitalize()
 
-    home = os.path.expanduser("~")
-    for active_f in (os.path.join(home, ".hermes", "active_profile"), os.path.join(home, ".hermes", "profile")):
-        if os.path.exists(active_f):
-            try:
-                with open(active_f, "r", encoding="utf-8") as f:
-                    name = f.read().strip()
-                    if name:
-                        return remove_accents(name).capitalize()
-            except Exception:
-                pass
-
-    return "Contenu"
+def resolve_expert_folder(explicit: Optional[str]) -> str:
+    """
+    Dossier de l'expert dans les livrables : un dossier existant dont le nom correspond (accents et
+    casse ignorés) à l'un des noms possibles, sinon le premier nom possible tel qu'écrit.
+    """
+    candidates = [c for c in (safe_segment(n) for n in expert_candidates(explicit)) if c]
+    if not candidates:
+        raise ValueError("Expert introuvable : précisez --expert avec le nom de l'expert.")
+    root = livrables_root()
+    existing = [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))] if os.path.isdir(root) else []
+    for name in candidates:
+        for first in (name, name.split(" ")[0]):
+            match = next((d for d in existing if plain(d) == plain(first)), None)
+            if match:
+                return match
+    return candidates[0]
 
 
 def slugify(text: str) -> str:
-    text = text.lower()
+    text = plain(text)
     text = re.sub(r"[^\w\s-]", "", text)
     text = re.sub(r"[\s_-]+", "-", text).strip("-")
     return text[:40] or "video"
 
 
-def get_default_dest(expert: str, sujet: str, echantillon: bool = False) -> str:
-    now = datetime.datetime.now()
-    prefix = now.strftime("%y%m%d")
-    slug = slugify(sujet)
-    ext = "mp3" if echantillon else "mp4"
+def default_dest(expert_folder: str, sujet: str, echantillon: bool = False) -> str:
+    """<Livrables>/<Expert>/<Sujet>/<AAMMJJ>_[echantillon_]<slug>.mp4|mp3"""
+    subject_folder = safe_segment(sujet, 60) or "Vidéo"
+    prefix = datetime.datetime.now().strftime("%y%m%d")
     tag = "echantillon_" if echantillon else ""
-    filename = f"{prefix}_{tag}{slug}.{ext}"
-    livrables_root = os.environ.get("LIVRABLES_DIR") or os.path.join(os.path.expanduser("~"), "Livrables")
-    expert_dir = os.path.join(os.path.expanduser(livrables_root), expert)
-    videos_dir = os.path.join(expert_dir, "Videos")
-    os.makedirs(videos_dir, exist_ok=True)
-    return os.path.join(videos_dir, filename)
+    ext = "mp3" if echantillon else "mp4"
+    return os.path.join(livrables_root(), expert_folder, subject_folder, f"{prefix}_{tag}{slugify(sujet)}.{ext}")
+
+
+def confined_dest(path: str) -> str:
+    """Chemin de sortie réel, refusé s'il sort des livrables."""
+    root = livrables_root()
+    real = os.path.realpath(os.path.expanduser(path))
+    if os.path.commonpath([root, real]) != root or real == root:
+        raise ValueError(f"Le fichier de sortie doit être dans {root}.")
+    return real
 
 
 def find_uv_binary() -> Optional[str]:
@@ -152,7 +166,7 @@ def find_local_mpt() -> Tuple[Optional[str], Optional[List[str]]]:
 
 
 def ensure_mpt_config(mpt_dir: str) -> None:
-    """S'assure que config.toml existe et synchronise PEXELS_API_KEY / PIXABAY_API_KEY depuis l'environnement."""
+    """Crée config.toml depuis l'exemple s'il manque, et y écrit PEXELS_API_KEY / PIXABAY_API_KEY de l'environnement."""
     cfg_path = os.path.join(mpt_dir, "config.toml")
     example_path = os.path.join(mpt_dir, "config.example.toml")
     if not os.path.isfile(cfg_path) and os.path.isfile(example_path):
@@ -170,15 +184,14 @@ def ensure_mpt_config(mpt_dir: str) -> None:
         with open(cfg_path, "r", encoding="utf-8") as f:
             content = f.read()
         updated = content
-        if pexels_key and "pexels_api_keys = []" in updated:
-            updated = updated.replace("pexels_api_keys = []", f'pexels_api_keys = ["{pexels_key}"]', 1)
-        if pixabay_key and "pixabay_api_keys = []" in updated:
-            updated = updated.replace("pixabay_api_keys = []", f'pixabay_api_keys = ["{pixabay_key}"]', 1)
+        for name, key in (("pexels_api_keys", pexels_key), ("pixabay_api_keys", pixabay_key)):
+            if key:
+                updated = re.sub(rf"^{name}\s*=\s*\[[^\]\n]*\]", lambda _m, n=name, k=key: f"{n} = [{json.dumps(k)}]", updated, count=1, flags=re.MULTILINE)
         if updated != content:
             with open(cfg_path, "w", encoding="utf-8") as f:
                 f.write(updated)
-    except Exception:
-        pass
+    except OSError as e:
+        print(f"⚠️ config.toml non mis à jour : {e}", file=sys.stderr)
 
 
 def run_cli_generation(
@@ -228,50 +241,45 @@ def run_cli_generation(
         cmd.extend(["--stop-at", "video"])
 
     start_time = time.time()
-    proc = subprocess.Popen(
-        cmd,
-        cwd=mpt_dir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-    )
-
+    proc = subprocess.Popen(cmd, cwd=mpt_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert proc.stdout is not None and proc.stderr is not None
+    buffers = {proc.stdout.fileno(): b"", proc.stderr.fileno(): b""}
     stdout_lines: List[str] = []
 
-    # Lecture asynchrone / non bloquante des flux
-    import select
-    while proc.poll() is None:
-        if time.time() - start_time > timeout_sec:
-            proc.kill()
-            raise TimeoutError(f"Délai d'attente dépassé ({timeout_sec}s) lors de la génération vidéo CLI.")
-
-        rlist, _, _ = select.select([proc.stdout, proc.stderr], [], [], 0.5)
-        for stream in rlist:
-            line = stream.readline()
+    def take_lines(fd: int, final: bool = False) -> None:
+        parts = re.split(rb"[\r\n]", buffers[fd])
+        buffers[fd] = b"" if final else parts.pop()
+        for raw in parts:
+            line = raw.decode("utf-8", errors="replace").strip()
             if not line:
                 continue
-            if stream is proc.stdout:
-                stdout_lines.append(line.strip())
-            else:
-                line_str = line.strip()
-                if "generation activity:" in line_str or "combining video:" in line_str or "generating video:" in line_str or "azure_tts_v1" in line_str:
-                    print(f"   [MPT] {line_str}")
+            if fd == proc.stdout.fileno():
+                stdout_lines.append(line)
+            elif any(k in line for k in ("generation activity:", "combining video:", "generating video:", "azure_tts_v1")):
+                print(f"   [MPT] {line}")
+            elif any(k in line for k in ("ERROR", "Exception", "Traceback")):
+                print(f"   ⚠️ [MPT Log] {line}", file=sys.stderr)
 
-    # Récupérer les lignes restantes
-    rest_out, rest_err = proc.communicate()
-    if rest_out:
-        stdout_lines.extend(line.strip() for line in rest_out.splitlines() if line.strip())
-    if rest_err:
-        for err_line in rest_err.splitlines():
-            line_str = err_line.strip()
-            if "ERROR" in line_str or "Exception" in line_str or "Traceback" in line_str:
-                print(f"   ⚠️ [MPT Log] {line_str}", file=sys.stderr)
+    open_fds = set(buffers)
+    while open_fds:
+        if time.time() - start_time > timeout_sec:
+            proc.kill()
+            proc.wait()
+            raise TimeoutError(f"Délai d'attente dépassé ({timeout_sec}s) lors de la génération vidéo CLI.")
+        ready, _, _ = select.select(list(open_fds), [], [], 0.5)
+        for fd in ready:
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                open_fds.discard(fd)
+                take_lines(fd, final=True)
+                continue
+            buffers[fd] += chunk
+            take_lines(fd)
+    proc.wait()
 
     if proc.returncode != 0:
         raise RuntimeError(f"Échec de cli.py (code {proc.returncode}). Vérifiez les logs ci-dessus.")
 
-    # Analyse du JSON émis sur stdout par cli.py
     parsed_json: Optional[Dict[str, Any]] = None
     for line in reversed(stdout_lines):
         if line.startswith("{") and line.endswith("}"):
@@ -303,11 +311,9 @@ def run_cli_generation(
     if not os.path.isfile(generated_path) or os.path.getsize(generated_path) == 0:
         raise FileNotFoundError(f"Le fichier produit est introuvable ou vide : {generated_path}")
 
-    # Copie vers ~/Livrables/<expert>/Videos/
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     shutil.copy2(generated_path, dest_path)
 
-    # Nettoyage du dossier temporaire de la tâche pour préserver l'espace disque du conteneur
     if task_id and task_id != "local_cli":
         task_storage_dir = os.path.join(mpt_dir, "storage", "tasks", str(task_id))
         if os.path.isdir(task_storage_dir):
@@ -342,9 +348,9 @@ def main() -> None:
     parser.add_argument("--expert", default=None, help="Nom de l'expert (détecté automatiquement si omis)")
     parser.add_argument("--aspect", choices=["9:16", "16:9", "1:1"], default="9:16", help="Format vidéo")
     parser.add_argument("--voix", default=None, help="Voix TTS (défaut: fr-FR-VivienneMultilingualNeural)")
-    parser.add_argument("--voix-validee", action="store_true", help="Confirme que l'utilisateur a validé la voix (compatibilité skill)")
+    parser.add_argument("--voix-validee", action="store_true", help="Accepté pour les skills qui le passent ; sans effet")
     parser.add_argument("--echantillon", action="store_true", help="Génère uniquement un échantillon vocal (.mp3) pour validation")
-    parser.add_argument("--sortie", default="", help="Chemin du fichier de sortie (.mp4 ou .mp3)")
+    parser.add_argument("--sortie", default="", help="Chemin du fichier de sortie (.mp4 ou .mp3), dans les livrables")
     parser.add_argument("--source", default="pexels", help="Source des médias vidéo (pexels, pixabay, local)")
     parser.add_argument("--materiaux", default="", help="Chemins de vidéos/images locales séparés par virgule (si source=local)")
     parser.add_argument("--materiel", nargs="*", default=[], help="Liste de fichiers locaux pour le montage (alias compatibilité skill)")
@@ -354,9 +360,12 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    expert = remove_accents(args.expert.strip()).capitalize() if args.expert else detect_expert()
-    dest_path = args.sortie or get_default_dest(expert, args.sujet, echantillon=args.echantillon)
-    dest_path = os.path.expanduser(dest_path)
+    try:
+        expert = resolve_expert_folder(args.expert)
+        dest_path = confined_dest(args.sortie or default_dest(expert, args.sujet, echantillon=args.echantillon))
+    except (ValueError, OSError) as e:
+        print(f"❌ {e}", file=sys.stderr)
+        sys.exit(1)
     voice_name = args.voix or os.environ.get("MONEYPRINTER_DEFAULT_VOICE") or "fr-FR-VivienneMultilingualNeural"
     timeout_sec = args.delai if args.delai is not None else args.timeout_attente
 

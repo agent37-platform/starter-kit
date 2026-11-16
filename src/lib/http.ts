@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { Agent37Error } from "@/lib/agent37";
 import { BackofficeError } from "@/lib/backoffice";
 import { TenantError } from "@/lib/tenant-resolver";
-import { MoneyPrinterError } from "@/lib/moneyprinter";
 
 export class ApiError extends Error {
   status: number;
@@ -56,7 +55,7 @@ function agent37Message(status: number): string {
 
 export function handleError(e: unknown) {
   // Written in this app, or by the back office: already a sentence for the member, in French.
-  if (e instanceof ApiError || e instanceof BackofficeError || e instanceof TenantError || e instanceof MoneyPrinterError) {
+  if (e instanceof ApiError || e instanceof BackofficeError || e instanceof TenantError) {
     return apiError(e.message, e.status, e.code);
   }
   if (e instanceof Agent37Error) {
