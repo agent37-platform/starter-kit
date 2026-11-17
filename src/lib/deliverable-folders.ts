@@ -38,7 +38,18 @@ const plain = (s: string) =>
 // Not deliverables: what the member brought, the memory, the expert's working folders and files.
 const NOT_DELIVERABLE_FOLDER = /^(recus|pieces jointes|memoire|memory|__pycache__|cache|caches|node_modules|tmp|temp|venv|apercus?|previews?|vignettes?|thumbnails?|miniatures?)$/;
 const WORKING_FILE = /\.(md|markdown|srt|vtt|py|pyc|js|mjs|cjs|ts|sh|json|jsonl|yaml|yml|toml|log|lock|env|ini|cfg|sqlite|db|tmp|bak)$/;
-const COVER = /\.(png|jpe?g|webp|gif|avif|pdf|mp4|webm|mov)$/i;
+// What a deliverable can show as its cover, best first: a picture, a video's first frame, then a PDF's, a slide's, a page's or a sheet's
+// first view (Leslie, 16/11: « les PDF, les PPT, les Word, pas juste les PNG »). The app draws the last four itself.
+const COVER_RANK: [RegExp, number][] = [
+  [/\.(png|jpe?g|webp|gif|avif)$/i, 6],
+  [/\.(mp4|webm|mov)$/i, 5],
+  [/\.pdf$/i, 4],
+  [/\.pptx$/i, 3],
+  [/\.docx$/i, 2],
+  [/\.(xlsx|xlsm|csv)$/i, 1],
+];
+/** How good a cover this file makes, 0 when it has none to show. */
+export const coverRank = (name: string): number => COVER_RANK.find(([re]) => re.test(name))?.[1] ?? 0;
 
 const parentOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 
@@ -60,8 +71,8 @@ export function deliverableItems(entries: readonly TreeEntry[]): DeliverableItem
       folder,
       files: folder ? 0 : 1,
       modified: e.modified || 0,
-      cover: !folder && COVER.test(e.name) ? e.path : null,
-      coverModified: !folder && COVER.test(e.name) ? e.modified || 0 : 0,
+      cover: !folder && coverRank(e.name) ? e.path : null,
+      coverModified: !folder && coverRank(e.name) ? e.modified || 0 : 0,
     });
   }
   // What lies inside a subject folder, as deep as the tree went: counted, dated, a cover picked.
@@ -75,8 +86,8 @@ export function deliverableItems(entries: readonly TreeEntry[]): DeliverableItem
     if (below.slice(0, -1).some((part) => NOT_DELIVERABLE_FOLDER.test(plain(part)))) continue;
     top.files += 1;
     top.modified = Math.max(top.modified, e.modified || 0);
-    // A picture beats a PDF for the cover: it is what the folder looks like.
-    if (COVER.test(e.name) && (!top.cover || (/\.pdf$/i.test(top.cover) && !/\.pdf$/i.test(e.name)))) {
+    // A picture beats a PDF, a PDF a slide deck, and so on: the first of the best kind stays.
+    if (coverRank(e.name) > (top.cover ? coverRank(top.cover) : 0)) {
       top.cover = e.path;
       top.coverModified = e.modified || 0;
     }

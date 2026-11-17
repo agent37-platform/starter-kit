@@ -206,7 +206,8 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
     <div
       className={cn(
         "@container mx-auto w-full rounded-[22px] border border-line bg-surface shadow-[0_8px_30px_rgb(48_22_103_/_0.06)] transition-[border-color,box-shadow] focus-within:border-brand/30",
-        large ? "max-w-2xl" : "max-w-3xl",
+        // Docked, the bar takes the whole width (Leslie, 16/11); centred, it stays a reading width.
+        large && "max-w-2xl",
         "relative"
       )}
     >

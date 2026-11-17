@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { splitVersions, versionOf } from "./drive-versions.ts";
+import { isArchived, newerVersions, splitVersions, versionOf } from "./drive-versions.ts";
 
 const f = (name: string) => ({ name, type: "file" });
 
@@ -23,4 +23,17 @@ test("formats and documents are kept apart, and a lone version is not folded", (
   const { current, older } = splitVersions(entries);
   assert.deepEqual(current.map((e) => e.name), ["devis_v2.pdf", "devis_v2.html", "offre_v4.pdf"]);
   assert.deepEqual(older.map((e) => e.name), ["devis_v1.pdf"]);
+});
+
+test("Garder une ancienne version : les plus récentes du même document seulement", () => {
+  const entries = [{ name: "post_v1.png" }, { name: "post_v2.png" }, { name: "post_v3.png" }, { name: "devis_v4.pdf" }, { name: "post_v9", type: "directory" }];
+  assert.deepEqual(newerVersions("post_v1.png", entries).map((e) => e.name), ["post_v2.png", "post_v3.png"]);
+  assert.deepEqual(newerVersions("post_v3.png", entries), []);
+  assert.deepEqual(newerVersions("post.png", entries), []);
+});
+
+test("ce qui est dans Archivées", () => {
+  assert.equal(isArchived("/home/drive/Fatima/Offre/Archivées/post_v1.png"), true);
+  assert.equal(isArchived("/home/drive/Fatima/Offre/Archivées"), true);
+  assert.equal(isArchived("/home/drive/Fatima/Offre/post_v1.png"), false);
 });

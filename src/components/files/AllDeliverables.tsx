@@ -37,7 +37,10 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
   const [sort, setSort] = useState<"recent" | "name">("recent");
   const [onlyNew, setOnlyNew] = useState(false);
   const [who, setWho] = useState<string>(ALL);
-  const [mode, setMode] = useState<"list" | "grid">("list");
+  // The gallery first (Leslie, 16/11: « plus en grille médias »), the list one click away.
+  const [mode, setMode] = useState<"list" | "grid">("grid");
+  // Pictures apart from documents, like a phone's gallery; a project holds both and stays in both.
+  const [kind, setKind] = useState<"all" | "media" | "docs">("all");
   const [preview, setPreview] = useState<{ agentId: string; entry: FileEntry } | null>(null);
   // Read once per render of the list: « Nouveau » is the browser's own memory of what was opened.
   const [, setSeenTick] = useState(0);
@@ -54,10 +57,11 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
       (d) =>
         (who === ALL || (who === COMPANY ? !d.expert : d.expert && expertId(d.expert) === who)) &&
         (!onlyNew || isNew(d)) &&
+        (kind === "all" || d.folder || (kind === "media") === isMedia(d.name)) &&
         matchesDriveQuery(d.name, query)
     );
     return sort === "name" ? [...rows].sort((a, b) => a.name.localeCompare(b.name, "fr", { sensitivity: "base", numeric: true })) : rows;
-  }, [all, who, onlyNew, query, sort]);
+  }, [all, who, onlyNew, kind, query, sort]);
 
   function open(d: Deliverable) {
     markSeen(d);
@@ -130,7 +134,8 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* One row of filters, scrolled sideways on a phone rather than stacked. */}
+      <div className="-mx-4 mt-3 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0 [&>*]:shrink-0">
         {(
           [
             [false, "Tous"],
@@ -151,6 +156,26 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
           </button>
         ))}
         <span className="mx-1 h-6 w-px bg-line max-sm:hidden" aria-hidden />
+        <div role="radiogroup" aria-label="Type" className="flex h-10 items-center rounded-full border border-line bg-surface p-1 text-[13px]">
+          {(
+            [
+              ["all", "Tout"],
+              ["media", "Médias"],
+              ["docs", "Documents"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={kind === v}
+              onClick={() => setKind(v)}
+              className={cn("h-full rounded-full px-3 font-semibold", kind === v ? "bg-soft-2 text-ink" : "text-ink-3 hover:text-ink")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -235,30 +260,66 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
             ))}
           </ul>
         ) : (
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-            {shown.map((d) => (
-              <li key={`${d.agentId}:${d.path}`}>
-                <button type="button" onClick={() => open(d)} className="flex w-full flex-col overflow-hidden rounded-card border border-line bg-surface text-left hover:border-brand/40">
-                  <span className="relative block h-36 overflow-hidden bg-soft">
-                    <Cover d={d} />
-                    {isNew(d) && <NewBadge className="absolute left-2.5 top-2.5" />}
-                  </span>
-                  <span className="flex flex-col gap-1 p-3">
-                    <span className="truncate text-sm font-semibold text-ink">{d.name}</span>
-                    <Maker d={d} />
-                    <span className="text-xs text-ink-3">
-                      {count(d)} · {formatMtime(d.modified)}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          // Projects first, as folders with their cover, then the loose files by month (Leslie, 16/11: « le meilleur des deux »).
+          <div className="flex flex-col gap-7">
+            {[
+              ["Projets", shown.filter((d) => d.folder)] as const,
+              // Sorted A to Z, the files stay in one block: months would break the order.
+              ...(sort === "name" ? [["Fichiers", shown.filter((d) => !d.folder)] as const] : byMonth(shown.filter((d) => !d.folder))),
+            ]
+              .filter(([, rows]) => rows.length > 0)
+              .map(([title, rows]) => (
+                <section key={title}>
+                  <h2 className="mb-2.5 flex items-baseline justify-between text-[15px] font-semibold text-ink">
+                    {title}
+                    {title === "Projets" && <span className="text-[13px] font-normal text-ink-3">{rows.length}</span>}
+                  </h2>
+                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] sm:gap-3">
+                    {rows.map((d) => (
+                      <li key={`${d.agentId}:${d.path}`}>
+                        <button type="button" onClick={() => open(d)} className="flex w-full flex-col overflow-hidden rounded-card border border-line bg-surface text-left hover:border-brand/40">
+                          <span className="relative block aspect-[4/3] overflow-hidden bg-soft">
+                            <Cover d={d} />
+                            {isNew(d) && <NewBadge className="absolute left-2.5 top-2.5" />}
+                          </span>
+                          <span className="flex flex-col gap-1 p-3">
+                            <span className="truncate text-sm font-semibold text-ink">{d.name}</span>
+                            {who === ALL && <Maker d={d} />}
+                            <span className="truncate text-xs text-ink-3">
+                              {d.folder ? `${count(d)} · ` : ""}
+                              {formatMtime(d.modified)}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+          </div>
         )}
       </div>
       {preview && <FilePreview agentId={preview.agentId} entry={preview.entry} onClose={() => setPreview(null)} />}
     </div>
   );
+}
+
+const isMedia = (name: string) => docKind(name) === "image" || /\.(mp4|mov|webm|m4v)$/i.test(name);
+
+// « Cette semaine », then one heading per month, newest first.
+function byMonth(rows: Deliverable[]): (readonly [string, Deliverable[]])[] {
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const groups = new Map<string, Deliverable[]>();
+  for (const d of [...rows].sort((a, b) => b.modified - a.modified)) {
+    const at = new Date(d.modified);
+    const key =
+      d.modified >= weekAgo
+        ? "Cette semaine"
+        : at.toLocaleDateString("fr-FR", { month: "long", ...(at.getFullYear() !== new Date().getFullYear() && { year: "numeric" }) });
+    const label = key.charAt(0).toUpperCase() + key.slice(1);
+    groups.set(label, [...(groups.get(label) ?? []), d]);
+  }
+  return [...groups.entries()];
 }
 
 const maker = (d: Deliverable) => d.expert?.displayName ?? "Chat d’entreprise";
@@ -292,7 +353,7 @@ function Cover({ d }: { d: Deliverable }) {
   const [failed, setFailed] = useState(false);
   const icon = (
     <span className="grid size-full place-items-center text-brand-ink">
-      <Folder className="size-9" />
+      {d.folder ? <Folder className="size-9" /> : <FileText className="size-9" />}
     </span>
   );
   if (!d.cover || failed) return icon;

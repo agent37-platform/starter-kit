@@ -5,7 +5,7 @@ import { useHydrated } from "@/components/useHydrated";
 import { useServerReading, type ServerReading } from "@/components/useServerReading";
 import { cached, remember, whenKept } from "@/lib/client-cache";
 import { deliverableItems, type DeliverableItem } from "@/lib/deliverable-folders";
-import { splitVersions } from "@/lib/drive-versions";
+import { isArchived, splitVersions } from "@/lib/drive-versions";
 import { seatFolderOf, type DriveTree } from "@/lib/drive-paths";
 import { driveTree, onDriveChanged, seedDriveTree } from "@/lib/drive-store";
 import { agentTabPath } from "@/lib/expert-tabs";
@@ -41,7 +41,7 @@ function latestOnly(items: DeliverableItem[]): DeliverableItem[] {
   for (const group of byFolder.values()) {
     for (const i of splitVersions(group.map((g) => ({ ...g, type: g.folder ? "directory" : "file", item: g }))).current) kept.add(i.item);
   }
-  return items.filter((i) => kept.has(i));
+  return items.filter((i) => kept.has(i) && !isArchived(i.path));
 }
 
 // The same tree read again (a stream event that changed nothing) is not rebuilt.
