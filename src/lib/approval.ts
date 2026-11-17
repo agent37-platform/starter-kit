@@ -12,6 +12,19 @@ export interface ApprovalRequest {
   expiresAt: number;
   state: ApprovalState;
   choice?: ApprovalChoice;
+  /** Given by the app: the member already said yes in the « Envoyer » window. */
+  auto?: boolean;
+}
+
+// Never given on the member's behalf, whatever the turn: removing, paying, changing access.
+const NEVER_AUTO = /supprim|efface|delete|remove|\brm\b|pay|paie|virement|transf[eé]r|droit|acc[eè]s|password|mot de passe/i;
+
+/**
+ * True when an approval asked during a turn may be given at once: the turn was sent by the « Envoyer » window
+ * (its click is the agreement, Leslie 17/11) and the request is not for something else.
+ */
+export function autoApproves(turnTexts: readonly string[], approvalMessage: string, isDialogSend: (t: string) => boolean): boolean {
+  return turnTexts.some(isDialogSend) && !NEVER_AUTO.test(approvalMessage);
 }
 
 export const APPROVAL_CHOICES: readonly ApprovalChoice[] = ["once", "always", "deny"];

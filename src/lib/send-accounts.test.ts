@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { recipientList, sendAccounts, sendFilesText, sendRoutineText } from "./send-accounts.ts";
+import { isDialogSend, recipientList, sendAccounts, sendFilesText, sendRoutineText } from "./send-accounts.ts";
 import type { IntegrationConnection } from "./types";
 
 const gmail: IntegrationConnection = { id: "c1", status: "ACTIVE", toolkitSlug: "gmail", email: "leslie@exemple.ci" };
@@ -48,4 +48,10 @@ test("consigne : compte, chemins exacts et preuve demandée", () => {
   assert.match(text, /\n- ~\/Livrables\/Awa\/a\.pdf\n- ~\/Livrables\/Awa\/b\.xlsx\n/);
   assert.match(text, /dis-moi à qui et à quelle heure/);
   assert.match(sendRoutineText("each", ["a@b.ci", "c@d.ci"], account, true), /à a@b\.ci et c@d\.ci par e-mail, avec l’outil Gmail/);
+});
+
+test("la consigne de la fenêtre se reconnaît, pas une demande tapée", () => {
+  const [account] = sendAccounts({ ...base, connections: [gmail] });
+  assert.equal(isDialogSend(sendFilesText([{ name: "a.pdf", path: "~/Livrables/a.pdf" }], ["x@y.ci"], account)), true);
+  assert.equal(isDialogSend("Envoie le devis à Moussa"), false);
 });

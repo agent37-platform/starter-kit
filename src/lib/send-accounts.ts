@@ -104,6 +104,10 @@ function joinFr(items: string[]): string {
   return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} et ${items.at(-1)}`;
 }
 
+/** Written only by the « Envoyer » window: the member's click there is their agreement to that sending. */
+export const SEND_SIGNATURE = "Utilise ce compte et aucun autre.";
+export const isDialogSend = (text: string): boolean => /^\s*envoie\s/i.test(text) && text.includes(SEND_SIGNATURE);
+
 /** The instruction for files sent now: who, from which account, the exact files, and a proof back. */
 export function sendFilesText(files: readonly { name: string; path: string }[], to: string[], account: SendAccount): string {
   const what = files.length === 1 ? "ce livrable" : `ces ${files.length} livrables`;
@@ -112,7 +116,7 @@ export function sendFilesText(files: readonly { name: string; path: string }[], 
     `Envoie ${what} à ${joinFr(to)} ${CHANNEL_WORDS[account.channel]}, ${account.how}${attach} :`,
     ...files.map((f) => `- ${f.path}`),
     "",
-    "Utilise ce compte et aucun autre. Une fois envoyé, dis-moi à qui et à quelle heure ; si l’envoi échoue, dis-moi pourquoi.",
+    `${SEND_SIGNATURE} Une fois envoyé, dis-moi à qui et à quelle heure ; si l’envoi échoue, dis-moi pourquoi.`,
   ].join("\n");
 }
 

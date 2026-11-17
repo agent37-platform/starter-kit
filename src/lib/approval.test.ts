@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addApproval, answerOutcome, expireOpen, isApprovalChoice, isOpen, parseApproval, settleApproval } from "./approval.ts";
+import { addApproval, autoApproves, answerOutcome, expireOpen, isApprovalChoice, isOpen, parseApproval, settleApproval } from "./approval.ts";
 
 const NOW = Date.parse("2026-11-08T10:00:00Z");
 
@@ -35,4 +35,13 @@ test("a replayed request is added once; answered and expired states", () => {
 test("the instance's answer: 2xx answered, 409 expired, anything else an error", () => {
   assert.deepEqual([answerOutcome(200), answerOutcome(409), answerOutcome(502)], ["answered", "expired", "error"]);
   assert.deepEqual(["once", "always", "deny", "session", 1].map(isApprovalChoice), [true, true, true, false, false]);
+});
+
+test("accord donné d'office seulement pour un envoi lancé depuis la fenêtre Envoyer", () => {
+  const dialog = (t: string) => t.includes("Utilise ce compte et aucun autre.");
+  const sent = "Envoie ces 2 livrables à a@b.ci par e-mail, avec l’outil Gmail connecté :\n- ~/Livrables/a.pdf\n\nUtilise ce compte et aucun autre.";
+  assert.equal(autoApproves([sent], "Envoyer un e-mail à a@b.ci avec 2 pièces jointes ?", dialog), true);
+  assert.equal(autoApproves(["Envoie-le à Moussa"], "Envoyer un e-mail à Moussa ?", dialog), false);
+  assert.equal(autoApproves([sent], "Supprimer le fichier a.pdf ?", dialog), false);
+  assert.equal(autoApproves([sent], "Effectuer un virement de 50 000 F ?", dialog), false);
 });
