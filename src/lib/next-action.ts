@@ -30,7 +30,7 @@ export function citedPerson(request: string, expertName?: string | null): string
   return found;
 }
 
-/** A request that already sent the file (« Envoie « … » à … »): no offer to send it again. */
+/** A request that already sent the file (« Envoie « … » à … », « Envoie ces 4 livrables à … »): no offer to send it again. */
 export function isSendRequest(text: string): boolean {
-  return /^\s*envoie\s+«/i.test(text);
+  return /^\s*envoie\s+(«|ce\s+livrable|ces\s+\d+\s+livrables)/i.test(text);
 }

@@ -435,6 +435,8 @@ const MessageRow = memo(function MessageRow({
           {offerSend && (
             <NextAction
               id={m.id}
+              agentId={agentId}
+              profile={profile}
               docs={docs}
               expertName={face?.displayName ?? null}
               person={citedPerson(request ?? "", face?.displayName)}

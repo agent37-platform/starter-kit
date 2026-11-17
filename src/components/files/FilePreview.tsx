@@ -184,8 +184,10 @@ export function FilePreview({
               {sending && editor?.name && (
                 <SendDialog
                   mode="file"
+                  agentId={agentId}
+                  profileId={editor.profileId}
                   expertName={editor.name}
-                  fileName={fileLabel(entry)}
+                  files={[{ name: fileLabel(entry), path: normDrivePath(entry.path) }]}
                   onClose={() => setSending(false)}
                   onSend={(text) => {
                     setSending(false);
