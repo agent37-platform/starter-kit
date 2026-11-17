@@ -29,7 +29,7 @@ describe("jeton de partage d'un tableau", () => {
   it("refuse une autre clé, un jeton altéré, tronqué ou étranger", () => {
     const token = sealShare(CLAIMS, KEY)!;
     assert.equal(openShare(token, OTHER), null);
-    const flipped = token.slice(0, -2) + (token.endsWith("A") ? "B" : "A") + token.slice(-1);
+    const flipped = token.slice(0, 15) + (token[15] === "A" ? "B" : "A") + token.slice(16);
     assert.equal(openShare(flipped, KEY), null);
     assert.equal(openShare(token.slice(0, 20), KEY), null);
     assert.equal(openShare("agentId=7p5qy2effr", KEY), null);

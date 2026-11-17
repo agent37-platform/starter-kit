@@ -9,7 +9,7 @@ import type { UnipileAccount, UnipileDraft, UnipileStatus } from "@/lib/unipile"
 import type { TriggersOverview, TriggerWithKey } from "@/lib/triggers";
 import { vaultPath, type VaultDraft, type VaultEntry, type VaultItem, type VaultList, type VaultOverview, type VaultRef, type VaultScope } from "@/lib/vault";
 import { scopePath, type LlmModelChoice, type LlmOverview, type LlmWritten, type SettingScope } from "@/lib/llm";
-import { mailPath, type MailDetail, type MailDraft, type MailInbox, type MailRights, type MailRightsPatch, type MailSummary } from "@/lib/mail";
+import { isExpertKey, isMailAgentId, mailPath, type CreateMailInboxInput, type MailDetail, type MailDraft, type MailInbox, type MailRights, type MailRightsPatch, type MailSummary } from "@/lib/mail";
 import { isPublicId, type MemoryList, type MemoryNote, type MemoryPatch, type OrgAssignmentDraft, type OrgChart, type OrgGrantDraft, type OrgMember, type OrgRole } from "@/lib/memory";
 import { backofficeUrl, resolverToken } from "@/lib/runtime-config";
 import { SIGNALING_METHOD, type CallRecord, type SignalingStep, type VoiceOption } from "@/lib/voice";
@@ -517,9 +517,6 @@ export const backoffice = {
   // The invoice's PDF, as a stream for the route to pipe.
   invoicePdf: (token: string, invoiceId: string) => stream(invoicePath(invoiceId, "/pdf"), token),
 
-  // The experts' e-mail. One inbox per expert for the whole workspace; the back office holds the
-  // provider's key and decides on every call who may read and who may send. A refusal to send is a
-  // 403 whose sentence is shown as it is; 404 everywhere when the feature is off.
   // Voice calls: the back office answers with Aethex's own bodies, which the browser's SDK reads.
   voiceCalls: async (token: string, expert: string | null) =>
     (await call<{ items: CallRecord[] }>(`/app/voice/calls${expert ? `?expert=${encodeURIComponent(expert)}` : ""}`, { token })).items,
@@ -535,7 +532,20 @@ export const backoffice = {
     call<Record<string, unknown>>(`/app/voice/calls/${conversationId}/${step}`, { method: SIGNALING_METHOD[step], token, body }),
   voiceThinkLonger: (token: string, conversationId: string, on: boolean) =>
     call<{ thinkLonger: boolean }>(`/app/voice/calls/${conversationId}/think-longer`, { method: "POST", token, body: { on } }),
-  mailInboxes: async (token: string) => (await call<{ items: MailInbox[] }>("/app/mail/inboxes", { token })).items,
+  // The experts' e-mail: one inbox per instance and per expert; `expert` designates the caller's own
+  // inbox for it. 404 when the feature is off. Ids are checked before they reach a path.
+  mailInboxes: async (token: string, agentId: string) => {
+    if (!isMailAgentId(agentId)) throw new BackofficeError(400, "invalid_input", "Instance introuvable.");
+    return (await call<{ items: MailInbox[] }>(`/app/mail/inboxes?agentId=${encodeURIComponent(agentId)}`, { token })).items;
+  },
+  createMailInbox: (token: string, input: CreateMailInboxInput) => {
+    if (!isExpertKey(input.expert) || !isMailAgentId(input.agentId)) throw new BackofficeError(400, "invalid_input", "Cet expert est introuvable.");
+    return call<MailInbox>("/app/mail/inboxes", { method: "POST", token, body: input, timeoutMs: SETTING_WRITE_TIMEOUT_MS });
+  },
+  deleteMailInbox: (token: string, expert: string, agentId: string) => {
+    if (!isExpertKey(expert) || !isMailAgentId(agentId)) throw new BackofficeError(400, "invalid_input", "Cet expert est introuvable.");
+    return call<{ deleted: boolean }>(`/app/mail/inboxes/${expert}?agentId=${encodeURIComponent(agentId)}`, { method: "DELETE", token, timeoutMs: SETTING_WRITE_TIMEOUT_MS });
+  },
   // Newest first, 25 a page; `page` is the previous answer's `nextPageToken`.
   mailMessages: (token: string, expert: string, page?: string) =>
     call<{ items: MailSummary[]; nextPageToken: string | null }>(`${mailRoute(expert)}${page ? `?page=${encodeURIComponent(page)}` : ""}`, { token }),

@@ -38,7 +38,7 @@ const plain = (s: string) =>
 // Not deliverables: what the member brought, the memory, the expert's working folders and files.
 const NOT_DELIVERABLE_FOLDER = /^(recus|pieces jointes|memoire|memory|__pycache__|cache|caches|node_modules|tmp|temp|venv|apercus?|previews?|vignettes?|thumbnails?|miniatures?)$/;
 const WORKING_FILE = /\.(md|markdown|srt|vtt|py|pyc|js|mjs|cjs|ts|sh|json|jsonl|yaml|yml|toml|log|lock|env|ini|cfg|sqlite|db|tmp|bak)$/;
-const COVER = /\.(png|jpe?g|webp|gif|avif|pdf)$/i;
+const COVER = /\.(png|jpe?g|webp|gif|avif|pdf|mp4|webm|mov)$/i;
 
 const parentOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 

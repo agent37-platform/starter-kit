@@ -15,5 +15,7 @@ export const DOC_TONE: Record<DocKind, string> = {
   word: "bg-[#2E4EC4]",
   powerpoint: "bg-[#B85A12]",
   image: "bg-brand",
+  video: "bg-[#5538EE]",
+  audio: "bg-[#1976D2]",
   other: "bg-ink-3",
 };

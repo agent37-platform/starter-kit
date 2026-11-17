@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { answerRpc, type YeleBackend } from "./yele-mcp.ts";
+import { answerRpc, type YeleBackend } from "./rpc.ts";
 
 const mockBackend = (over: Partial<YeleBackend> = {}): YeleBackend => ({
   analyserActivite: async (p) => `Activité (${p ?? "aujourdhui"}): Fatima et Kouassi actifs, Salif inactif.`,
@@ -10,6 +10,8 @@ const mockBackend = (over: Partial<YeleBackend> = {}): YeleBackend => ({
   statistiquesAnalytique: async (v) => `Stats (${v ?? "synthese"}): 95% succès routines, 18 documents.`,
   consulterCanauxTelegram: async (e) => `Telegram (${e ?? "tous"}): Bot @yelema_bot, Forum Yelema - Icone.`,
   analyserConsommationTokens: async (e) => `Tokens (${e ?? "tous"}): 34M tokens, Djénéba top consommateur.`,
+  consulterRoutines: async (e) => `Routines (${e ?? "tous"}).`,
+  consulterHistoriqueRoutine: async (e) => `Historique (${e ?? "tous"}).`,
   consulterAlertesIncidents: async (e) => `Alertes (${e ?? "tous"}): 0 incident critique, crons 100% sains.`,
   consulterAppelsEtVoix: async (e) => `Voix (${e ?? "tous"}): 12 briefs d'appel prêts.`,
   rechercherDansLaMemoire: async (q, e) => `Recherche '${q}' (${e ?? "tous"}): 3 correspondances.`,
@@ -41,6 +43,8 @@ test("yele-mcp: lists the 12 super-power tools", async () => {
     "statistiques_et_analytique",
     "consulter_canaux_et_telegram",
     "analyser_consommation_tokens_et_couts",
+    "consulter_routines_et_planning",
+    "consulter_historique_routine",
     "consulter_alertes_et_incidents",
     "consulter_appels_et_voix",
     "rechercher_dans_la_memoire",

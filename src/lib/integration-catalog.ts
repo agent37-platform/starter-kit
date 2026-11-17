@@ -14,7 +14,7 @@ export const COMPOSIO_LOGOS_ORIGIN = "https://logos.composio.dev";
 
 export function composioLogoUrl(slug: string) {
   const key = slug.toLowerCase();
-  return LOCAL_LOGOS.has(key) ? `/logos/composio/${key}.svg` : `${COMPOSIO_LOGOS_ORIGIN}/api/${slug}`;
+  return LOCAL_LOGOS.has(key) ? `/logos/composio/${key}.svg` : `${COMPOSIO_LOGOS_ORIGIN}/api/${encodeURIComponent(slug)}`;
 }
 
 /** A logo the app serves itself (no reason to wait for it to scroll into view). */

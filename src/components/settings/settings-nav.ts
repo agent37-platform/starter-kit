@@ -1,4 +1,4 @@
-import { Bell, Building2, CreditCard, Gauge, Mic, Network, Palette, Server, Settings, UserRound, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, Bell, Building2, CreditCard, Gauge, Mic, Network, Palette, Server, Settings, UserRound, Users, type LucideIcon } from "lucide-react";
 
 export interface SettingsEntry {
   href: string;
@@ -21,6 +21,8 @@ export const SETTINGS_GROUPS: { label: string; entries: SettingsEntry[] }[] = [
       { href: "/parametres/voix", label: "Voix", icon: Mic, backoffice: true },
       { href: "/parametres/notifications", label: "Notifications", icon: Bell },
       { href: "/parametres/profil", label: "Profil", icon: UserRound, backoffice: true },
+      // Each member's own instance and nothing else: the route serves its owner only.
+      { href: "/parametres/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
   {

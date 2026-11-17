@@ -12,6 +12,7 @@ import { ActivityProvider } from "@/components/activity/ActivityProvider";
 import { Sidebar } from "@/components/app/Sidebar";
 import { NavProgress } from "@/components/app/NavProgress";
 import { ReadAhead } from "@/components/app/ReadAhead";
+import { AnalyticsReadAhead } from "@/components/settings/analytics/AnalyticsReadAhead";
 import { TopBar } from "@/components/app/TopBar";
 import { DeployStatusProvider, UpdateStrip } from "@/components/app/DeployStatus";
 import { ComputerProvider } from "@/components/experts/ComputerProvider";
@@ -117,6 +118,7 @@ export function AppShell({
           <NavProgress />
         </Suspense>
         <ReadAhead />
+        <AnalyticsReadAhead />
         <DeliverableWatcher />
         <InstanceEventStream />
         <SearchDialog />

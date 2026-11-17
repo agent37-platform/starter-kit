@@ -11,7 +11,7 @@ export const ACCOUNT_STATE_LABELS: Record<AccountState, string> = {
   disabled: "Désactivé",
 };
 
-export function accountState(c: IntegrationConnection): AccountState {
+export function accountState(c: Pick<IntegrationConnection, "status" | "isDisabled">): AccountState {
   const s = (c.status || "").toUpperCase();
   if (c.isDisabled || s === "INACTIVE" || s === "DISABLED") return "disabled";
   if (s === "ACTIVE") return "active";

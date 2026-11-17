@@ -229,6 +229,32 @@ function PreviewBody({ agentId, entry }: { agentId: string; entry: FileEntry }) 
     );
   }
 
+  if (kind === "video") {
+    return (
+      <div className="flex max-h-[70vh] min-h-[40vh] items-center justify-center overflow-hidden rounded-md border bg-black/95 p-2">
+        <video
+          src={inline}
+          controls
+          playsInline
+          className="max-h-[66vh] max-w-full rounded object-contain shadow-sm"
+        >
+          Votre navigateur ne prend pas en charge la lecture directe de vidéos.
+        </video>
+      </div>
+    );
+  }
+
+  if (kind === "audio") {
+    return (
+      <div className="flex min-h-[12rem] flex-col items-center justify-center gap-4 rounded-md border bg-secondary/30 p-6">
+        <p className="text-sm font-medium text-foreground">{entry.name}</p>
+        <audio src={inline} controls className="w-full max-w-md">
+          Votre navigateur ne prend pas en charge la lecture directe de fichiers audio.
+        </audio>
+      </div>
+    );
+  }
+
   if (kind === "pdf") {
     return <iframe src={inline} title={entry.name} className={frame} />;
   }
