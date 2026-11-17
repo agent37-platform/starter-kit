@@ -1,16 +1,17 @@
 "use client";
 
-import { Clock, Zap } from "lucide-react";
+import { Clock, Send, Zap } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export type RoutineKind = "schedule" | "event";
+export type RoutineKind = "schedule" | "send" | "event";
 
 const KINDS: { kind: RoutineKind; label: string; hint: string; icon: typeof Clock }[] = [
   { kind: "schedule", label: "À une heure", hint: "Chaque jour, chaque semaine, ou une seule fois.", icon: Clock },
+  { kind: "send", label: "Envoi automatique", hint: "M’envoyer chaque livrable, le compte rendu après un rendez-vous.", icon: Send },
   { kind: "event", label: "Quand un événement arrive", hint: "Un mail, un message, un rendez-vous, un autre logiciel.", icon: Zap },
 ];
 
-// « Nouvelle routine » : le premier choix, l'heure ou l'événement.
+// « Nouvelle routine » : le premier choix, l'heure, un envoi automatique ou l'événement.
 export function RoutineKindDialog({ expertName, onPick, onClose }: { expertName: string; onPick: (kind: RoutineKind) => void; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>

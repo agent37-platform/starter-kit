@@ -26,6 +26,8 @@ import { cleanReply } from "@/lib/chat-errors";
 import { mediaTags } from "@/lib/media-tags";
 import { LiveWait, StepsList, TurnStatusLine } from "./ChatSteps";
 import { ReplyChoices } from "./ReplyActions";
+import { NextAction } from "./NextAction";
+import { citedPerson, isSendRequest } from "@/lib/next-action";
 import { ApprovalCard } from "./ApprovalCard";
 import type { ApprovalChoice } from "@/lib/approval";
 import { replyParts } from "@/lib/reply-parts";
@@ -267,6 +269,8 @@ export function ChatMessages({
             last={i === messages.length - 1}
             // When the member asked: read for the live reply only (its wait line).
             since={live ? messages.slice(0, i).findLast((x) => x.role === "user")?.at : undefined}
+            // The member's request this reply answers: the last reply's offer to send reads it.
+            request={i === messages.length - 1 ? messages.slice(0, i).findLast((x) => x.role === "user")?.content ?? null : null}
             isStreaming={isStreaming}
             routineThread={routineThread}
             updating={updating}
@@ -293,6 +297,7 @@ const MessageRow = memo(function MessageRow({
   live,
   last,
   since,
+  request = null,
   isStreaming,
   routineThread,
   updating,
@@ -311,6 +316,7 @@ const MessageRow = memo(function MessageRow({
   live: boolean;
   last: boolean;
   since: number | undefined;
+  request?: string | null;
   isStreaming: boolean;
   routineThread: boolean;
   updating: boolean;
@@ -396,6 +402,9 @@ const MessageRow = memo(function MessageRow({
     // Only the conversation's last reply can still be answered in a click; an older question reads as written.
     const finished = !live && m.content ? replyParts(withoutGoogleActions(cleanReply(m.content))) : null;
     const answerable = finished && onReply && !isStreaming && !routineThread && last && finished.choices.length > 0;
+    const docs = !live && m.content ? turnDocs(cleanReply(m.content), listing, [...(m.files ?? []), ...mediaTags(m.content).paths]) : [];
+    // The last reply that delivered a document, not already ending on a question, nor answering a sending.
+    const offerSend = !!onReply && last && !isStreaming && !routineThread && !answerable && docs.length > 0 && !isSendRequest(request ?? "");
 
     return (
       <div className="flex items-start gap-3">
@@ -422,7 +431,16 @@ const MessageRow = memo(function MessageRow({
           {live && !waitShown && m.status && <TurnStatusLine text={m.status.message} />}
           {answerable && <ReplyChoices choices={finished.choices} note={finished.choicesNote} onSend={onReply} />}
           {!live && m.content && <GoogleDocCards docs={googleDocs(cleanReply(m.content))} />}
-          {!live && m.content && <DocumentCards agentId={agentId} docs={turnDocs(cleanReply(m.content), listing, [...(m.files ?? []), ...mediaTags(m.content).paths])} />}
+          {docs.length > 0 && <DocumentCards agentId={agentId} docs={docs} />}
+          {offerSend && (
+            <NextAction
+              id={m.id}
+              docs={docs}
+              expertName={face?.displayName ?? null}
+              person={citedPerson(request ?? "", face?.displayName)}
+              onSend={onReply!}
+            />
+          )}
           {!live && m.content && !(routineThread && isSilentRun(m.content)) && <CopyReply text={cleanReply(m.content)} />}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { isDriveClutter } from "@/lib/drive-order";
+import { ARCHIVE_FOLDER, isArchived } from "@/lib/drive-versions";
 import { deliveryNotices, isMemberUpload, type DeliveryNotice } from "@/lib/drive-paths";
 import { driveTree, onDriveChanged } from "@/lib/drive-store";
 import { agentTabPath } from "@/lib/expert-tabs";
@@ -11,7 +12,7 @@ import { readNotifyPrefs, saveNotifyPrefs } from "@/lib/notify-prefs";
 import { useOwnAgentId } from "@/components/conversations/useAllConversations";
 import { usePoll } from "@/components/usePoll";
 import { usePublicConfig } from "@/components/PublicConfigProvider";
-import { systemNotify } from "./system-notify";
+import { askNotificationPermission, notificationSupport, systemNotify } from "./system-notify";
 
 // A file of the drive (three levels deep) the page has not seen yet is a new deliverable, announced
 // like a reply (toast, system notification when the tab is hidden) unless switched off in Paramètres.
@@ -24,6 +25,32 @@ const MAX_SHOWN = 20;
 // Back on the tab after this long away: one look.
 const RETURN_MS = 2 * 60_000;
 const TOAST_ID = "livrables";
+// The offer to turn on the computer's notifications, made once, with the first deliverable (Leslie, 16/11).
+const INVITED_KEY = "yelema.notify-invited";
+
+function invitedOnce(): boolean {
+  try {
+    if (localStorage.getItem(INVITED_KEY)) return true;
+    localStorage.setItem(INVITED_KEY, "1");
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+// « (2) Unifood » in the tab while it is hidden (Leslie, 16/11: on le voit depuis Gmail), back to the
+// page's own title once the tab shows. Next sets the title on navigation, which only happens when shown.
+const tabCount = { n: 0, title: "" };
+function countInTab(n: number) {
+  if (!tabCount.n) tabCount.title = document.title.replace(/^\(\d+\)\s*/, "");
+  tabCount.n += n;
+  document.title = `(${tabCount.n}) ${tabCount.title}`;
+}
+function clearTabCount() {
+  if (!tabCount.n) return;
+  if (document.title.startsWith(`(${tabCount.n}) `)) document.title = tabCount.title;
+  tabCount.n = 0;
+}
 
 export function DeliverableWatcher() {
   const agentId = useOwnAgentId();
@@ -42,12 +69,15 @@ export function DeliverableWatcher() {
       if (!tree || !tree.complete) return;
       // What the member brought is no deliverable of an Expert: never announced (Leslie, 30/10).
       const files = tree.entries.filter((e) => e.type === "file" && !e.hidden && !isDriveClutter(e) && !isMemberUpload(e.path));
+      // An archived file is seen at its place outside « Archivées »: archived, then « Remettre », it is no
+      // new deliverable. What sits in « Archivées » is never announced.
+      const at = (path: string) => path.replace(`/${ARCHIVE_FOLDER}/`, "/");
       const before = seen.current;
-      seen.current = new Set(files.map((f) => f.path));
+      seen.current = new Set(files.map((f) => at(f.path)));
       if (!before || !readNotifyPrefs().deliverable) return;
       // Never a pile (Leslie, 30/10: « trop de pop-ups »): ONE pop-up for everything delivered while it
       // shows, replaced as more comes, swiped away or closed at once, with « Ne plus afficher ».
-      const fresh = deliveryNotices(files.filter((f) => !before.has(f.path)));
+      const fresh = deliveryNotices(files.filter((f) => !isArchived(f.path) && !before.has(at(f.path))));
       if (!fresh.length) return;
       shown.current = [...shown.current.filter((n) => !fresh.some((f) => f.id === n.id)), ...fresh].slice(-MAX_SHOWN);
       const all = shown.current;
@@ -57,7 +87,20 @@ export function DeliverableWatcher() {
       const text = all.map((n) => `${n.expert ? `${n.expert} : ` : ""}${n.docs.join(", ")}`).join("\n");
       // Several deliveries: one line per Expert, its name in bold, three at most (Leslie, 30/10 : « ça
       // doit rester clair, lisible et joli »).
-      const description = one ? (
+      // Once, with a deliverable, while the browser may still ask: « Être prévenu même sur un autre onglet ? ».
+      const invite = notificationSupport() === "default" && !invitedOnce() ? (
+        <span className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-tint px-3 py-2 text-[13px] text-ink">
+          <span className="font-semibold">Être prévenu même sur un autre onglet ?</span>
+          <button
+            type="button"
+            onClick={() => void askNotificationPermission()}
+            className="h-8 rounded-full bg-brand px-3 text-[12.5px] font-semibold text-white hover:bg-brand/90"
+          >
+            Activer
+          </button>
+        </span>
+      ) : null;
+      const list = one ? (
         one.description
       ) : (
         <ul className="mt-1 space-y-1">
@@ -69,6 +112,14 @@ export function DeliverableWatcher() {
           ))}
           {all.length > 3 && <li className="text-ink-3">et {all.length - 3} autres Experts</li>}
         </ul>
+      );
+      const description = invite ? (
+        <>
+          {list}
+          {invite}
+        </>
+      ) : (
+        list
       );
       const open = () =>
         router.push(one ? `${agentTabPath(agentId, "files")}?dossier=${encodeURIComponent(one.folder)}` : "/livrables");
@@ -92,7 +143,10 @@ export function DeliverableWatcher() {
         onDismiss: reset,
         onAutoClose: reset,
       });
-      if (document.hidden) systemNotify(title, text, TOAST_ID, open);
+      if (document.hidden) {
+        countInTab(fresh.reduce((n, d) => n + d.docs.length, 0));
+        systemNotify(title, text, TOAST_ID, open);
+      }
     },
     [agentId, router]
   );
@@ -106,21 +160,17 @@ export function DeliverableWatcher() {
 
   useEffect(() => {
     if (!agentId) return;
-    // Heard while hidden: looked at once the tab shows again. The store already forgot its copy.
-    let pending = false;
-    const off = onDriveChanged(agentId, () => {
-      if (document.hidden) pending = true;
-      else void check(60_000);
-    });
+    // Read as soon as the drive changes, also while the tab is hidden: that is when the count in the tab and
+    // the computer's notification are of use (Leslie, 16/11). The store already forgot its copy.
+    const off = onDriveChanged(agentId, () => void check(60_000));
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
         hiddenAt.current = Date.now();
         return;
       }
+      clearTabCount();
       // With the stream, what happened while hidden comes back as events (replayed, or `instance.changed`).
-      if (pending) void check(60_000);
-      else if (!eventStream && hiddenAt.current !== null && Date.now() - hiddenAt.current >= RETURN_MS) void check(0);
-      pending = false;
+      if (!eventStream && hiddenAt.current !== null && Date.now() - hiddenAt.current >= RETURN_MS) void check(0);
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {

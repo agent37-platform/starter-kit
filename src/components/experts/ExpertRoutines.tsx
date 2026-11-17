@@ -9,18 +9,20 @@ import type { Routine } from "@/lib/routines";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { ExpertGoals } from "./ExpertGoals";
 import { ExpertTriggers } from "./ExpertTriggers";
 import { RoutineDialog, type RoutineExpert } from "./RoutineDialog";
 import { RoutineHistoryDialog } from "./RoutineHistoryDialog";
 import { RoutineKindDialog } from "./RoutineKindDialog";
 import { RoutinesList } from "./RoutinesList";
+import { SendDialog } from "./SendDialog";
+import { useRouter } from "next/navigation";
+import { agentTabPath } from "@/lib/expert-tabs";
 
-// One screen, three tabs: what runs at a time, what an event sets off, the objectives the expert follows.
+// One screen, two tabs: what runs at a time, what an event sets off. Objectives are gone (Leslie, 16/11:
+// nothing the back office does not serve yet); an automatic sending is written to the expert in its chat.
 const VIEWS = [
   { id: "schedule", label: "À une heure" },
   { id: "event", label: "Quand un événement arrive" },
-  { id: "goals", label: "Objectifs" },
 ] as const;
 type View = (typeof VIEWS)[number]["id"];
 
@@ -36,6 +38,8 @@ export function ExpertRoutines({ agentId, expert, active: shown = true }: { agen
   const [view, setView] = useState<View>("schedule");
   const [choosing, setChoosing] = useState(false);
   const [newTrigger, setNewTrigger] = useState<number | null>(null);
+  const [sendingRoutine, setSendingRoutine] = useState(false);
+  const router = useRouter();
 
   const base = `/api/agents/${agentId}/routines`;
 
@@ -164,8 +168,6 @@ export function ExpertRoutines({ agentId, expert, active: shown = true }: { agen
 
       {view === "event" ? (
         <ExpertTriggers agentId={agentId} expert={{ profileId: expertKey, name: expert.name }} createKey={newTrigger} />
-      ) : view === "goals" ? (
-        <ExpertGoals agentId={agentId} expert={{ profileId: expertKey, name: expert.name }} />
       ) : !routines ? (
         <div className={cn(panel, "flex flex-col items-center gap-3 py-12 text-center text-sm text-ink-3")}>
           {loadError ? (
@@ -195,13 +197,27 @@ export function ExpertRoutines({ agentId, expert, active: shown = true }: { agen
           onClose={() => setChoosing(false)}
           onPick={(kind) => {
             setChoosing(false);
-            if (kind === "schedule") {
+            if (kind === "send") {
+              setSendingRoutine(true);
+            } else if (kind === "schedule") {
               setView("schedule");
               setEditing({ routine: null, key: Date.now() });
             } else {
               setView("event");
               setNewTrigger(Date.now());
             }
+          }}
+        />
+      )}
+
+      {sendingRoutine && (
+        <SendDialog
+          mode="routine"
+          expertName={expert.name}
+          onClose={() => setSendingRoutine(false)}
+          onSend={(text) => {
+            setSendingRoutine(false);
+            router.push(`${agentTabPath(agentId, "chat", expertKey)}?dire=${encodeURIComponent(text)}`);
           }}
         />
       )}

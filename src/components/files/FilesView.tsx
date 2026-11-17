@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import {
+  Archive,
+  ArchiveRestore,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -28,16 +31,22 @@ import { cn } from "@/lib/utils";
 import { fileLabel } from "@/lib/drive-paths";
 import { DropOverlay } from "@/components/DropOverlay";
 import { HiddenFileInput } from "@/components/HiddenFileInput";
-import { FilePreview } from "./FilePreview";
+import { FilePreview, ReducedImage } from "./FilePreview";
+import { Preview as DocPreview } from "@/components/chat/DocumentCards";
+import { docKind } from "@/lib/drive-links";
+import { driveTree } from "@/lib/drive-store";
+import { coverRank, deliverableItems } from "@/lib/deliverable-folders";
 import { GoogleGlyph } from "@/components/chat/GoogleDocs";
 import { shortcutKind } from "@/lib/google-docs";
 import { MoveDialog } from "./MoveDialog";
 import { VariantGroups } from "./VariantGroups";
 import { groupVariants, isSourceFolder } from "@/lib/visual-variants";
-import { splitVersions } from "@/lib/drive-versions";
+import { ARCHIVE_FOLDER, isArchived, newerVersions, splitVersions, versionOf } from "@/lib/drive-versions";
+import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 import { useFileBrowser } from "./useFileBrowser";
 import { BackButton } from "@/components/ui/back-button";
-import { archiveUrl, breadcrumbs, contentUrl, formatBytes, formatMtime, isDir, type FileEntry } from "./types";
+import { archiveUrl, breadcrumbs, contentUrl, formatBytes, formatMtime, isDir, thumbUrl, type FileEntry } from "./types";
 
 type ViewMode = "list" | "grid";
 
@@ -56,12 +65,16 @@ export function FilesView({
   openPath,
   openFile,
   inbox,
+  home,
 }: {
   agentId: string;
   initialPath?: string;
   openPath?: string | null;
   openFile?: string | null;
   inbox?: string;
+  /** The Expert's own folder: its Livrables stop there, nothing above it (Leslie, 16/11: « on est censé être dans les
+   * livrables d'un expert, pourquoi est-ce qu'on a tous les experts »). The general page lists everyone's. */
+  home?: string;
 }) {
   const fb = useFileBrowser(agentId, initialPath, inbox);
   // A folder named in the address (« ?dossier= », from a path cited in the chat) opens here.
@@ -85,7 +98,8 @@ export function FilesView({
   const [moving, setMoving] = useState<FileEntry | null>(null);
   // The folder a dragged file of the list is over (Leslie, 30/10: déplacer un livrable dans un dossier).
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // The gallery first, each deliverable seen as it is; the list stays one click away (Leslie, 16/11).
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   // An empty folder (the first day): one sentence and two quiet buttons; the view, sort, search and
@@ -221,20 +235,86 @@ export function FilesView({
     };
   }
 
-  const crumbs = fb.path ? breadcrumbs(fb.path) : [];
+  const crumbs = useMemo(() => {
+    const all = fb.path ? breadcrumbs(fb.path) : [];
+    if (!home || !fb.path || !(fb.path === home || fb.path.startsWith(`${home}/`))) return all;
+    return all.filter((c) => c.path.length >= home.length).map((c) => (c.path === home ? { ...c, label: "Livrables" } : c));
+  }, [fb.path, home]);
+  // A project folder shows its cover, picked like on the general page: its newest picture or PDF.
+  const [covers, setCovers] = useState<Map<string, { path: string; modified: number }>>(new Map());
+  useEffect(() => {
+    let live = true;
+    driveTree(agentId)
+      .then((tree) => {
+        if (!live) return;
+        const m = new Map<string, { path: string; modified: number }>();
+        for (const it of deliverableItems(tree.entries)) if (it.folder && it.cover) m.set(it.path, { path: it.cover, modified: it.coverModified });
+        setCovers(m);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [agentId, fb.entries]);
   // A folder of visuals in variants shows by visual first (« Tous les fichiers » for the plain list),
   // and the editable « source » folder always comes last (Myriel, Leslie 30/10).
   const variants = useMemo(() => groupVariants(fb.visibleEntries.filter((e) => !isDir(e))), [fb.visibleEntries]);
   const [byVisual, setByVisual] = useState(true);
   // A document's older versions (« _v17 » beside « _v18 ») fold at the bottom (Leslie, 02/11): kept, never in the way.
-  const { listEntries, olderVersions } = useMemo(() => {
-    const rest = variants && byVisual ? fb.visibleEntries.filter((e) => !variants.grouped.has(e)) : fb.visibleEntries;
+  // « Archivées » (Leslie, 16/11) is no folder of the list: one line under the versions opens it.
+  const isArchiveDir = (e: FileEntry) => isDir(e) && e.name === ARCHIVE_FOLDER;
+  const { listEntries, olderVersions, kept, archiveDir } = useMemo(() => {
+    const all = fb.visibleEntries.filter((e) => !isArchiveDir(e));
+    const rest = variants && byVisual ? all.filter((e) => !variants.grouped.has(e)) : all;
     const { current, older } = splitVersions(rest);
+    // The version that goes out: the latest of a document that has older ones, marked « Gardée ».
+    const olderKeys = new Set(older.map((e) => versionOf(e.name)?.key));
     return {
       listEntries: [...current.filter((e) => !(isDir(e) && isSourceFolder(e.name))), ...current.filter((e) => isDir(e) && isSourceFolder(e.name))],
       olderVersions: older,
+      kept: new Set(current.filter((e) => !isDir(e) && olderKeys.has(versionOf(e.name)?.key)).map((e) => e.path)),
+      archiveDir: fb.visibleEntries.find(isArchiveDir) ?? null,
     };
   }, [fb.visibleEntries, variants, byVisual]);
+  const inArchive = !!fb.path && isArchived(fb.path);
+
+  // Archiving moves the files into « Archivées » beside them, made if needed; « Remettre » moves them back.
+  // Nothing is deleted. One message for the lot, with « Annuler ».
+  async function moveAll(moves: { from: string; to: string }[], mkdir: string | null): Promise<boolean> {
+    try {
+      if (mkdir) await apiFetch(`/api/agents/${agentId}/files/dir?path=${encodeURIComponent(mkdir)}`, { method: "POST" });
+      for (const m of moves) {
+        await apiFetch(`/api/agents/${agentId}/files`, { method: "PATCH", body: JSON.stringify(m) }, "Le fichier n’a pas pu être déplacé.");
+      }
+      return true;
+    } catch (e) {
+      toast.error((e as Error).message || "Le fichier n’a pas pu être déplacé.");
+      return false;
+    } finally {
+      await fb.refresh();
+    }
+  }
+  const parentOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
+  async function archive(entries: FileEntry[], done: string) {
+    if (!entries.length) return;
+    const dir = `${parentOf(entries[0].path)}/${ARCHIVE_FOLDER}`;
+    const moves = entries.map((e) => ({ from: e.path, to: `${dir}/${e.name}` }));
+    resetSelection();
+    if (!(await moveAll(moves, dir))) return;
+    toast.success(done, {
+      action: { label: "Annuler", onClick: () => void moveAll(moves.map((m) => ({ from: m.to, to: m.from })), null) },
+    });
+  }
+  async function restore(entry: FileEntry) {
+    const to = `${parentOf(parentOf(entry.path))}/${entry.name}`;
+    resetSelection();
+    if (await moveAll([{ from: entry.path, to }], null)) toast.success(`${fileLabel(entry)} remis avec les autres versions`);
+  }
+  // « Garder » an older version: the newer ones go to « Archivées », so this one is again the latest, the one sent.
+  function keep(entry: FileEntry) {
+    const n = versionOf(entry.name)?.n;
+    void archive(newerVersions(entry.name, [...listEntries, ...olderVersions]), `Version ${n} gardée. Les plus récentes sont dans Archivées.`);
+  }
   const selectedEntry = useMemo(
     () => (selectedPath == null ? null : fb.visibleEntries.find((entry) => entry.path === selectedPath) ?? null),
     [fb.visibleEntries, selectedPath]
@@ -474,7 +554,13 @@ export function FilesView({
                                 skipBlurRef={skipBlurRef}
                               />
                             ) : (
-                              <EntryName entry={entry} selected={selected} />
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="min-w-0 flex-1">
+                                  <EntryName entry={entry} selected={selected} />
+                                </span>
+                                {kept.has(entry.path) && <KeptPill />}
+                                {inArchive && !isDir(entry) && <RestoreButton onClick={() => void restore(entry)} />}
+                              </div>
                             )}
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
@@ -490,7 +576,7 @@ export function FilesView({
                 </table>
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] sm:gap-3">
                 {listEntries.map((entry) => {
                   const editing = editingPath === entry.path;
                   const selected = selectedEntry?.path === entry.path;
@@ -499,13 +585,14 @@ export function FilesView({
                       key={entry.path}
                       aria-selected={selected}
                       className={cn(
-                        "group flex min-h-44 cursor-default select-none flex-col rounded-lg border bg-card p-3 outline-none transition-colors hover:border-primary/35 hover:bg-secondary/25 focus-visible:ring-2 focus-visible:ring-ring",
+                        "group flex cursor-default select-none flex-col overflow-hidden rounded-lg border bg-card outline-none transition-colors hover:border-primary/35 hover:bg-secondary/25 focus-visible:ring-2 focus-visible:ring-ring",
                         selected && "border-primary/35 bg-primary/10 hover:border-primary/35 hover:bg-primary/10",
                         dropTarget === entry.path && "border-primary bg-primary/15"
                       )}
                       {...entryHandlers(entry)}
                     >
-                      <div className="min-w-0 flex-1">
+                      <EntryCover agentId={agentId} entry={entry} cover={covers.get(entry.path)} />
+                      <div className="min-w-0 flex-1 px-3 pt-2.5">
                         {editing ? (
                           <RenameInput
                             entry={entry}
@@ -518,10 +605,11 @@ export function FilesView({
                         ) : (
                           <EntryName entry={entry} layout="grid" selected={selected} />
                         )}
+                        {kept.has(entry.path) && <KeptPill className="mt-1.5" />}
+                        {inArchive && !isDir(entry) && <RestoreButton className="mt-1.5" onClick={() => void restore(entry)} />}
                       </div>
-                      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                        <div className="truncate">{formatMtime(entry.modified) || "Date inconnue"}</div>
-                        <div>{isDir(entry) ? "Dossier" : formatBytes(entry.size) || "Taille inconnue"}</div>
+                      <div className="truncate px-3 pb-3 pt-1 text-xs text-muted-foreground">
+                        {formatMtime(entry.modified) || "Date inconnue"}
                       </div>
                     </div>
                   );
@@ -548,11 +636,48 @@ export function FilesView({
                         <EntryName entry={entry} selected={selectedEntry?.path === entry.path} />
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground max-sm:hidden">{formatBytes(entry.size)}</span>
-                      <span className="w-44 shrink-0 text-right text-xs text-muted-foreground max-sm:w-auto">{formatMtime(entry.modified)}</span>
+                      <span className="w-44 shrink-0 text-right text-xs text-muted-foreground max-sm:hidden">{formatMtime(entry.modified)}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          keep(entry);
+                        }}
+                        className="inline-flex h-9 shrink-0 items-center rounded-full border bg-background px-3.5 text-[13px] font-semibold hover:bg-secondary"
+                      >
+                        Garder
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Archiver ${fileLabel(entry)}`}
+                        title="Archiver"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void archive([entry], `${fileLabel(entry)} archivé. Rien n’est supprimé.`);
+                        }}
+                        className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      >
+                        <Archive className="size-4" />
+                      </button>
                     </li>
                   ))}
                 </ul>
               </details>
+            )}
+
+            {archiveDir && (
+              <button
+                type="button"
+                onClick={() => navigate(archiveDir.path)}
+                className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed bg-secondary/40 px-4 text-left text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                <Archive className="size-4" />
+                <span className="flex-1">Archivées</span>
+                <ChevronRight className="size-4" />
+              </button>
+            )}
+            {inArchive && listEntries.length > 0 && (
+              <p className="mt-3 px-1 text-[13px] text-muted-foreground">Rien n’est supprimé ici. L’Expert ne propose plus ces versions.</p>
             )}
 
             {fb.truncated && (
@@ -721,15 +846,15 @@ function EntryName({
       className={cn(
         "min-w-0 text-left",
         layout === "grid"
-          ? "flex w-full flex-col items-start gap-3"
+          ? "flex w-full flex-col items-start"
           : "grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3"
       )}
     >
-      <EntryGlyph entry={entry} large={layout === "grid"} selected={selected} />
+      {layout !== "grid" && <EntryGlyph entry={entry} selected={selected} />}
       <span
         className={cn(
           "min-w-0 truncate",
-          layout === "grid" ? "w-full text-sm" : "text-sm",
+          layout === "grid" ? "w-full text-sm font-semibold" : "text-sm",
           dir ? "font-medium text-foreground" : "text-foreground",
           entry.hidden && "text-muted-foreground"
         )}
@@ -841,3 +966,66 @@ function EmptyFolder({
   );
 }
 
+
+// What a card shows above its name: the deliverable itself (a picture reduced on the server, a PDF's first page),
+// a slide, a page or a sheet drawn by the app, a project's cover, else its kind in large. Same covers as the general page.
+function EntryCover({ agentId, entry, cover }: { agentId: string; entry: FileEntry; cover?: { path: string; modified: number } }) {
+  const [failed, setFailed] = useState(false);
+  const target = isDir(entry) ? cover ?? null : coverRank(entry.name) ? { path: entry.path, modified: entry.modified ?? 0 } : null;
+  const name = target?.path.split("/").pop() ?? "";
+  const kind = target ? docKind(name) : null;
+  return (
+    <span className="relative block aspect-[4/3] w-full overflow-hidden bg-secondary/60">
+      {target && !failed ? (
+        kind === "image" ? (
+          <ReducedImage
+            thumb={thumbUrl(agentId, target.path, 480, target.modified)}
+            original={thumbUrl(agentId, target.path, 480)}
+            alt=""
+            className="size-full object-cover"
+            onFail={() => setFailed(true)}
+          />
+        ) : (
+          <span className="pointer-events-none block size-full">
+            <DocPreview agentId={agentId} doc={{ name, path: target.path, size: null, modified: target.modified, kind: kind! }} />
+          </span>
+        )
+      ) : (
+        <span className="grid size-full place-items-center">
+          <EntryGlyph entry={entry} large />
+        </span>
+      )}
+      {isDir(entry) && target && !failed && (
+        <span className="absolute left-2 top-2 grid size-7 place-items-center rounded-md bg-background/90 text-primary shadow-sm">
+          <Folder className="size-4" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// The version that goes out, beside the latest of a document with older versions (Leslie, 16/11).
+function KeptPill({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11.5px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300", className)}>
+      <Check className="size-3" />
+      Gardée
+    </span>
+  );
+}
+
+function RestoreButton({ onClick, className }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={cn("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border bg-background px-3 text-[12.5px] font-semibold hover:bg-secondary", className)}
+    >
+      <ArchiveRestore className="size-3.5" />
+      Remettre
+    </button>
+  );
+}

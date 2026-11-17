@@ -16,5 +16,5 @@ export function FilesTab({ agentId, initialPath }: { agentId: string; initialPat
   const openFile = params.get("fichier");
   // What the member imports goes to « Reçus » in the Expert's folder, apart from what the Expert made.
   const inbox = `${initialPath ?? DRIVE_ROOT}/Reçus`;
-  return <FilesView agentId={agentId} initialPath={openPath ?? initialPath} openPath={openPath} openFile={openFile} inbox={inbox} />;
+  return <FilesView agentId={agentId} initialPath={openPath ?? initialPath} openPath={openPath} openFile={openFile} inbox={inbox} home={initialPath} />;
 }

@@ -41,3 +41,24 @@ export function splitVersions<T extends { name: string; type?: string }>(entries
   older.sort((a, b) => a.key.localeCompare(b.key, "fr") || b.n - a.n);
   return { current, older: older.map((o) => o.entry) };
 }
+
+// « Archiver » an old version (Leslie, 16/11: archiver n'est pas supprimer): the file moves into an
+// « Archivées » folder beside it. It stays there, opened and downloaded as any file, and comes back with
+// « Remettre ». What is archived never shows as a deliverable, a new one or a version.
+export const ARCHIVE_FOLDER = "Archivées";
+
+/** True for the « Archivées » folder itself and everything in it, at any depth. */
+export function isArchived(path: string): boolean {
+  return path.split("/").includes(ARCHIVE_FOLDER);
+}
+
+/** The versions of `name`'s document among `entries` that are newer than it (« Garder » archives them). */
+export function newerVersions<T extends { name: string; type?: string }>(name: string, entries: readonly T[]): T[] {
+  const v = versionOf(name);
+  if (!v) return [];
+  return entries.filter((e) => {
+    if (e.type === "directory") return false;
+    const o = versionOf(e.name);
+    return !!o && o.key === v.key && o.n > v.n;
+  });
+}
