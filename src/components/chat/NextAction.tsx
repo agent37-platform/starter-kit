@@ -66,10 +66,10 @@ export function NextAction({
               <Send className="size-4" />À {first}, par e-mail
             </button>
             <div className="flex gap-2">
-              <button type="button" onClick={() => send("moi-même", "mail")} className={cn(button, "flex-1 border border-line bg-surface text-ink hover:bg-soft")}>
+              <button type="button" onClick={() => send("moi-même", "mail")} className={cn(button, "shrink-0 whitespace-nowrap border border-line bg-surface text-ink hover:bg-soft")}>
                 <Mail className="size-4" />À moi
               </button>
-              <button type="button" onClick={() => setOther(true)} className={cn(button, "flex-[1.6] whitespace-nowrap border border-line bg-surface px-3 text-ink hover:bg-soft")}>
+              <button type="button" onClick={() => setOther(true)} className={cn(button, "min-w-0 flex-1 whitespace-nowrap border border-line bg-surface px-3 text-ink hover:bg-soft")}>
                 <Users className="size-4" />À quelqu’un d’autre
               </button>
             </div>
