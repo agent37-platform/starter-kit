@@ -65,7 +65,8 @@ for d in sorted(glob.glob(f"{SRC}/*/skills/*/8-commandes")):
 with open(OUT, "w") as o:
     o.write("// Généré par scripts/gen-expert-commands.py depuis le paquet des Experts (dossier 8-commandes). Ne pas modifier à la main.\n")
     o.write("import type { ExpertCommand } from \"./expert-commands\";\n\n")
-    o.write("export const COMMAND_DEFS: Record<string, ExpertCommand> = " + json.dumps(defs, ensure_ascii=False, indent=1) + ";\n\n")
+    lines = [f'  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}' for k, v in defs.items()]
+    o.write("export const COMMAND_DEFS: Record<string, ExpertCommand> = {\n" + ",\n".join(lines) + "\n};\n\n")
     o.write("export const EXPERT_COMMANDS: Record<string, string[]> = " + json.dumps(experts, ensure_ascii=False) + ";\n")
 print(len(experts), "experts", len(defs), "définitions")
 for k, v in defs.items():

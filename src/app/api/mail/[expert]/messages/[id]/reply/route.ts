@@ -1,6 +1,6 @@
 import { backoffice } from "@/lib/backoffice";
-import { handleError, json, readJson } from "@/lib/http";
-import type { MailDraft } from "@/lib/mail";
+import { ApiError, handleError, json, readJson } from "@/lib/http";
+import { parseMailReply } from "@/lib/mail";
 import { mailToken, noStore } from "../../../../_session";
 
 export const maxDuration = 120;
@@ -9,8 +9,9 @@ export const maxDuration = 120;
 export async function POST(request: Request, { params }: { params: Promise<{ expert: string; id: string }> }) {
   try {
     const { expert, id } = await params;
-    const { text, attachments } = await readJson<Pick<MailDraft, "text" | "attachments">>(request);
-    return noStore(json(await backoffice.mailReply(await mailToken(), expert, id, { text, attachments })));
+    const reply = parseMailReply(await readJson<unknown>(request));
+    if (!reply) throw new ApiError(400, "invalid_request", "Cette réponse est incomplète ou invalide.");
+    return noStore(json(await backoffice.mailReply(await mailToken(), expert, id, reply)));
   } catch (e) {
     return handleError(e);
   }

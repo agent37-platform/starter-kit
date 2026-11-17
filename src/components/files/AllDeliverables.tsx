@@ -11,7 +11,7 @@ import { useOwnAgentId } from "@/components/conversations/useAllConversations";
 import { Preview as DocPreview } from "@/components/chat/DocumentCards";
 import { ReducedImage } from "@/components/files/FilePreview";
 import { FilePreview } from "@/components/files/FilePreview";
-import { formatMtime, thumbUrl, type FileEntry } from "@/components/files/types";
+import { contentUrl, formatMtime, thumbUrl, type FileEntry } from "@/components/files/types";
 import { isNew, markSeen, useAllDeliverables, type Deliverable } from "@/components/files/useAllDeliverables";
 import type { DriveTree } from "@/lib/drive-paths";
 import type { ServerReading } from "@/components/useServerReading";
@@ -361,6 +361,15 @@ function Cover({ d }: { d: Deliverable }) {
   const kind = docKind(name);
   if (kind === "image")
     return <ReducedImage thumb={thumbUrl(d.agentId, d.cover, 480, d.coverModified)} original={thumbUrl(d.agentId, d.cover, 480)} alt="" className="size-full object-cover" onFail={() => setFailed(true)} />;
+  if (kind === "video")
+    return (
+      <video
+        src={contentUrl(d.agentId, d.cover, "inline")}
+        className="size-full object-cover"
+        muted
+        preload="metadata"
+      />
+    );
   return (
     <span className="pointer-events-none block size-full">
       <DocPreview agentId={d.agentId} doc={{ name, path: d.cover, size: null, modified: d.coverModified, kind }} />

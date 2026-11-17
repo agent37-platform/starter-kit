@@ -38,10 +38,11 @@ const plain = (s: string) =>
 // Not deliverables: what the member brought, the memory, the expert's working folders and files.
 const NOT_DELIVERABLE_FOLDER = /^(recus|pieces jointes|memoire|memory|__pycache__|cache|caches|node_modules|tmp|temp|venv|apercus?|previews?|vignettes?|thumbnails?|miniatures?)$/;
 const WORKING_FILE = /\.(md|markdown|srt|vtt|py|pyc|js|mjs|cjs|ts|sh|json|jsonl|yaml|yml|toml|log|lock|env|ini|cfg|sqlite|db|tmp|bak)$/;
-// What a deliverable can show as its cover, best first: a picture, then a PDF's, a slide's, a page's or a sheet's
+// What a deliverable can show as its cover, best first: a picture, a video's first frame, then a PDF's, a slide's, a page's or a sheet's
 // first view (Leslie, 16/11: « les PDF, les PPT, les Word, pas juste les PNG »). The app draws the last four itself.
 const COVER_RANK: [RegExp, number][] = [
-  [/\.(png|jpe?g|webp|gif|avif)$/i, 5],
+  [/\.(png|jpe?g|webp|gif|avif)$/i, 6],
+  [/\.(mp4|webm|mov)$/i, 5],
   [/\.pdf$/i, 4],
   [/\.pptx$/i, 3],
   [/\.docx$/i, 2],

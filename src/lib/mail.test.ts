@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bareAddress, isSent, mailPath, parseRecipients, sandboxedMail } from "./mail.ts";
+import {
+  bareAddress,
+  inboxOf,
+  isSent,
+  mailPath,
+  parseCreateMailInboxInput,
+  parseMailTarget,
+  mailTargetQuery,
+  parseMailDraft,
+  parseMailReply,
+  parseRecipients,
+  sanitizeInboxDisplayName,
+  sandboxedMail,
+  userInitials,
+  type MailInbox,
+} from "./mail.ts";
 
 test("a back-office path is only built from plain segments", () => {
   assert.equal(mailPath("djeneba"), "/app/mail/inboxes/djeneba/messages");
@@ -43,4 +58,70 @@ test("a received e-mail is wrapped in a document that fetches nothing but images
   // The markup is passed through untouched: it is the iframe's empty sandbox that keeps it inert.
   assert.match(doc, /<script>alert\(1\)<\/script>/);
   assert.doesNotMatch(doc, /script-src|connect-src|form-action/);
+});
+
+test("create-inbox payload: expert key and instance required, display name sanitized", () => {
+  assert.deepEqual(parseCreateMailInboxInput({ expert: "koffi", agentId: "inst-1", displayName: "Amina <Koffi>!" }), {
+    expert: "koffi",
+    agentId: "inst-1",
+    displayName: "Amina Koffi",
+  });
+  assert.deepEqual(parseCreateMailInboxInput({ expert: "koffi", agentId: "inst-1", displayName: "   " }), { expert: "koffi", agentId: "inst-1" });
+  assert.equal(parseCreateMailInboxInput({ expert: "koffi" }), null);
+  assert.equal(parseCreateMailInboxInput({ expert: "koffi", agentId: "../bad" }), null);
+  assert.equal(parseCreateMailInboxInput({ expert: "../evil", agentId: "inst-1" }), null);
+  assert.equal(parseCreateMailInboxInput({ expert: "Koffi", agentId: "inst-1" }), null);
+  assert.equal(parseCreateMailInboxInput(null), null);
+  assert.equal(parseCreateMailInboxInput([]), null);
+  assert.equal(sanitizeInboxDisplayName("a".repeat(80))?.length, 60);
+});
+
+test("inbox target: the instance or a member by e-mail, never both, never malformed", () => {
+  assert.deepEqual(parseCreateMailInboxInput({ expert: "koffi", member: " Awa@Acme.CI " }), { expert: "koffi", member: "awa@acme.ci" });
+  assert.equal(parseCreateMailInboxInput({ expert: "koffi", agentId: "inst-1", member: "awa@acme.ci" }), null);
+  assert.equal(parseCreateMailInboxInput({ expert: "koffi", member: "Awa <awa@acme.ci>" }), null);
+  assert.equal(mailTargetQuery({ member: "awa+x@acme.ci" }), "member=awa%2Bx%40acme.ci");
+  assert.equal(parseMailTarget(undefined, undefined), null);
+});
+
+test("an instance's inbox for an expert, among those listed for the member", () => {
+  const inbox = (expert: string, agentId?: string): MailInbox => ({ expert, agentId, address: `${expert}@x.ci`, sendEnabled: true, canSend: true, externalAllowed: false });
+  const mine = inbox("koffi", "inst-1");
+  const older = inbox("awa");
+  const other = inbox("djeneba", "inst-2");
+  assert.equal(inboxOf([older, mine, other], "koffi", "inst-1"), mine);
+  assert.equal(inboxOf([older, mine, other], "awa", "inst-1"), older);
+  assert.equal(inboxOf([older, mine, other], "djeneba", "inst-1"), null);
+});
+
+test("userInitials builds lowercase ASCII initials from full names or email fallback", () => {
+  assert.equal(userInitials("Christy B."), "cb");
+  assert.equal(userInitials("Paul Kouassi"), "pk");
+  assert.equal(userInitials("Djénéba Traoré"), "dt");
+  assert.equal(userInitials("christy@mstudio.ci"), "ch");
+  assert.equal(userInitials("   "), "u");
+});
+
+test("a draft is reduced to its fields and checked: recipients, subject without line breaks, attachments", () => {
+  const draft = parseMailDraft({
+    to: ["Awa@Acme.ci", "awa@acme.ci"],
+    subject: "Devis\r\nBcc: tous@acme.ci",
+    text: "Bonjour",
+    bcc: ["cache@acme.ci"],
+    headers: { "X-Spoof": "1" },
+    from: "patron@acme.ci",
+    attachments: [{ filename: "devis\n.pdf", contentType: "application/pdf", content: "JVBERi0=", extra: 1 }],
+  });
+  assert.deepEqual(draft, {
+    to: ["awa@acme.ci"],
+    subject: "Devis Bcc: tous@acme.ci",
+    text: "Bonjour",
+    attachments: [{ filename: "devis .pdf", contentType: "application/pdf", content: "JVBERi0=" }],
+  });
+  assert.equal(parseMailDraft({ to: [], subject: "s", text: "t" }), null);
+  assert.equal(parseMailDraft({ to: ["awa@acme.ci"], subject: 1, text: "t" }), null);
+  assert.equal(parseMailDraft({ to: ["awa@acme.ci"], subject: "s", text: "t", attachments: [{ filename: "a", contentType: "text/html; x", content: "QQ==" }] }), null);
+  assert.equal(parseMailDraft({ to: ["awa@acme.ci"], subject: "s", text: "t", attachments: [{ filename: "a", contentType: "text/plain", content: "<script>" }] }), null);
+  assert.deepEqual(parseMailReply({ text: "Merci", to: ["autre@acme.ci"] }), { text: "Merci" });
+  assert.equal(parseMailReply({}), null);
 });

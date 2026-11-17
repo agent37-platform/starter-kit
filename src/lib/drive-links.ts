@@ -88,7 +88,7 @@ export function drivePathsIn(text: string): string[] {
   return out;
 }
 
-export type DocKind = "pdf" | "excel" | "word" | "powerpoint" | "image" | "other";
+export type DocKind = "pdf" | "excel" | "word" | "powerpoint" | "image" | "video" | "audio" | "other";
 
 export function docKind(name: string): DocKind {
   const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
@@ -97,6 +97,8 @@ export function docKind(name: string): DocKind {
   if (["doc", "docx", "odt", "rtf"].includes(ext)) return "word";
   if (["ppt", "pptx", "odp", "key"].includes(ext)) return "powerpoint";
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
+  if (["mp4", "webm", "ogg", "mov", "m4v"].includes(ext)) return "video";
+  if (["mp3", "wav", "m4a", "aac", "flac"].includes(ext)) return "audio";
   return "other";
 }
 

@@ -1,9 +1,9 @@
 // Shared client-side helpers for the Files tab. The wire shapes (FileEntry / FileListResponse)
 // live in lib/types.ts so the server (lib/agent37.ts) and the browser agree on one definition.
-import { DRIVE_ABS, DRIVE_ROOT, seatFolderOf } from "@/lib/drive-paths";
-import type { FileEntry } from "@/lib/types";
+import { DRIVE_ABS, DRIVE_ROOT, seatFolderOf } from "../../lib/drive-paths.ts";
+import type { FileEntry } from "../../lib/types.ts";
 
-export type { FileEntry, FileListResponse } from "@/lib/types";
+export type { FileEntry, FileListResponse } from "../../lib/types.ts";
 
 export function isDir(entry: FileEntry): boolean {
   return entry.type === "directory";
@@ -55,9 +55,11 @@ export function breadcrumbs(path: string): { label: string; path: string }[] {
 // How the preview dialog should render a file, chosen by extension. CRITICAL: html/svg are
 // "sandbox" — they must only ever be rendered inside a sandboxed <iframe> (scripts neutralised),
 // never inline on the app origin. Plain text/code is fetched and shown escaped in a <pre>.
-export type PreviewKind = "image" | "pdf" | "sandbox" | "text" | "none";
+export type PreviewKind = "image" | "pdf" | "sandbox" | "text" | "video" | "audio" | "none";
 
 const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "avif"];
+const VIDEO_EXTS = ["mp4", "webm", "ogg", "mov", "m4v"];
+const AUDIO_EXTS = ["mp3", "wav", "m4a", "aac", "flac", "oga"];
 // Anything that could execute or render as an active document on our origin: render sandboxed.
 const SANDBOX_EXTS = ["svg", "html", "htm", "xhtml"];
 const TEXT_EXTS = [
@@ -70,6 +72,8 @@ const TEXT_EXTS = [
 export function previewKind(name: string): PreviewKind {
   const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "";
   if (IMAGE_EXTS.includes(ext)) return "image";
+  if (VIDEO_EXTS.includes(ext)) return "video";
+  if (AUDIO_EXTS.includes(ext)) return "audio";
   if (ext === "pdf") return "pdf";
   if (SANDBOX_EXTS.includes(ext)) return "sandbox";
   if (TEXT_EXTS.includes(ext)) return "text";

@@ -1,22 +1,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  masquerSecrets,
-  formatActiviteExperts,
-  formatAuditOutils,
-  formatLivrablesRecents,
-  formatStatistiquesAnalytique,
-  formatDiagnosticConfiguration,
-  formatCanauxEtTelegram,
-  formatConsommationTokens,
-  formatAlertesEtIncidents,
-  formatAppelsEtVoix,
-  formatRechercheMemoire,
-  formatSkillsExperts,
-  createYeleSupervisionBackend,
-  type DiscoveredExpert,
-  type RawSessionInfo,
-} from "./yele-supervision.ts";
+import { createYeleSupervisionBackend } from "./backend.ts";
+import { formatActiviteExperts, formatStatistiquesAnalytique } from "./formatters/activity.ts";
+import { formatAlertesEtIncidents } from "./formatters/alerts.ts";
+import { formatCanauxEtTelegram } from "./formatters/channels.ts";
+import { formatDiagnosticConfiguration } from "./formatters/config.ts";
+import { formatAuditOutils } from "./formatters/connectors.ts";
+import { formatConsommationTokens } from "./formatters/consumption.ts";
+import { formatLivrablesRecents } from "./formatters/deliverables.ts";
+import { formatRechercheMemoire } from "./formatters/memory.ts";
+import { formatHistoriqueRoutines, formatRoutinesPlanning } from "./formatters/routines.ts";
+import { formatSkillsExperts } from "./formatters/skills.ts";
+import { formatAppelsEtVoix } from "./formatters/voice.ts";
+import { periodDays, usageForPeriod } from "./periods.ts";
+import { masquerSecrets } from "./secrets.ts";
+import type { DiscoveredExpert, RawSessionInfo } from "./types.ts";
 
 test("masquerSecrets: hides API keys, tokens, and passwords without leaking", () => {
   const sensitive = `
@@ -35,6 +33,23 @@ test("masquerSecrets: hides API keys, tokens, and passwords without leaking", ()
 
   assert.match(masked, /\[MASQUÉ\]/);
   assert.match(masked, /\[TOKEN_MASQUÉ\]/);
+});
+
+test("masquerSecrets: hides OpenRouter, OpenAI, sk_live_, Slack, GitHub, Google and AWS keys, a token ending in '-', any URL password", () => {
+  const secrets = [
+    "sk-or-v1-0123456789abcdef0123456789abcdef",
+    "sk-abcdefghijklmnop1234",
+    "sk_live_AbC123dEf456GhI789",
+    "xoxb-123456789012-abcdefghijkl",
+    "ghp_abcdefghijklmnopqrstuvwxyz0123",
+    "AIzaSyA0123456789abcdefghijklmnopqrstuv",
+    "AKIAABCDEFGHIJKLMNOP",
+    "123456789:abcdefghijklmnopqrstuvwxyz01234567-",
+  ];
+  const masked = masquerSecrets(`erreur : ${secrets.join(" puis ")} ; mysql://root:hunter2pass@db:3306/x`);
+  for (const s of secrets) assert.ok(!masked.includes(s), `non masqué : ${s}`);
+  assert.doesNotMatch(masked, /hunter2pass/);
+  assert.match(masquerSecrets("Coût du skill-builder sk-learn pour la réunion"), /skill-builder sk-learn/);
 });
 
 test("masquerSecrets: hides JWTs and Postgres connection strings", () => {
@@ -234,13 +249,16 @@ test("formatAlertesEtIncidents: rapporte 0 incident en état sain et liste les a
       { type: "CONNECTOR_WARNING", expert: "Djénéba", outil: "Transcription vocale", etat: "non-verifie" },
     ],
     totalCronsScanned: 195,
-    telegramStatus: "🟢 Opérationnel",
+    telegramPhase: "ready",
   };
 
   const out = formatAlertesEtIncidents(data);
-  assert.match(out, /TOUS LES SYSTÈMES SONT OPÉRATIONNELS/);
+  assert.match(out, /AUCUN INCIDENT DÉTECTÉ/);
   assert.match(out, /0 incident détecté/);
   assert.match(out, /Transcription vocale/);
+  assert.match(out, /Passerelle Telegram\*\* : 🟢 Opérationnelle/);
+  assert.match(formatAlertesEtIncidents({ ...data, telegramPhase: null }), /Passerelle Telegram\*\* : non configurée/);
+  assert.match(formatAlertesEtIncidents({ ...data, telegramPhase: "needs_topics" }), /En cours de configuration/);
 });
 
 test("formatAppelsEtVoix: affiche les briefs d'avant-appel et statut vocal", () => {
@@ -305,4 +323,83 @@ test("formatSkillsExperts: affiche les modes opératoires spécifiques et transv
   assert.match(singleOut, /Compétences & Méthodologies Métiers : Djénéba/);
   assert.match(singleOut, /1-a-chaque-demande/);
   assert.match(singleOut, /research/);
+});
+
+test("periodDays et usageForPeriod : jours UTC entiers, aujourd'hui compris", () => {
+  const now = Date.parse("2026-11-09T10:00:00Z");
+  assert.deepEqual([periodDays("aujourdhui", now).from, periodDays("aujourdhui", now).to], ["2026-11-09", "2026-11-09"]);
+  assert.equal(periodDays("7_jours", now).from, "2026-11-03");
+  assert.equal(periodDays("30_jours", now).from, "2026-10-11");
+
+  const u = (count: number, totalTokens: number, errors = 0) => ({ count, totalTokens, promptTokens: totalTokens, completionTokens: 0, totalDurationMs: 1000 * count, errors, models: { m: count } });
+  const byDay = {
+    "2026-11-09": { a__koffi: u(1, 100) },
+    "2026-11-05": { a__koffi: u(2, 50, 1), a__awa: u(1, 10) },
+    "2026-10-01": { a__koffi: u(9, 9999) },
+  };
+  assert.deepEqual(Object.keys(usageForPeriod(byDay, "aujourdhui", now)), ["a__koffi"]);
+  const week = usageForPeriod(byDay, "7_jours", now);
+  assert.equal(week.a__koffi.count, 3);
+  assert.equal(week.a__koffi.totalTokens, 150);
+  assert.equal(week.a__koffi.errors, 1);
+  assert.equal(week.a__koffi.models?.m, 3);
+  assert.equal(week.a__awa.totalTokens, 10);
+});
+
+test("formatConsommationTokens : la période demandée figure dans le titre", () => {
+  const stats = { a__koffi: { count: 2, totalTokens: 100, promptTokens: 60, completionTokens: 40, errors: 0 } };
+  assert.match(formatConsommationTokens(stats, undefined, undefined, "les 7 derniers jours (UTC)"), /Tokens \(les 7 derniers jours \(UTC\)\)/);
+  assert.doesNotMatch(formatConsommationTokens(stats), /Coût/);
+  assert.doesNotMatch(formatConsommationTokens(stats), /UTC/);
+});
+
+test("formatCanauxEtTelegram : ajoute l'état des canaux lu sur l'instance", () => {
+  const experts = [{ id: "a__koffi", name: "Koffi", description: "" }];
+  const live = [{ id: "telegram", name: "Telegram", enabled: true, configured: true, state: "connected" }];
+  assert.match(formatCanauxEtTelegram(null, null, experts, undefined, live), /Telegram : 🟢 connecté/);
+  assert.match(formatCanauxEtTelegram(null, null, experts, undefined, null), /État illisible/);
+  assert.doesNotMatch(formatCanauxEtTelegram(null, null, experts), /état lu sur l'instance/);
+});
+
+test("formatRoutinesPlanning : état, horaire et routines illisibles", () => {
+  const r = (over: Record<string, unknown>) => ({ id: "1", name: "Point hebdo", task: "", summary: "", skills: [], attachment: null, schedule: "0 8 * * 1", enabled: true, suggested: false, lastRunAt: "2026-11-03T08:00:00Z", nextRunAt: "2026-11-10T08:00:00Z", ...over });
+  const out = formatRoutinesPlanning([
+    { expId: "a__koffi", expertName: "Koffi", routines: [r({}), r({ id: "2", name: "Veille", enabled: false, suggested: true, nextRunAt: null, lastRunAt: null })] },
+    { expId: "a__awa", expertName: "Awa", routines: null },
+  ]);
+  assert.match(out, /Koffi\*\* : 2 routine\(s\), 1 active/);
+  assert.match(out, /Point hebdo\*\* \(✅ active\)/);
+  assert.match(out, /Veille\*\* \(💡 proposée/);
+  assert.match(out, /Awa\*\* : ses routines sont illisibles/);
+  assert.match(formatRoutinesPlanning([{ expId: "a__awa", expertName: "Awa", routines: [] }], "koffi"), /Aucun expert ne correspond/);
+});
+
+test("formatHistoriqueRoutines : vue d'équipe et résultat par exécution", () => {
+  const now = Date.parse("2026-11-09T10:00:00Z");
+  const runs = [
+    { at: Date.parse("2026-11-08T08:00:00Z"), outcome: "sent" as const },
+    { at: Date.parse("2026-11-07T08:00:00Z"), outcome: "failed" as const },
+    { at: Date.parse("2026-10-01T08:00:00Z"), outcome: null },
+  ];
+  const list = [{ expId: "a__koffi", expertName: "Koffi", routines: [{ id: "1", name: "Point", enabled: true, runs }, { id: "2", name: "Veille", enabled: false, runs: [] }] }];
+  const team = formatHistoriqueRoutines(list, undefined, now);
+  assert.match(team, /2 exécution\(s\) sur 7 jours/);
+  assert.match(team, /Veille\*\* : n'a encore jamais tourné \(en pause\)/);
+  const one = formatHistoriqueRoutines(list, "koffi", now);
+  assert.match(one, /✅ envoyée/);
+  assert.match(one, /❌ échec/);
+  assert.match(one, /résultat illisible/);
+});
+
+test("backend : routines et consommation par période, panne de lecture dite", async () => {
+  const base = { listSessions: async () => [], fetchFileContent: async () => null, listConnections: async () => [], listDeliverableFiles: async () => [] };
+  const b = createYeleSupervisionBackend({
+    ...base,
+    fetchUsageByDay: async () => ({ [new Date().toISOString().slice(0, 10)]: { a__koffi: { count: 1, totalTokens: 42, promptTokens: 40, completionTokens: 2, errors: 0 } } }),
+    listRoutines: async () => { throw new Error("hors ligne"); },
+  });
+  assert.match(await b.analyserConsommationTokens(undefined, "aujourdhui"), /42/);
+  assert.match(await b.consulterRoutines(), /Impossible de consulter les routines : hors ligne/);
+  const none = createYeleSupervisionBackend(base);
+  assert.match(await none.consulterHistoriqueRoutine(), /pas lisible/);
 });

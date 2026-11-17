@@ -2,7 +2,7 @@
 
 import { isNumberCell, isTotalRow } from "@/lib/sheet-cells";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Download, File, Loader2, Palette, FileImage, FileSpreadsheet, FileText, Presentation, type LucideIcon } from "lucide-react";
+import { Download, File, Loader2, Palette, FileImage, FileSpreadsheet, FileText, Presentation, Video, Music, type LucideIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { isMemoryFolder } from "@/lib/drive-order";
 import type { DocKind, DriveFile, TurnDoc } from "@/lib/drive-links";
@@ -22,6 +22,8 @@ const KINDS: Record<DocKind, { label: string; icon: LucideIcon; tone: string }> 
   word: { label: "Word", icon: FileText, tone: "bg-[#E4ECFB] text-[#2E4EC4] dark:bg-[#1c2745] dark:text-[#9fb4f2]" },
   powerpoint: { label: "PowerPoint", icon: Presentation, tone: "bg-[#FDEEDF] text-[#B85A12] dark:bg-[#3a2a1a] dark:text-[#f3b47a]" },
   image: { label: "Image", icon: FileImage, tone: "bg-tint text-brand-ink" },
+  video: { label: "Vidéo", icon: Video, tone: "bg-[#EBE8FD] text-[#5538EE] dark:bg-[#28214d] dark:text-[#b4a4fa]" },
+  audio: { label: "Audio", icon: Music, tone: "bg-[#E3F2FD] text-[#1976D2] dark:bg-[#152a40] dark:text-[#90caf9]" },
   other: { label: "", icon: File, tone: "bg-soft-2 text-ink-2" },
 };
 
@@ -159,6 +161,27 @@ export function PreviewAt({ doc, url, thumb = url, full }: { doc: TurnDoc; url: 
   const e = ext(doc.name);
   if ((doc.size ?? 0) > MAX_PREVIEW_BYTES) return <FormatThumb doc={doc} failed={full} />;
   if (doc.kind === "image") return <ImagePreview url={url} thumb={thumb} doc={doc} />;
+  if (doc.kind === "video") {
+    return (
+      <div className="flex size-full items-center justify-center bg-black">
+        <video
+          src={url}
+          controls
+          playsInline
+          className="size-full object-contain"
+          preload="metadata"
+        />
+      </div>
+    );
+  }
+  if (doc.kind === "audio") {
+    return (
+      <div className="flex size-full flex-col items-center justify-center gap-3 bg-secondary/30 p-4">
+        <Music className="size-12 text-ink-2" />
+        <audio src={url} controls className="w-full max-w-xs" preload="metadata" />
+      </div>
+    );
+  }
   if (doc.kind === "pdf") return <Lazy doc={doc} url={url} render={renderPdf} full={full} />;
   if (e === "xlsx" || e === "xlsm" || e === "csv") return <Lazy doc={doc} url={url} render={renderSheet} full={full} />;
   if (e === "docx") return <Lazy doc={doc} url={url} render={renderDocx} full={full} />;

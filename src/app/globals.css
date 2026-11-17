@@ -21,6 +21,17 @@
   --coral: #e4765a;
   --coral-ink: #a8432a;
   --coral-pale: #fceae4;
+  /* Couleurs des séries des graphiques, par rang. */
+  --chart-1: #8b5cf6;
+  --chart-2: #f59e0b;
+  --chart-3: #10b981;
+  --chart-4: #06b6d4;
+  --chart-5: #ec4899;
+  --chart-6: #3b82f6;
+  --chart-7: #f97316;
+  --chart-8: #14b8a6;
+  --chart-9: #ef4444;
+  --chart-10: #84cc16;
   --link: #5b3fd0;
   --tint: #ecebf8;
   --tint-2: #e0e1ff;

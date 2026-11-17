@@ -26,7 +26,7 @@ test("a path written from the drive itself, without ~/, is a file too (Leslie, 2
 });
 
 test("formats", () => {
-  assert.deepEqual(["a.PDF", "b.xlsx", "c.docx", "d.pptx", "e.png", "f.zip"].map(docKind), ["pdf", "excel", "word", "powerpoint", "image", "other"]);
+  assert.deepEqual(["a.PDF", "b.xlsx", "c.docx", "d.pptx", "e.png", "v.mp4", "s.mp3", "f.zip"].map(docKind), ["pdf", "excel", "word", "powerpoint", "image", "video", "audio", "other"]);
 });
 
 test("cards: the named files, then the deliverables this turn wrote, never another turn's nor the memory", () => {

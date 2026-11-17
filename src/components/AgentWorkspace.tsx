@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, FolderOpen, Mail, MessageSquare, Pencil, Repeat, Phone } from "lucide-react";
+import { Copy, FolderOpen, Mail, MessageSquare, Pencil, Phone, Repeat, X } from "lucide-react";
 import { agentTabPath, parseAgentRoute, type AgentTab } from "@/lib/expert-tabs";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { useMyAgents } from "@/components/useMyAgents";
@@ -19,6 +19,7 @@ import { readExpertScreen } from "@/components/experts/expert-preload";
 import { useMailInboxes } from "@/components/experts/useMailInboxes";
 import { expertDisplayName } from "@/lib/experts";
 import { DRIVE_ROOT } from "@/lib/drive-paths";
+import { inboxOf } from "@/lib/mail";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatView, hasScreen } from "@/components/chat/ChatView";
@@ -69,7 +70,9 @@ export function AgentWorkspace({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { setCurrentId } = useWorkspace();
+  const { setCurrentId, current } = useWorkspace();
+  // Only an admin gives or takes an expert's address; the back office checks it again.
+  const mailAdmin = current?.role === "admin";
 
   // Deep-linking to an agent scopes the WorkspaceProvider to its workspace, so the fleet/switcher
   // and any workspace-derived UI stay in sync after a refresh or shared link.
@@ -90,8 +93,8 @@ export function AgentWorkspace({
   useLayoutEffect(() => void readExpertScreen(agentId, profileId, catalogueKey), [agentId, profileId, catalogueKey]);
   const driveFolder = expert?.driveFolder ? `${DRIVE_ROOT}/${expert.driveFolder}` : undefined;
   // The expert's own inbox, when the back office gives this member one to read.
-  const mail = useMailInboxes();
-  const inbox = (expert?.catalogueKey && mail.inboxes.find((i) => i.expert === expert.catalogueKey)) || null;
+  const mail = useMailInboxes(agentId);
+  const inbox = expert?.catalogueKey ? inboxOf(mail.inboxes, expert.catalogueKey, agentId) : null;
   const copyAddress = () => {
     if (!inbox) return;
     navigator.clipboard.writeText(inbox.address).then(
@@ -100,13 +103,13 @@ export function AgentWorkspace({
     );
   };
   // Routines belong to an expert's profile: the instance's default home has none here. E-mails show
-  // only for an expert that has an inbox.
+  // for catalogue experts whenever the workspace mail module is enabled (so the member can opt in).
   // Calls are offered where voice is on, for an expert of the catalogue.
   const voiceOn = useVoices().length > 0;
   const tabs = TABS.filter((t) =>
     t.id === "routines" ? profileId !== null
     : t.id === "tools" ? profileId !== null
-    : t.id === "emails" ? inbox !== null
+    : t.id === "emails" ? mail.enabled && Boolean(expert?.catalogueKey)
     : t.id === "calls" ? voiceOn && Boolean(expert?.catalogueKey)
     : true
   );
@@ -260,7 +263,7 @@ export function AgentWorkspace({
                   </span>
                   <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[10px] text-ink-3 lg:text-[13px]">
                     {expert.role && <span className="truncate max-lg:hidden">{expert.role}</span>}
-                    {inbox && (
+                    {inbox ? (
                       <button
                         type="button"
                         onClick={copyAddress}
@@ -272,7 +275,28 @@ export function AgentWorkspace({
                         <span className="truncate lg:hidden">{inbox.address}</span>
                         <Copy className="size-3 shrink-0 lg:hidden" />
                       </button>
-                    )}
+                    ) : mail.enabled && expert.catalogueKey ? (
+                      <button
+                        type="button"
+                        onClick={() => selectTab("emails")}
+                        title="Attribuer une adresse e-mail à votre expert"
+                        aria-label="Attribuer une adresse e-mail à votre expert"
+                        className="group relative inline-flex shrink-0 items-center text-ink-3 hover:text-ink max-lg:-my-2 max-lg:py-2"
+                      >
+                        <span className="relative inline-flex">
+                          <Mail className="size-3.5 shrink-0" />
+                          <span className="absolute -bottom-1 -right-1 grid size-2.5 place-items-center rounded-full bg-ko text-white ring-1 ring-surface">
+                            <X className="size-2 stroke-[3]" />
+                          </span>
+                        </span>
+                        <span
+                          role="tooltip"
+                          className="pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1 text-[11px] font-medium text-surface opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                        >
+                          Attribuer une adresse e-mail à votre expert
+                        </span>
+                      </button>
+                    ) : null}
                   </span>
                 </span>
               </div>
@@ -382,7 +406,7 @@ export function AgentWorkspace({
           {opened.has("emails") && profileId && (
             <div className={cn("min-h-0 flex-1 overflow-y-auto", currentTab !== "emails" && "hidden")}>
               <div className="mx-auto w-full max-w-4xl p-6 md:px-10 md:py-8">
-                <ExpertEmails inbox={inbox} expertKey={expert?.catalogueKey ?? null} expertName={expertName} loaded={mail.loaded} />
+                <ExpertEmails inbox={inbox} expertKey={expert?.catalogueKey ?? null} expertName={expertName} loaded={mail.loaded} onCreateInbox={mailAdmin ? mail.createInbox : undefined} onDeleteInbox={mailAdmin ? mail.deleteInbox : undefined} />
               </div>
             </div>
           )}

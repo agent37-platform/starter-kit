@@ -2,1203 +2,139 @@
 import type { ExpertCommand } from "./expert-commands";
 
 export const COMMAND_DEFS: Record<string, ExpertCommand> = {
- "adjoua:annonce": {
-  "cmd": "annonce",
-  "label": "Rédiger l'annonce",
-  "phrase": "Rédiger l'annonce et choisir où la publier.",
-  "example": "pour la fiche comptable",
-  "need": "le poste",
-  "fileOk": false,
-  "common": false
- },
- "adjoua:candidats": {
-  "cmd": "candidats",
-  "label": "Trier les candidatures reçues",
-  "phrase": "Trier les candidatures reçues et dire qui faire avancer.",
-  "example": "comptable",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "configuration": {
-  "cmd": "configuration",
-  "label": "Son installation",
-  "phrase": "Faire l'état complet de l'environnement de l'Expert : compétences, commandes, modèles, tâches, outils, clés, voix et autocritique.",
-  "example": "complet",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "couche": {
-  "cmd": "couche",
-  "label": "Le contexte local d'un sujet",
-  "phrase": "Savoir ce que l'Expert sait du contexte local sur un sujet, et ce qui lui manque.",
-  "example": "CNPS",
-  "need": "le sujet",
-  "fileOk": false,
-  "common": true
- },
- "email": {
-  "cmd": "email",
-  "label": "Rédiger un e-mail",
-  "phrase": "Rédiger un email prêt à envoyer.",
-  "example": "relancer le cabinet comptable pour le bilan",
-  "need": "le destinataire et l’objet",
-  "fileOk": false,
-  "common": true
- },
- "adjoua:entretien": {
-  "cmd": "entretien",
-  "label": "Préparer un entretien",
-  "phrase": "Préparer un entretien ou en faire la synthèse.",
-  "example": "prépare Konan mardi",
-  "need": "le candidat",
-  "fileOk": false,
-  "common": false
- },
- "etat": {
-  "cmd": "etat",
-  "label": "Où en est le travail",
-  "phrase": "Savoir où en est l'Expert : ce qui est bloqué, ce qui attend un retour, ce qui attend une décision.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "feedback": {
-  "cmd": "feedback",
-  "label": "Donner un avis sur un livrable",
-  "phrase": "Donner un avis sur un livrable : l'Expert corrige et retient la leçon.",
-  "example": "le tableau est trop long, garde les 5 premiers fournisseurs",
-  "need": "votre avis",
-  "fileOk": false,
-  "common": true
- },
- "adjoua:fichedeposte": {
-  "cmd": "fichedeposte",
-  "label": "Rédiger la fiche de poste à partir du besoin",
-  "phrase": "Rédiger la fiche de poste à partir du besoin.",
-  "example": "comptable confirmé",
-  "need": "le poste",
-  "fileOk": false,
-  "common": false
- },
- "historique": {
-  "cmd": "historique",
-  "label": "Retrouver un client ou un dossier",
-  "phrase": "Retrouver tout ce que l'Expert sait d'un client, d'un dossier ou d'un interlocuteur.",
-  "example": "Koroba",
-  "need": "le nom du client ou du dossier",
-  "fileOk": false,
-  "common": true
- },
- "livrable": {
-  "cmd": "livrable",
-  "label": "Remettre le document en ligne",
-  "phrase": "Remettre le document du moment en Google Doc, Slides ou Sheet, avec son PDF et son aperçu.",
-  "example": "le compte rendu de ce matin",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "memoire": {
-  "cmd": "memoire",
-  "label": "Sa mémoire de l'entreprise",
-  "phrase": "Voir ce que l'Expert sait de l'entreprise, et corriger ce qui est faux.",
-  "example": "décisions",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "onboarding": {
-  "cmd": "onboarding",
-  "label": "Faire connaissance",
-  "phrase": "Rejouer le message d'accueil du premier jour, sans rien effacer.",
-  "example": "court",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "outils": {
-  "cmd": "outils",
-  "label": "Ses outils",
-  "phrase": "Voir les outils branchés, ceux qui manquent, et en brancher un.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "point": {
-  "cmd": "point",
-  "label": "Le point de la journée",
-  "phrase": "Recevoir tout de suite le point de la journée, sans attendre 17 h.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "adjoua:recrutement": {
-  "cmd": "recrutement",
-  "label": "Voir où en est chaque recrutement ouvert",
-  "phrase": "Voir où en est chaque recrutement ouvert.",
-  "example": "poste comptable",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "relire": {
-  "cmd": "relire",
-  "label": "Relire avant envoi",
-  "phrase": "Contrôler un texte ou un document avant qu'il parte.",
-  "example": "",
-  "need": "le texte ou le document à relire",
-  "fileOk": true,
-  "common": true
- },
- "resume": {
-  "cmd": "resume",
-  "label": "Résumer un document",
-  "phrase": "Résumer un document reçu en une page.",
-  "example": "",
-  "need": "le document à résumer",
-  "fileOk": true,
-  "common": true
- },
- "adjoua:retours": {
-  "cmd": "retours",
-  "label": "Répondre aux candidats",
-  "phrase": "Répondre aux candidats, retenus et non retenus.",
-  "example": "poste comptable",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "routines": {
-  "cmd": "routines",
-  "label": "Ses routines",
-  "phrase": "Voir et régler les tâches automatiques de l'Expert.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "s": {
-  "cmd": "s",
-  "label": "Chercher sur le web",
-  "phrase": "Aller chercher l'information sur des pages réelles, sources à l'appui, au lieu de répondre de mémoire.",
-  "example": "appels d'offres BTP Abidjan octobre",
-  "need": "le sujet à chercher",
-  "fileOk": false,
-  "common": true
- },
- "tableau": {
-  "cmd": "tableau",
-  "label": "Son tableau de bord",
-  "phrase": "Recevoir le lien du tableau de bord du métier de l'Expert, à jour et en ligne.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "taches": {
-  "cmd": "taches",
-  "label": "Les tâches en cours",
-  "phrase": "Voir la liste des tâches en cours, et en ajouter ou en clore une.",
-  "example": "+ relancer le fournisseur de ciment vendredi",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "valeur": {
-  "cmd": "valeur",
-  "label": "Ce qui a été produit",
-  "phrase": "Voir ce que l'Expert a produit et le temps qu'il a fait gagner.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": true
- },
- "akissi:satisfaction": {
-  "cmd": "satisfaction",
-  "label": "Mesurer la satisfaction des clients",
-  "phrase": "Mesurer la satisfaction des clients et dire quoi améliorer.",
-  "example": "clients de septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "aminata:commissions": {
-  "cmd": "commissions",
-  "label": "L'état des commissions du mois",
-  "phrase": "L'état des commissions du mois, à valider avant la paie.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "aminata:pipeline": {
-  "cmd": "pipeline",
-  "label": "Voir le pipeline commercial",
-  "phrase": "Voir le pipeline commercial et la prévision du mois.",
-  "example": "de l'équipe Abidjan sud",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "assita:procedure": {
-  "cmd": "procedure",
-  "label": "Écrire une procédure claire",
-  "phrase": "Écrire une procédure claire pour une tâche de l'équipe.",
-  "example": "réception des marchandises",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "awa:escalade": {
-  "cmd": "escalade",
-  "label": "Faire remonter un cas bloqué au bon responsable",
-  "phrase": "Faire remonter un cas bloqué au bon responsable.",
-  "example": "réclamation 245",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "awa:faq": {
-  "cmd": "faq",
-  "label": "Écrire ou mettre à jour les réponses types",
-  "phrase": "Écrire ou mettre à jour les réponses types et la FAQ.",
-  "example": "livraison et paiement",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "awa:planning": {
-  "cmd": "planning",
-  "label": "Faire le planning de l'équipe du service client",
-  "phrase": "Faire le planning de l'équipe du service client.",
-  "example": "semaine prochaine",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "awa:reclamation": {
-  "cmd": "reclamation",
-  "label": "Traiter une réclamation jusqu'à la solution",
-  "phrase": "Traiter une réclamation jusqu'à la solution.",
-  "example": "de Mme Kouamé sur sa livraison",
-  "need": "la réclamation",
-  "fileOk": true,
-  "common": false
- },
- "awa:satisfaction": {
-  "cmd": "satisfaction",
-  "label": "Mesurer la satisfaction des clients",
-  "phrase": "Mesurer la satisfaction des clients et dire quoi améliorer.",
-  "example": "clients de septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "awa:tickets": {
-  "cmd": "tickets",
-  "label": "Voir les demandes clients ouvertes",
-  "phrase": "Voir les demandes clients ouvertes et ce qu'il faut traiter d'abord.",
-  "example": "WhatsApp du jour",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "aya:createurs": {
-  "cmd": "createurs",
-  "label": "Proposer des créateurs",
-  "phrase": "Proposer des créateurs pour un objectif, avec leur audience réelle et ce qu'on sait de leur prix.",
-  "example": "lancement de la nouvelle gamme, jeunes de 18 à 25 ans",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "daouda:encaissements": {
-  "cmd": "encaissements",
-  "label": "Voir les factures en attente d'encaissement du jour",
-  "phrase": "Voir les factures en attente d'encaissement du jour et dire par quel canal elles ont été payées.",
-  "example": "semaine",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "daouda:facture": {
-  "cmd": "facture",
-  "label": "Voir toutes les factures d'une période",
-  "phrase": "Voir toutes les factures d'une période, reçues et émises, avec le récapitulatif.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "daouda:fne": {
-  "cmd": "fne",
-  "label": "Préparer une facture normalisée électronique",
-  "phrase": "Préparer une facture normalisée électronique (FNE) à partir d'une demande écrite ou vocale.",
-  "example": "20 sacs de ciment pour Quincaillerie Ama",
-  "need": "la facture à préparer",
-  "fileOk": false,
-  "common": false
- },
- "daouda:impaye": {
-  "cmd": "impaye",
-  "label": "Voir la balance âgée clients",
-  "phrase": "Voir la balance âgée clients et les relances à faire aujourd'hui.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "daouda:rapprochement": {
-  "cmd": "rapprochement",
-  "label": "Rapprocher la banque",
-  "phrase": "Rapprocher la banque et le mobile money de la comptabilité.",
-  "example": "Wave septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "daouda:recouvrement": {
-  "cmd": "recouvrement",
-  "label": "Voir tout l'argent que l'entreprise peut récupérer",
-  "phrase": "Voir tout l'argent que l'entreprise peut récupérer.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "daouda:tresorerie": {
-  "cmd": "tresorerie",
-  "label": "Voir la trésorerie du jour",
-  "phrase": "Voir la trésorerie du jour et celle des treize prochaines semaines.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "daouda:validations": {
-  "cmd": "validations",
-  "label": "Voir ce qui attend une décision",
-  "phrase": "Voir ce qui attend une décision et ce qui a été décidé.",
-  "example": "paiements",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "djeneba:agenda": {
-  "cmd": "agenda",
-  "label": "Voir l'agenda des prochains jours",
-  "phrase": "Voir l'agenda des prochains jours et ce qu'il faut arbitrer.",
-  "example": "semaine prochaine",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "djeneba:compterendu": {
-  "cmd": "compterendu",
-  "label": "Rédiger le compte rendu d'une réunion",
-  "phrase": "Rédiger le compte rendu d'une réunion avec ses décisions, le rendre dans le chat et l'envoyer aussi par email selon le choix fait une fois (dirigeant seul ou tous les participants).",
-  "example": "de la réunion de ce matin",
-  "need": null,
-  "fileOk": true,
-  "common": false
- },
- "djeneba:coordination": {
-  "cmd": "coordination",
-  "label": "Passer une demande à l'Expert du bon métier",
-  "phrase": "Passer une demande à l'Expert du bon métier, et suivre qu'il la prend.",
-  "example": "un contrat de bail à relire",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "djeneba:courrier": {
-  "cmd": "courrier",
-  "label": "Trier les emails",
-  "phrase": "Trier les emails et le courrier, et préparer les réponses.",
-  "example": "urgents seulement",
-  "need": "le courrier",
-  "fileOk": false,
-  "common": false
- },
- "djeneba:decision": {
-  "cmd": "decision",
-  "label": "Rédiger une note de décision",
-  "phrase": "Rédiger une note de décision pour la direction.",
-  "example": "recruter un second commercial",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "djeneba:demo": {
-  "cmd": "demo",
-  "label": "Préparer une démo commerciale Yelema",
-  "phrase": "Préparer une démo commerciale Yelema : le prospect (Déclic ou infos publiques), les trois cas les plus proches de la Bibliothèque des démos, leurs livrables et un deck aux couleurs Yelema.",
-  "example": "Cotiplast",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "djeneba:deplacement": {
-  "cmd": "deplacement",
-  "label": "Organiser un déplacement de bout en bout",
-  "phrase": "Organiser un déplacement de bout en bout.",
-  "example": "Dakar du 4 au 6 novembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "djeneba:reunion": {
-  "cmd": "reunion",
-  "label": "Préparer une réunion",
-  "phrase": "Préparer une réunion : brief, ordre du jour et dossier.",
-  "example": "comité de direction de lundi",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatima:bilan": {
-  "cmd": "bilan",
-  "label": "Faire le bilan marketing de la semaine",
-  "phrase": "Faire le bilan marketing de la semaine et décider de la suivante.",
-  "example": "semaine du 13 octobre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatima:calendrier": {
-  "cmd": "calendrier",
-  "label": "Préparer le calendrier des publications du mois",
-  "phrase": "Préparer le calendrier des publications du mois.",
-  "example": "novembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatima:campagne": {
-  "cmd": "campagne",
-  "label": "Construire une campagne de bout en bout",
-  "phrase": "Construire une campagne de bout en bout.",
-  "example": "rentrée scolaire",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatima:concurrents": {
-  "cmd": "concurrents",
-  "label": "Voir ce que font les concurrents",
-  "phrase": "Voir ce que font les concurrents et ce qu'il faut en retenir.",
-  "example": "offres de rentrée",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatima:post": {
-  "cmd": "post",
-  "label": "Rédiger un post prêt à publier",
-  "phrase": "Rédiger un post prêt à publier, avec sa légende et son visuel.",
-  "example": "lancement de la nouvelle gamme",
-  "need": "le sujet du post",
-  "fileOk": false,
-  "common": false
- },
- "fatima:pubs": {
-  "cmd": "pubs",
-  "label": "Voir les publicités en cours",
-  "phrase": "Voir les publicités en cours et décider des ajustements.",
-  "example": "Facebook de la semaine",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatou:attestation": {
-  "cmd": "attestation",
-  "label": "Rédiger une attestation",
-  "phrase": "Rédiger une attestation ou un certificat pour un salarié.",
-  "example": "de travail pour Traoré",
-  "need": "la personne",
-  "fileOk": false,
-  "common": false
- },
- "fatou:cnps": {
-  "cmd": "cnps",
-  "label": "Préparer la déclaration CNPS",
-  "phrase": "Préparer la déclaration CNPS et vérifier que tout est en règle.",
-  "example": "troisième trimestre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatou:conges": {
-  "cmd": "conges",
-  "label": "Voir les congés",
-  "phrase": "Voir les congés et absences de l'équipe, et préparer les réponses.",
-  "example": "équipe logistique",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatou:contrat": {
-  "cmd": "contrat",
-  "label": "Rédiger un contrat de travail",
-  "phrase": "Rédiger un contrat de travail ou un avenant, prêt à signer.",
-  "example": "CDI comptable",
-  "need": "la personne ou le contrat",
-  "fileOk": false,
-  "common": false
- },
- "fatou:formation": {
-  "cmd": "formation",
-  "label": "Construire une formation",
-  "phrase": "Construire une formation ou le plan de formation de l'année.",
-  "example": "accueil client pour les caissières",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "fatou:paie": {
-  "cmd": "paie",
-  "label": "Préparer la paie du mois",
-  "phrase": "Préparer la paie du mois et contrôler chaque bulletin.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "ibrahim:conformite": {
-  "cmd": "conformite",
-  "label": "Tenir le registre des données personnelles de l'entreprise",
-  "phrase": "Tenir le registre des données personnelles de l'entreprise et préparer la démarche auprès de l'ARTCI.",
-  "example": "fichier clients et SMS promotionnels",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "ibrahim:contrat": {
-  "cmd": "contrat",
-  "label": "Relire un contrat reçu",
-  "phrase": "Relire un contrat reçu et rendre une note de risque avec les demandes de modification.",
-  "example": "de distribution proposé par SIFCA",
-  "need": "la personne ou le contrat",
-  "fileOk": false,
-  "common": false
- },
- "ibrahim:echeances": {
-  "cmd": "echeances",
-  "label": "Voir les contrats qui arrivent à échéance",
-  "phrase": "Voir les contrats qui arrivent à échéance, ceux qui se renouvellent seuls et la date limite de chaque préavis.",
-  "example": "du trimestre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "ibrahim:mise-en-demeure": {
-  "cmd": "mise-en-demeure",
-  "label": "Monter le dossier d'une créance impayée",
-  "phrase": "Monter le dossier d'une créance impayée et préparer la lettre de mise en demeure prête à signer.",
-  "example": "client Plateau 4 factures",
-  "need": "le destinataire",
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:achat": {
-  "cmd": "achat",
-  "label": "Enregistrer une demande d'achat",
-  "phrase": "Enregistrer une demande d'achat et voir son contrôle contre le budget.",
-  "example": "4 cartouches d'encre pour la comptabilité",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:bc": {
-  "cmd": "bc",
-  "label": "Préparer un bon de commande à signer",
-  "phrase": "Préparer un bon de commande à signer et voir les bons non réceptionnés.",
-  "example": "pour la demande 12",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:controle": {
-  "cmd": "controle",
-  "label": "Contrôler une facture contre la commande",
-  "phrase": "Contrôler une facture contre la commande et la livraison.",
-  "example": "",
-  "need": "le document",
-  "fileOk": true,
-  "common": false
- },
- "kadiatou:facture": {
-  "cmd": "facture",
-  "label": "Voir toutes les factures d'une période",
-  "phrase": "Voir toutes les factures d'une période, reçues et émises, avec le récapitulatif.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:justificatif": {
-  "cmd": "justificatif",
-  "label": "Voir les dépenses payées",
-  "phrase": "Voir les dépenses payées sans justificatif, et qui doit le fournir.",
-  "example": "septembre",
-  "need": "la dépense",
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:paiement": {
-  "cmd": "paiement",
-  "label": "Voir l'état numéroté des règlements du jour",
-  "phrase": "Voir l'état numéroté des règlements du jour et dire lesquels payer.",
-  "example": "fin du mois",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:pieces": {
-  "cmd": "pieces",
-  "label": "Voir les pièces reçues",
-  "phrase": "Voir les pièces reçues, à rattacher et manquantes, avec leur détenteur.",
-  "example": "manquantes",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:reception": {
-  "cmd": "reception",
-  "label": "Déclarer une réception",
-  "phrase": "Déclarer une réception et lancer le rapprochement commande, réception, facture.",
-  "example": "BL du fournisseur de ciment",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "kadiatou:validations": {
-  "cmd": "validations",
-  "label": "Voir ce qui attend une décision",
-  "phrase": "Voir ce qui attend une décision et ce qui a été décidé.",
-  "example": "paiements",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "koffi:animation": {
-  "cmd": "animation",
-  "label": "Animer un logo",
-  "phrase": "Animer un logo, un visuel ou un message en courte vidéo.",
-  "example": "logo en 5 secondes",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "koffi:charte": {
-  "cmd": "charte",
-  "label": "Créer ou remettre à plat la charte graphique",
-  "phrase": "Créer ou remettre à plat la charte graphique.",
-  "example": "mini depuis notre site",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "koffi:declinaisons": {
-  "cmd": "declinaisons",
-  "label": "Décliner un visuel validé dans tous les formats utiles",
-  "phrase": "Décliner un visuel validé dans tous les formats utiles.",
-  "example": "de l'affiche promo",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "koffi:goodies": {
-  "cmd": "goodies",
-  "label": "Concevoir des objets aux couleurs de la marque",
-  "phrase": "Concevoir des objets aux couleurs de la marque.",
-  "example": "pour le salon de mars",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "koffi:maquette": {
-  "cmd": "maquette",
-  "label": "Montrer le rendu sur le support réel avant de produire",
-  "phrase": "Montrer le rendu sur le support réel avant de produire.",
-  "example": "du stand pour le salon",
-  "need": "ce qu’il faut maquetter",
-  "fileOk": false,
-  "common": false
- },
- "koffi:visuel": {
-  "cmd": "visuel",
-  "label": "Créer un visuel",
-  "phrase": "Créer un visuel : post, affiche ou flyer.",
-  "example": "affiche promo de fin d'année en A3",
-  "need": "le visuel voulu",
-  "fileOk": false,
-  "common": false
- },
- "kouassi:appeldoffres": {
-  "cmd": "appeldoffres",
-  "label": "Analyser un appel d'offres",
-  "phrase": "Analyser un appel d'offres et préparer la réponse.",
-  "example": "fourniture de mobilier ANSUT",
-  "need": "l’appel d’offres",
-  "fileOk": true,
-  "common": false
- },
- "kouassi:devis": {
-  "cmd": "devis",
-  "label": "Préparer un devis",
-  "phrase": "Préparer un devis ou une proposition commerciale.",
-  "example": "pour Pharmacie du Plateau",
-  "need": "le client",
-  "fileOk": false,
-  "common": false
- },
- "kouassi:pipeline": {
-  "cmd": "pipeline",
-  "label": "Voir le pipeline commercial",
-  "phrase": "Voir le pipeline commercial et la prévision du mois.",
-  "example": "de l'équipe Abidjan sud",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "kouassi:prospects": {
-  "cmd": "prospects",
-  "label": "Trouver de nouveaux prospects qualifiés",
-  "phrase": "Trouver de nouveaux prospects qualifiés.",
-  "example": "pharmacies à Cocody",
-  "need": "la cible",
-  "fileOk": false,
-  "common": false
- },
- "kouassi:rdv": {
-  "cmd": "rdv",
-  "label": "Préparer un rendez-vous client",
-  "phrase": "Préparer un rendez-vous client, puis en faire le compte rendu.",
-  "example": "prépare Sotra jeudi",
-  "need": "le client",
-  "fileOk": true,
-  "common": false
- },
- "kouassi:relance": {
-  "cmd": "relance",
-  "label": "Préparer les messages d'approche",
-  "phrase": "Préparer les messages d'approche et les relances du jour.",
-  "example": "prospects du salon",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "lamine:formation": {
-  "cmd": "formation",
-  "label": "Construire une formation",
-  "phrase": "Construire une formation ou le plan de formation de l'année.",
-  "example": "accueil client pour les caissières",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "malick:sav": {
-  "cmd": "sav",
-  "label": "Voir les retours",
-  "phrase": "Voir les retours, les réparations et les livraisons en cours, et ce qu'il faut traiter d'abord.",
-  "example": "réparations de la semaine",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:achat": {
-  "cmd": "achat",
-  "label": "Enregistrer une demande d'achat",
-  "phrase": "Enregistrer une demande d'achat et voir son contrôle contre le budget.",
-  "example": "4 cartouches d'encre pour la comptabilité",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:bc": {
-  "cmd": "bc",
-  "label": "Préparer un bon de commande à signer",
-  "phrase": "Préparer un bon de commande à signer et voir les bons non réceptionnés.",
-  "example": "pour la demande 12",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:budget": {
-  "cmd": "budget",
-  "label": "Comparer le réel du mois au budget",
-  "phrase": "Comparer le réel du mois au budget, poste par poste, avec les écarts expliqués.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:cloture": {
-  "cmd": "cloture",
-  "label": "Voir où en est la clôture du mois",
-  "phrase": "Voir où en est la clôture du mois et ce qui la bloque.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:controle": {
-  "cmd": "controle",
-  "label": "Contrôler une facture contre la commande",
-  "phrase": "Contrôler une facture contre la commande et la livraison.",
-  "example": "",
-  "need": "le document",
-  "fileOk": true,
-  "common": false
- },
- "mamadou:echeances": {
-  "cmd": "echeances",
-  "label": "Voir les échéances fiscales",
-  "phrase": "Voir les échéances fiscales et sociales du mois (DGI, CNPS) et ce qui est prêt.",
-  "example": "novembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:encaissements": {
-  "cmd": "encaissements",
-  "label": "Voir les factures en attente d'encaissement du jour",
-  "phrase": "Voir les factures en attente d'encaissement du jour et dire par quel canal elles ont été payées.",
-  "example": "semaine",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:facture": {
-  "cmd": "facture",
-  "label": "Voir toutes les factures d'une période",
-  "phrase": "Voir toutes les factures d'une période, reçues et émises, avec le récapitulatif.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:fne": {
-  "cmd": "fne",
-  "label": "Préparer une facture normalisée électronique",
-  "phrase": "Préparer une facture normalisée électronique (FNE) à partir d'une demande écrite ou vocale.",
-  "example": "20 sacs de ciment pour Quincaillerie Ama",
-  "need": "la facture à préparer",
-  "fileOk": false,
-  "common": false
- },
- "mamadou:impaye": {
-  "cmd": "impaye",
-  "label": "Voir la balance âgée clients",
-  "phrase": "Voir la balance âgée clients et les relances à faire aujourd'hui.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:justificatif": {
-  "cmd": "justificatif",
-  "label": "Voir les dépenses payées",
-  "phrase": "Voir les dépenses payées sans justificatif, et qui doit le fournir.",
-  "example": "septembre",
-  "need": "la dépense",
-  "fileOk": false,
-  "common": false
- },
- "mamadou:paiement": {
-  "cmd": "paiement",
-  "label": "Voir l'état numéroté des règlements du jour",
-  "phrase": "Voir l'état numéroté des règlements du jour et dire lesquels payer.",
-  "example": "fin du mois",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:pieces": {
-  "cmd": "pieces",
-  "label": "Voir les pièces reçues",
-  "phrase": "Voir les pièces reçues, à rattacher et manquantes, avec leur détenteur.",
-  "example": "manquantes",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:rapprochement": {
-  "cmd": "rapprochement",
-  "label": "Rapprocher la banque",
-  "phrase": "Rapprocher la banque et le mobile money de la comptabilité.",
-  "example": "Wave septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:reception": {
-  "cmd": "reception",
-  "label": "Déclarer une réception",
-  "phrase": "Déclarer une réception et lancer le rapprochement commande, réception, facture.",
-  "example": "BL du fournisseur de ciment",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:recouvrement": {
-  "cmd": "recouvrement",
-  "label": "Voir tout l'argent que l'entreprise peut récupérer",
-  "phrase": "Voir tout l'argent que l'entreprise peut récupérer.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:referentiel": {
-  "cmd": "referentiel",
-  "label": "Voir l'état du référentiel comptable",
-  "phrase": "Voir l'état du référentiel comptable et la liste du premier jour encore ouverte.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:saisie": {
-  "cmd": "saisie",
-  "label": "Lire les documents reçus",
-  "phrase": "Lire les documents reçus et préparer leur saisie, que tu valides.",
-  "example": "les factures reçues cette semaine",
-  "need": "le document",
-  "fileOk": true,
-  "common": false
- },
- "mamadou:synthese": {
-  "cmd": "synthese",
-  "label": "Recevoir le mois expliqué au dirigeant en une page",
-  "phrase": "Recevoir le mois expliqué au dirigeant en une page.",
-  "example": "septembre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:tresorerie": {
-  "cmd": "tresorerie",
-  "label": "Voir la trésorerie du jour",
-  "phrase": "Voir la trésorerie du jour et celle des treize prochaines semaines.",
-  "example": "",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:tva": {
-  "cmd": "tva",
-  "label": "Voir la position de TVA du mois",
-  "phrase": "Voir la position de TVA du mois et les factures à corriger.",
-  "example": "troisième trimestre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "mamadou:validations": {
-  "cmd": "validations",
-  "label": "Voir ce qui attend une décision",
-  "phrase": "Voir ce qui attend une décision et ce qui a été décidé.",
-  "example": "paiements",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "ousmane:faq": {
-  "cmd": "faq",
-  "label": "Écrire ou mettre à jour les réponses types",
-  "phrase": "Écrire ou mettre à jour les réponses types et la FAQ.",
-  "example": "livraison et paiement",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "rokia:justificatif": {
-  "cmd": "justificatif",
-  "label": "Voir les dépenses payées",
-  "phrase": "Voir les dépenses payées sans justificatif, et qui doit le fournir.",
-  "example": "septembre",
-  "need": "la dépense",
-  "fileOk": false,
-  "common": false
- },
- "rokia:pieces": {
-  "cmd": "pieces",
-  "label": "Voir les pièces reçues",
-  "phrase": "Voir les pièces reçues, à rattacher et manquantes, avec leur détenteur.",
-  "example": "manquantes",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "rokia:validations": {
-  "cmd": "validations",
-  "label": "Voir ce qui attend une décision",
-  "phrase": "Voir ce qui attend une décision et ce qui a été décidé.",
-  "example": "paiements",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "salif:achat": {
-  "cmd": "achat",
-  "label": "Préparer un achat",
-  "phrase": "Préparer un achat : consultation, comparaison et commande.",
-  "example": "50 sacs de ciment",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "salif:caisse": {
-  "cmd": "caisse",
-  "label": "Faire le point de caisse",
-  "phrase": "Faire le point de caisse et des encaissements du jour.",
-  "example": "du magasin de Treichville",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "salif:fournisseurs": {
-  "cmd": "fournisseurs",
-  "label": "Évaluer les fournisseurs",
-  "phrase": "Évaluer les fournisseurs et voir ce que coûtent les achats.",
-  "example": "emballages",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "salif:livraison": {
-  "cmd": "livraison",
-  "label": "Organiser les livraisons du jour",
-  "phrase": "Organiser les livraisons du jour et suivre ce qui est parti.",
-  "example": "tournée Abobo de demain",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "salif:procedure": {
-  "cmd": "procedure",
-  "label": "Écrire une procédure claire",
-  "phrase": "Écrire une procédure claire pour une tâche de l'équipe.",
-  "example": "réception des marchandises",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "salif:stock": {
-  "cmd": "stock",
-  "label": "Voir le stock",
-  "phrase": "Voir le stock, les alertes et ce qu'il faut commander.",
-  "example": "dépôt de Yopougon",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "sena:appeldoffres": {
-  "cmd": "appeldoffres",
-  "label": "Analyser un appel d'offres",
-  "phrase": "Analyser un appel d'offres et préparer la réponse.",
-  "example": "fourniture de mobilier ANSUT",
-  "need": "l’appel d’offres",
-  "fileOk": true,
-  "common": false
- },
- "sena:devis": {
-  "cmd": "devis",
-  "label": "Préparer un devis",
-  "phrase": "Préparer un devis ou une proposition commerciale.",
-  "example": "pour Pharmacie du Plateau",
-  "need": "le client",
-  "fileOk": false,
-  "common": false
- },
- "seydou:prospects": {
-  "cmd": "prospects",
-  "label": "Trouver de nouveaux prospects qualifiés",
-  "phrase": "Trouver de nouveaux prospects qualifiés.",
-  "example": "pharmacies à Cocody",
-  "need": "la cible",
-  "fileOk": false,
-  "common": false
- },
- "seydou:veille": {
-  "cmd": "veille",
-  "label": "Les avis d'appels d'offres",
-  "phrase": "Les avis d'appels d'offres et les signaux d'achat du jour.",
-  "example": "BTP Abidjan",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "sidiki:caisse": {
-  "cmd": "caisse",
-  "label": "Faire le point de caisse",
-  "phrase": "Faire le point de caisse et des encaissements du jour.",
-  "example": "du magasin de Treichville",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "sidiki:livraison": {
-  "cmd": "livraison",
-  "label": "Organiser les livraisons du jour",
-  "phrase": "Organiser les livraisons du jour et suivre ce qui est parti.",
-  "example": "tournée Abobo de demain",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "yacouba:achat": {
-  "cmd": "achat",
-  "label": "Préparer un achat",
-  "phrase": "Préparer un achat : consultation, comparaison et commande.",
-  "example": "50 sacs de ciment",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "yacouba:fournisseurs": {
-  "cmd": "fournisseurs",
-  "label": "Évaluer les fournisseurs",
-  "phrase": "Évaluer les fournisseurs et voir ce que coûtent les achats.",
-  "example": "emballages",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "yao:avis": {
-  "cmd": "avis",
-  "label": "Voir les derniers avis Google",
-  "phrase": "Voir les derniers avis Google et Facebook et les réponses proposées.",
-  "example": "agence de Cocody",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "yao:bilan": {
-  "cmd": "bilan",
-  "label": "Faire le bilan marketing de la semaine",
-  "phrase": "Faire le bilan marketing de la semaine et décider de la suivante.",
-  "example": "semaine du 13 octobre",
-  "need": null,
-  "fileOk": false,
-  "common": false
- },
- "yao:concurrents": {
-  "cmd": "concurrents",
-  "label": "Voir ce que font les concurrents",
-  "phrase": "Voir ce que font les concurrents et ce qu'il faut en retenir.",
-  "example": "offres de rentrée",
-  "need": null,
-  "fileOk": false,
-  "common": false
- }
+  "adjoua:annonce": {"cmd": "annonce", "label": "Rédiger l'annonce", "phrase": "Rédiger l'annonce et choisir où la publier.", "example": "pour la fiche comptable", "need": "le poste", "fileOk": false, "common": false},
+  "adjoua:candidats": {"cmd": "candidats", "label": "Trier les candidatures reçues", "phrase": "Trier les candidatures reçues et dire qui faire avancer.", "example": "comptable", "need": null, "fileOk": false, "common": false},
+  "configuration": {"cmd": "configuration", "label": "Son installation", "phrase": "Faire l'état complet de l'environnement de l'Expert : compétences, commandes, modèles, tâches, outils, clés, voix et autocritique.", "example": "complet", "need": null, "fileOk": false, "common": true},
+  "couche": {"cmd": "couche", "label": "Le contexte local d'un sujet", "phrase": "Savoir ce que l'Expert sait du contexte local sur un sujet, et ce qui lui manque.", "example": "CNPS", "need": "le sujet", "fileOk": false, "common": true},
+  "email": {"cmd": "email", "label": "Rédiger un e-mail", "phrase": "Rédiger un email prêt à envoyer.", "example": "relancer le cabinet comptable pour le bilan", "need": "le destinataire et l’objet", "fileOk": false, "common": true},
+  "adjoua:entretien": {"cmd": "entretien", "label": "Préparer un entretien", "phrase": "Préparer un entretien ou en faire la synthèse.", "example": "prépare Konan mardi", "need": "le candidat", "fileOk": false, "common": false},
+  "etat": {"cmd": "etat", "label": "Où en est le travail", "phrase": "Savoir où en est l'Expert : ce qui est bloqué, ce qui attend un retour, ce qui attend une décision.", "example": "", "need": null, "fileOk": false, "common": true},
+  "feedback": {"cmd": "feedback", "label": "Donner un avis sur un livrable", "phrase": "Donner un avis sur un livrable : l'Expert corrige et retient la leçon.", "example": "le tableau est trop long, garde les 5 premiers fournisseurs", "need": "votre avis", "fileOk": false, "common": true},
+  "adjoua:fichedeposte": {"cmd": "fichedeposte", "label": "Rédiger la fiche de poste à partir du besoin", "phrase": "Rédiger la fiche de poste à partir du besoin.", "example": "comptable confirmé", "need": "le poste", "fileOk": false, "common": false},
+  "historique": {"cmd": "historique", "label": "Retrouver un client ou un dossier", "phrase": "Retrouver tout ce que l'Expert sait d'un client, d'un dossier ou d'un interlocuteur.", "example": "Koroba", "need": "le nom du client ou du dossier", "fileOk": false, "common": true},
+  "livrable": {"cmd": "livrable", "label": "Remettre le document en ligne", "phrase": "Remettre le document du moment en Google Doc, Slides ou Sheet, avec son PDF et son aperçu.", "example": "le compte rendu de ce matin", "need": null, "fileOk": false, "common": true},
+  "memoire": {"cmd": "memoire", "label": "Sa mémoire de l'entreprise", "phrase": "Voir ce que l'Expert sait de l'entreprise, et corriger ce qui est faux.", "example": "décisions", "need": null, "fileOk": false, "common": true},
+  "onboarding": {"cmd": "onboarding", "label": "Faire connaissance", "phrase": "Rejouer le message d'accueil du premier jour, sans rien effacer.", "example": "court", "need": null, "fileOk": false, "common": true},
+  "outils": {"cmd": "outils", "label": "Ses outils", "phrase": "Voir les outils branchés, ceux qui manquent, et en brancher un.", "example": "", "need": null, "fileOk": false, "common": true},
+  "point": {"cmd": "point", "label": "Le point de la journée", "phrase": "Recevoir tout de suite le point de la journée, sans attendre 17 h.", "example": "", "need": null, "fileOk": false, "common": true},
+  "adjoua:recrutement": {"cmd": "recrutement", "label": "Voir où en est chaque recrutement ouvert", "phrase": "Voir où en est chaque recrutement ouvert.", "example": "poste comptable", "need": null, "fileOk": false, "common": false},
+  "relire": {"cmd": "relire", "label": "Relire avant envoi", "phrase": "Contrôler un texte ou un document avant qu'il parte.", "example": "", "need": "le texte ou le document à relire", "fileOk": true, "common": true},
+  "resume": {"cmd": "resume", "label": "Résumer un document", "phrase": "Résumer un document reçu en une page.", "example": "", "need": "le document à résumer", "fileOk": true, "common": true},
+  "adjoua:retours": {"cmd": "retours", "label": "Répondre aux candidats", "phrase": "Répondre aux candidats, retenus et non retenus.", "example": "poste comptable", "need": null, "fileOk": false, "common": false},
+  "routines": {"cmd": "routines", "label": "Ses routines", "phrase": "Voir et régler les tâches automatiques de l'Expert.", "example": "", "need": null, "fileOk": false, "common": true},
+  "s": {"cmd": "s", "label": "Chercher sur le web", "phrase": "Aller chercher l'information sur des pages réelles, sources à l'appui, au lieu de répondre de mémoire.", "example": "appels d'offres BTP Abidjan octobre", "need": "le sujet à chercher", "fileOk": false, "common": true},
+  "tableau": {"cmd": "tableau", "label": "Son tableau de bord", "phrase": "Recevoir le lien du tableau de bord du métier de l'Expert, à jour et en ligne.", "example": "", "need": null, "fileOk": false, "common": true},
+  "taches": {"cmd": "taches", "label": "Les tâches en cours", "phrase": "Voir la liste des tâches en cours, et en ajouter ou en clore une.", "example": "+ relancer le fournisseur de ciment vendredi", "need": null, "fileOk": false, "common": true},
+  "valeur": {"cmd": "valeur", "label": "Ce qui a été produit", "phrase": "Voir ce que l'Expert a produit et le temps qu'il a fait gagner.", "example": "septembre", "need": null, "fileOk": false, "common": true},
+  "akissi:satisfaction": {"cmd": "satisfaction", "label": "Mesurer la satisfaction des clients", "phrase": "Mesurer la satisfaction des clients et dire quoi améliorer.", "example": "clients de septembre", "need": null, "fileOk": false, "common": false},
+  "aminata:commissions": {"cmd": "commissions", "label": "L'état des commissions du mois", "phrase": "L'état des commissions du mois, à valider avant la paie.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "aminata:pipeline": {"cmd": "pipeline", "label": "Voir le pipeline commercial", "phrase": "Voir le pipeline commercial et la prévision du mois.", "example": "de l'équipe Abidjan sud", "need": null, "fileOk": false, "common": false},
+  "assita:procedure": {"cmd": "procedure", "label": "Écrire une procédure claire", "phrase": "Écrire une procédure claire pour une tâche de l'équipe.", "example": "réception des marchandises", "need": null, "fileOk": false, "common": false},
+  "awa:escalade": {"cmd": "escalade", "label": "Faire remonter un cas bloqué au bon responsable", "phrase": "Faire remonter un cas bloqué au bon responsable.", "example": "réclamation 245", "need": null, "fileOk": false, "common": false},
+  "awa:faq": {"cmd": "faq", "label": "Écrire ou mettre à jour les réponses types", "phrase": "Écrire ou mettre à jour les réponses types et la FAQ.", "example": "livraison et paiement", "need": null, "fileOk": false, "common": false},
+  "awa:planning": {"cmd": "planning", "label": "Faire le planning de l'équipe du service client", "phrase": "Faire le planning de l'équipe du service client.", "example": "semaine prochaine", "need": null, "fileOk": false, "common": false},
+  "awa:reclamation": {"cmd": "reclamation", "label": "Traiter une réclamation jusqu'à la solution", "phrase": "Traiter une réclamation jusqu'à la solution.", "example": "de Mme Kouamé sur sa livraison", "need": "la réclamation", "fileOk": true, "common": false},
+  "awa:satisfaction": {"cmd": "satisfaction", "label": "Mesurer la satisfaction des clients", "phrase": "Mesurer la satisfaction des clients et dire quoi améliorer.", "example": "clients de septembre", "need": null, "fileOk": false, "common": false},
+  "awa:tickets": {"cmd": "tickets", "label": "Voir les demandes clients ouvertes", "phrase": "Voir les demandes clients ouvertes et ce qu'il faut traiter d'abord.", "example": "WhatsApp du jour", "need": null, "fileOk": false, "common": false},
+  "aya:createurs": {"cmd": "createurs", "label": "Proposer des créateurs", "phrase": "Proposer des créateurs pour un objectif, avec leur audience réelle et ce qu'on sait de leur prix.", "example": "lancement de la nouvelle gamme, jeunes de 18 à 25 ans", "need": null, "fileOk": false, "common": false},
+  "daouda:encaissements": {"cmd": "encaissements", "label": "Voir les factures en attente d'encaissement du jour", "phrase": "Voir les factures en attente d'encaissement du jour et dire par quel canal elles ont été payées.", "example": "semaine", "need": null, "fileOk": false, "common": false},
+  "daouda:facture": {"cmd": "facture", "label": "Voir toutes les factures d'une période", "phrase": "Voir toutes les factures d'une période, reçues et émises, avec le récapitulatif.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "daouda:fne": {"cmd": "fne", "label": "Préparer une facture normalisée électronique", "phrase": "Préparer une facture normalisée électronique (FNE) à partir d'une demande écrite ou vocale.", "example": "20 sacs de ciment pour Quincaillerie Ama", "need": "la facture à préparer", "fileOk": false, "common": false},
+  "daouda:impaye": {"cmd": "impaye", "label": "Voir la balance âgée clients", "phrase": "Voir la balance âgée clients et les relances à faire aujourd'hui.", "example": "", "need": null, "fileOk": false, "common": false},
+  "daouda:rapprochement": {"cmd": "rapprochement", "label": "Rapprocher la banque", "phrase": "Rapprocher la banque et le mobile money de la comptabilité.", "example": "Wave septembre", "need": null, "fileOk": false, "common": false},
+  "daouda:recouvrement": {"cmd": "recouvrement", "label": "Voir tout l'argent que l'entreprise peut récupérer", "phrase": "Voir tout l'argent que l'entreprise peut récupérer.", "example": "", "need": null, "fileOk": false, "common": false},
+  "daouda:tresorerie": {"cmd": "tresorerie", "label": "Voir la trésorerie du jour", "phrase": "Voir la trésorerie du jour et celle des treize prochaines semaines.", "example": "", "need": null, "fileOk": false, "common": false},
+  "daouda:validations": {"cmd": "validations", "label": "Voir ce qui attend une décision", "phrase": "Voir ce qui attend une décision et ce qui a été décidé.", "example": "paiements", "need": null, "fileOk": false, "common": false},
+  "djeneba:agenda": {"cmd": "agenda", "label": "Voir l'agenda des prochains jours", "phrase": "Voir l'agenda des prochains jours et ce qu'il faut arbitrer.", "example": "semaine prochaine", "need": null, "fileOk": false, "common": false},
+  "djeneba:compterendu": {"cmd": "compterendu", "label": "Rédiger le compte rendu d'une réunion", "phrase": "Rédiger le compte rendu d'une réunion avec ses décisions, le rendre dans le chat et l'envoyer aussi par email selon le choix fait une fois (dirigeant seul ou tous les participants).", "example": "de la réunion de ce matin", "need": null, "fileOk": true, "common": false},
+  "djeneba:coordination": {"cmd": "coordination", "label": "Passer une demande à l'Expert du bon métier", "phrase": "Passer une demande à l'Expert du bon métier, et suivre qu'il la prend.", "example": "un contrat de bail à relire", "need": null, "fileOk": false, "common": false},
+  "djeneba:courrier": {"cmd": "courrier", "label": "Trier les emails", "phrase": "Trier les emails et le courrier, et préparer les réponses.", "example": "urgents seulement", "need": "le courrier", "fileOk": false, "common": false},
+  "djeneba:decision": {"cmd": "decision", "label": "Rédiger une note de décision", "phrase": "Rédiger une note de décision pour la direction.", "example": "recruter un second commercial", "need": null, "fileOk": false, "common": false},
+  "djeneba:demo": {"cmd": "demo", "label": "Préparer une démo commerciale Yelema", "phrase": "Préparer une démo commerciale Yelema : le prospect (Déclic ou infos publiques), les trois cas les plus proches de la Bibliothèque des démos, leurs livrables et un deck aux couleurs Yelema.", "example": "Cotiplast", "need": null, "fileOk": false, "common": false},
+  "djeneba:deplacement": {"cmd": "deplacement", "label": "Organiser un déplacement de bout en bout", "phrase": "Organiser un déplacement de bout en bout.", "example": "Dakar du 4 au 6 novembre", "need": null, "fileOk": false, "common": false},
+  "djeneba:reunion": {"cmd": "reunion", "label": "Préparer une réunion", "phrase": "Préparer une réunion : brief, ordre du jour et dossier.", "example": "comité de direction de lundi", "need": null, "fileOk": false, "common": false},
+  "fatima:bilan": {"cmd": "bilan", "label": "Faire le bilan marketing de la semaine", "phrase": "Faire le bilan marketing de la semaine et décider de la suivante.", "example": "semaine du 13 octobre", "need": null, "fileOk": false, "common": false},
+  "fatima:calendrier": {"cmd": "calendrier", "label": "Préparer le calendrier des publications du mois", "phrase": "Préparer le calendrier des publications du mois.", "example": "novembre", "need": null, "fileOk": false, "common": false},
+  "fatima:campagne": {"cmd": "campagne", "label": "Construire une campagne de bout en bout", "phrase": "Construire une campagne de bout en bout.", "example": "rentrée scolaire", "need": null, "fileOk": false, "common": false},
+  "fatima:concurrents": {"cmd": "concurrents", "label": "Voir ce que font les concurrents", "phrase": "Voir ce que font les concurrents et ce qu'il faut en retenir.", "example": "offres de rentrée", "need": null, "fileOk": false, "common": false},
+  "fatima:post": {"cmd": "post", "label": "Rédiger un post prêt à publier", "phrase": "Rédiger un post prêt à publier, avec sa légende et son visuel.", "example": "lancement de la nouvelle gamme", "need": "le sujet du post", "fileOk": false, "common": false},
+  "fatima:pubs": {"cmd": "pubs", "label": "Voir les publicités en cours", "phrase": "Voir les publicités en cours et décider des ajustements.", "example": "Facebook de la semaine", "need": null, "fileOk": false, "common": false},
+  "fatou:attestation": {"cmd": "attestation", "label": "Rédiger une attestation", "phrase": "Rédiger une attestation ou un certificat pour un salarié.", "example": "de travail pour Traoré", "need": "la personne", "fileOk": false, "common": false},
+  "fatou:cnps": {"cmd": "cnps", "label": "Préparer la déclaration CNPS", "phrase": "Préparer la déclaration CNPS et vérifier que tout est en règle.", "example": "troisième trimestre", "need": null, "fileOk": false, "common": false},
+  "fatou:conges": {"cmd": "conges", "label": "Voir les congés", "phrase": "Voir les congés et absences de l'équipe, et préparer les réponses.", "example": "équipe logistique", "need": null, "fileOk": false, "common": false},
+  "fatou:contrat": {"cmd": "contrat", "label": "Rédiger un contrat de travail", "phrase": "Rédiger un contrat de travail ou un avenant, prêt à signer.", "example": "CDI comptable", "need": "la personne ou le contrat", "fileOk": false, "common": false},
+  "fatou:formation": {"cmd": "formation", "label": "Construire une formation", "phrase": "Construire une formation ou le plan de formation de l'année.", "example": "accueil client pour les caissières", "need": null, "fileOk": false, "common": false},
+  "fatou:paie": {"cmd": "paie", "label": "Préparer la paie du mois", "phrase": "Préparer la paie du mois et contrôler chaque bulletin.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "ibrahim:conformite": {"cmd": "conformite", "label": "Tenir le registre des données personnelles de l'entreprise", "phrase": "Tenir le registre des données personnelles de l'entreprise et préparer la démarche auprès de l'ARTCI.", "example": "fichier clients et SMS promotionnels", "need": null, "fileOk": false, "common": false},
+  "ibrahim:contrat": {"cmd": "contrat", "label": "Relire un contrat reçu", "phrase": "Relire un contrat reçu et rendre une note de risque avec les demandes de modification.", "example": "de distribution proposé par SIFCA", "need": "la personne ou le contrat", "fileOk": false, "common": false},
+  "ibrahim:echeances": {"cmd": "echeances", "label": "Voir les contrats qui arrivent à échéance", "phrase": "Voir les contrats qui arrivent à échéance, ceux qui se renouvellent seuls et la date limite de chaque préavis.", "example": "du trimestre", "need": null, "fileOk": false, "common": false},
+  "ibrahim:mise-en-demeure": {"cmd": "mise-en-demeure", "label": "Monter le dossier d'une créance impayée", "phrase": "Monter le dossier d'une créance impayée et préparer la lettre de mise en demeure prête à signer.", "example": "client Plateau 4 factures", "need": "le destinataire", "fileOk": false, "common": false},
+  "kadiatou:achat": {"cmd": "achat", "label": "Enregistrer une demande d'achat", "phrase": "Enregistrer une demande d'achat et voir son contrôle contre le budget.", "example": "4 cartouches d'encre pour la comptabilité", "need": null, "fileOk": false, "common": false},
+  "kadiatou:bc": {"cmd": "bc", "label": "Préparer un bon de commande à signer", "phrase": "Préparer un bon de commande à signer et voir les bons non réceptionnés.", "example": "pour la demande 12", "need": null, "fileOk": false, "common": false},
+  "kadiatou:controle": {"cmd": "controle", "label": "Contrôler une facture contre la commande", "phrase": "Contrôler une facture contre la commande et la livraison.", "example": "", "need": "le document", "fileOk": true, "common": false},
+  "kadiatou:facture": {"cmd": "facture", "label": "Voir toutes les factures d'une période", "phrase": "Voir toutes les factures d'une période, reçues et émises, avec le récapitulatif.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "kadiatou:justificatif": {"cmd": "justificatif", "label": "Voir les dépenses payées", "phrase": "Voir les dépenses payées sans justificatif, et qui doit le fournir.", "example": "septembre", "need": "la dépense", "fileOk": false, "common": false},
+  "kadiatou:paiement": {"cmd": "paiement", "label": "Voir l'état numéroté des règlements du jour", "phrase": "Voir l'état numéroté des règlements du jour et dire lesquels payer.", "example": "fin du mois", "need": null, "fileOk": false, "common": false},
+  "kadiatou:pieces": {"cmd": "pieces", "label": "Voir les pièces reçues", "phrase": "Voir les pièces reçues, à rattacher et manquantes, avec leur détenteur.", "example": "manquantes", "need": null, "fileOk": false, "common": false},
+  "kadiatou:reception": {"cmd": "reception", "label": "Déclarer une réception", "phrase": "Déclarer une réception et lancer le rapprochement commande, réception, facture.", "example": "BL du fournisseur de ciment", "need": null, "fileOk": false, "common": false},
+  "kadiatou:validations": {"cmd": "validations", "label": "Voir ce qui attend une décision", "phrase": "Voir ce qui attend une décision et ce qui a été décidé.", "example": "paiements", "need": null, "fileOk": false, "common": false},
+  "koffi:animation": {"cmd": "animation", "label": "Animer un logo", "phrase": "Animer un logo, un visuel ou un message en courte vidéo.", "example": "logo en 5 secondes", "need": null, "fileOk": false, "common": false},
+  "koffi:charte": {"cmd": "charte", "label": "Créer ou remettre à plat la charte graphique", "phrase": "Créer ou remettre à plat la charte graphique.", "example": "mini depuis notre site", "need": null, "fileOk": false, "common": false},
+  "koffi:declinaisons": {"cmd": "declinaisons", "label": "Décliner un visuel validé dans tous les formats utiles", "phrase": "Décliner un visuel validé dans tous les formats utiles.", "example": "de l'affiche promo", "need": null, "fileOk": false, "common": false},
+  "koffi:goodies": {"cmd": "goodies", "label": "Concevoir des objets aux couleurs de la marque", "phrase": "Concevoir des objets aux couleurs de la marque.", "example": "pour le salon de mars", "need": null, "fileOk": false, "common": false},
+  "koffi:maquette": {"cmd": "maquette", "label": "Montrer le rendu sur le support réel avant de produire", "phrase": "Montrer le rendu sur le support réel avant de produire.", "example": "du stand pour le salon", "need": "ce qu’il faut maquetter", "fileOk": false, "common": false},
+  "koffi:visuel": {"cmd": "visuel", "label": "Créer un visuel", "phrase": "Créer un visuel : post, affiche ou flyer.", "example": "affiche promo de fin d'année en A3", "need": "le visuel voulu", "fileOk": false, "common": false},
+  "kouassi:appeldoffres": {"cmd": "appeldoffres", "label": "Analyser un appel d'offres", "phrase": "Analyser un appel d'offres et préparer la réponse.", "example": "fourniture de mobilier ANSUT", "need": "l’appel d’offres", "fileOk": true, "common": false},
+  "kouassi:devis": {"cmd": "devis", "label": "Préparer un devis", "phrase": "Préparer un devis ou une proposition commerciale.", "example": "pour Pharmacie du Plateau", "need": "le client", "fileOk": false, "common": false},
+  "kouassi:pipeline": {"cmd": "pipeline", "label": "Voir le pipeline commercial", "phrase": "Voir le pipeline commercial et la prévision du mois.", "example": "de l'équipe Abidjan sud", "need": null, "fileOk": false, "common": false},
+  "kouassi:prospects": {"cmd": "prospects", "label": "Trouver de nouveaux prospects qualifiés", "phrase": "Trouver de nouveaux prospects qualifiés.", "example": "pharmacies à Cocody", "need": "la cible", "fileOk": false, "common": false},
+  "kouassi:rdv": {"cmd": "rdv", "label": "Préparer un rendez-vous client", "phrase": "Préparer un rendez-vous client, puis en faire le compte rendu.", "example": "prépare Sotra jeudi", "need": "le client", "fileOk": true, "common": false},
+  "kouassi:relance": {"cmd": "relance", "label": "Préparer les messages d'approche", "phrase": "Préparer les messages d'approche et les relances du jour.", "example": "prospects du salon", "need": null, "fileOk": false, "common": false},
+  "lamine:formation": {"cmd": "formation", "label": "Construire une formation", "phrase": "Construire une formation ou le plan de formation de l'année.", "example": "accueil client pour les caissières", "need": null, "fileOk": false, "common": false},
+  "malick:sav": {"cmd": "sav", "label": "Voir les retours", "phrase": "Voir les retours, les réparations et les livraisons en cours, et ce qu'il faut traiter d'abord.", "example": "réparations de la semaine", "need": null, "fileOk": false, "common": false},
+  "mamadou:achat": {"cmd": "achat", "label": "Enregistrer une demande d'achat", "phrase": "Enregistrer une demande d'achat et voir son contrôle contre le budget.", "example": "4 cartouches d'encre pour la comptabilité", "need": null, "fileOk": false, "common": false},
+  "mamadou:bc": {"cmd": "bc", "label": "Préparer un bon de commande à signer", "phrase": "Préparer un bon de commande à signer et voir les bons non réceptionnés.", "example": "pour la demande 12", "need": null, "fileOk": false, "common": false},
+  "mamadou:budget": {"cmd": "budget", "label": "Comparer le réel du mois au budget", "phrase": "Comparer le réel du mois au budget, poste par poste, avec les écarts expliqués.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "mamadou:cloture": {"cmd": "cloture", "label": "Voir où en est la clôture du mois", "phrase": "Voir où en est la clôture du mois et ce qui la bloque.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "mamadou:controle": {"cmd": "controle", "label": "Contrôler une facture contre la commande", "phrase": "Contrôler une facture contre la commande et la livraison.", "example": "", "need": "le document", "fileOk": true, "common": false},
+  "mamadou:echeances": {"cmd": "echeances", "label": "Voir les échéances fiscales", "phrase": "Voir les échéances fiscales et sociales du mois (DGI, CNPS) et ce qui est prêt.", "example": "novembre", "need": null, "fileOk": false, "common": false},
+  "mamadou:encaissements": {"cmd": "encaissements", "label": "Voir les factures en attente d'encaissement du jour", "phrase": "Voir les factures en attente d'encaissement du jour et dire par quel canal elles ont été payées.", "example": "semaine", "need": null, "fileOk": false, "common": false},
+  "mamadou:facture": {"cmd": "facture", "label": "Voir toutes les factures d'une période", "phrase": "Voir toutes les factures d'une période, reçues et émises, avec le récapitulatif.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "mamadou:fne": {"cmd": "fne", "label": "Préparer une facture normalisée électronique", "phrase": "Préparer une facture normalisée électronique (FNE) à partir d'une demande écrite ou vocale.", "example": "20 sacs de ciment pour Quincaillerie Ama", "need": "la facture à préparer", "fileOk": false, "common": false},
+  "mamadou:impaye": {"cmd": "impaye", "label": "Voir la balance âgée clients", "phrase": "Voir la balance âgée clients et les relances à faire aujourd'hui.", "example": "", "need": null, "fileOk": false, "common": false},
+  "mamadou:justificatif": {"cmd": "justificatif", "label": "Voir les dépenses payées", "phrase": "Voir les dépenses payées sans justificatif, et qui doit le fournir.", "example": "septembre", "need": "la dépense", "fileOk": false, "common": false},
+  "mamadou:paiement": {"cmd": "paiement", "label": "Voir l'état numéroté des règlements du jour", "phrase": "Voir l'état numéroté des règlements du jour et dire lesquels payer.", "example": "fin du mois", "need": null, "fileOk": false, "common": false},
+  "mamadou:pieces": {"cmd": "pieces", "label": "Voir les pièces reçues", "phrase": "Voir les pièces reçues, à rattacher et manquantes, avec leur détenteur.", "example": "manquantes", "need": null, "fileOk": false, "common": false},
+  "mamadou:rapprochement": {"cmd": "rapprochement", "label": "Rapprocher la banque", "phrase": "Rapprocher la banque et le mobile money de la comptabilité.", "example": "Wave septembre", "need": null, "fileOk": false, "common": false},
+  "mamadou:reception": {"cmd": "reception", "label": "Déclarer une réception", "phrase": "Déclarer une réception et lancer le rapprochement commande, réception, facture.", "example": "BL du fournisseur de ciment", "need": null, "fileOk": false, "common": false},
+  "mamadou:recouvrement": {"cmd": "recouvrement", "label": "Voir tout l'argent que l'entreprise peut récupérer", "phrase": "Voir tout l'argent que l'entreprise peut récupérer.", "example": "", "need": null, "fileOk": false, "common": false},
+  "mamadou:referentiel": {"cmd": "referentiel", "label": "Voir l'état du référentiel comptable", "phrase": "Voir l'état du référentiel comptable et la liste du premier jour encore ouverte.", "example": "", "need": null, "fileOk": false, "common": false},
+  "mamadou:saisie": {"cmd": "saisie", "label": "Lire les documents reçus", "phrase": "Lire les documents reçus et préparer leur saisie, que tu valides.", "example": "les factures reçues cette semaine", "need": "le document", "fileOk": true, "common": false},
+  "mamadou:synthese": {"cmd": "synthese", "label": "Recevoir le mois expliqué au dirigeant en une page", "phrase": "Recevoir le mois expliqué au dirigeant en une page.", "example": "septembre", "need": null, "fileOk": false, "common": false},
+  "mamadou:tresorerie": {"cmd": "tresorerie", "label": "Voir la trésorerie du jour", "phrase": "Voir la trésorerie du jour et celle des treize prochaines semaines.", "example": "", "need": null, "fileOk": false, "common": false},
+  "mamadou:tva": {"cmd": "tva", "label": "Voir la position de TVA du mois", "phrase": "Voir la position de TVA du mois et les factures à corriger.", "example": "troisième trimestre", "need": null, "fileOk": false, "common": false},
+  "mamadou:validations": {"cmd": "validations", "label": "Voir ce qui attend une décision", "phrase": "Voir ce qui attend une décision et ce qui a été décidé.", "example": "paiements", "need": null, "fileOk": false, "common": false},
+  "ousmane:faq": {"cmd": "faq", "label": "Écrire ou mettre à jour les réponses types", "phrase": "Écrire ou mettre à jour les réponses types et la FAQ.", "example": "livraison et paiement", "need": null, "fileOk": false, "common": false},
+  "rokia:justificatif": {"cmd": "justificatif", "label": "Voir les dépenses payées", "phrase": "Voir les dépenses payées sans justificatif, et qui doit le fournir.", "example": "septembre", "need": "la dépense", "fileOk": false, "common": false},
+  "rokia:pieces": {"cmd": "pieces", "label": "Voir les pièces reçues", "phrase": "Voir les pièces reçues, à rattacher et manquantes, avec leur détenteur.", "example": "manquantes", "need": null, "fileOk": false, "common": false},
+  "rokia:validations": {"cmd": "validations", "label": "Voir ce qui attend une décision", "phrase": "Voir ce qui attend une décision et ce qui a été décidé.", "example": "paiements", "need": null, "fileOk": false, "common": false},
+  "salif:achat": {"cmd": "achat", "label": "Préparer un achat", "phrase": "Préparer un achat : consultation, comparaison et commande.", "example": "50 sacs de ciment", "need": null, "fileOk": false, "common": false},
+  "salif:caisse": {"cmd": "caisse", "label": "Faire le point de caisse", "phrase": "Faire le point de caisse et des encaissements du jour.", "example": "du magasin de Treichville", "need": null, "fileOk": false, "common": false},
+  "salif:fournisseurs": {"cmd": "fournisseurs", "label": "Évaluer les fournisseurs", "phrase": "Évaluer les fournisseurs et voir ce que coûtent les achats.", "example": "emballages", "need": null, "fileOk": false, "common": false},
+  "salif:livraison": {"cmd": "livraison", "label": "Organiser les livraisons du jour", "phrase": "Organiser les livraisons du jour et suivre ce qui est parti.", "example": "tournée Abobo de demain", "need": null, "fileOk": false, "common": false},
+  "salif:procedure": {"cmd": "procedure", "label": "Écrire une procédure claire", "phrase": "Écrire une procédure claire pour une tâche de l'équipe.", "example": "réception des marchandises", "need": null, "fileOk": false, "common": false},
+  "salif:stock": {"cmd": "stock", "label": "Voir le stock", "phrase": "Voir le stock, les alertes et ce qu'il faut commander.", "example": "dépôt de Yopougon", "need": null, "fileOk": false, "common": false},
+  "sena:appeldoffres": {"cmd": "appeldoffres", "label": "Analyser un appel d'offres", "phrase": "Analyser un appel d'offres et préparer la réponse.", "example": "fourniture de mobilier ANSUT", "need": "l’appel d’offres", "fileOk": true, "common": false},
+  "sena:devis": {"cmd": "devis", "label": "Préparer un devis", "phrase": "Préparer un devis ou une proposition commerciale.", "example": "pour Pharmacie du Plateau", "need": "le client", "fileOk": false, "common": false},
+  "seydou:prospects": {"cmd": "prospects", "label": "Trouver de nouveaux prospects qualifiés", "phrase": "Trouver de nouveaux prospects qualifiés.", "example": "pharmacies à Cocody", "need": "la cible", "fileOk": false, "common": false},
+  "seydou:veille": {"cmd": "veille", "label": "Les avis d'appels d'offres", "phrase": "Les avis d'appels d'offres et les signaux d'achat du jour.", "example": "BTP Abidjan", "need": null, "fileOk": false, "common": false},
+  "sidiki:caisse": {"cmd": "caisse", "label": "Faire le point de caisse", "phrase": "Faire le point de caisse et des encaissements du jour.", "example": "du magasin de Treichville", "need": null, "fileOk": false, "common": false},
+  "sidiki:livraison": {"cmd": "livraison", "label": "Organiser les livraisons du jour", "phrase": "Organiser les livraisons du jour et suivre ce qui est parti.", "example": "tournée Abobo de demain", "need": null, "fileOk": false, "common": false},
+  "yacouba:achat": {"cmd": "achat", "label": "Préparer un achat", "phrase": "Préparer un achat : consultation, comparaison et commande.", "example": "50 sacs de ciment", "need": null, "fileOk": false, "common": false},
+  "yacouba:fournisseurs": {"cmd": "fournisseurs", "label": "Évaluer les fournisseurs", "phrase": "Évaluer les fournisseurs et voir ce que coûtent les achats.", "example": "emballages", "need": null, "fileOk": false, "common": false},
+  "yao:avis": {"cmd": "avis", "label": "Voir les derniers avis Google", "phrase": "Voir les derniers avis Google et Facebook et les réponses proposées.", "example": "agence de Cocody", "need": null, "fileOk": false, "common": false},
+  "yao:bilan": {"cmd": "bilan", "label": "Faire le bilan marketing de la semaine", "phrase": "Faire le bilan marketing de la semaine et décider de la suivante.", "example": "semaine du 13 octobre", "need": null, "fileOk": false, "common": false},
+  "yao:concurrents": {"cmd": "concurrents", "label": "Voir ce que font les concurrents", "phrase": "Voir ce que font les concurrents et ce qu'il faut en retenir.", "example": "offres de rentrée", "need": null, "fileOk": false, "common": false}
 };
 
 export const EXPERT_COMMANDS: Record<string, string[]> = {"adjoua": ["adjoua:annonce", "adjoua:candidats", "configuration", "couche", "email", "adjoua:entretien", "etat", "feedback", "adjoua:fichedeposte", "historique", "livrable", "memoire", "onboarding", "outils", "point", "adjoua:recrutement", "relire", "resume", "adjoua:retours", "routines", "s", "tableau", "taches", "valeur"], "aicha": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "akissi": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "akissi:satisfaction", "tableau", "taches", "valeur"], "alioune": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "aminata": ["aminata:commissions", "configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "aminata:pipeline", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "assita": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "assita:procedure", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "awa": ["configuration", "couche", "email", "awa:escalade", "etat", "awa:faq", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "awa:planning", "point", "awa:reclamation", "relire", "resume", "routines", "s", "awa:satisfaction", "tableau", "taches", "awa:tickets", "valeur"], "aya": ["configuration", "couche", "aya:createurs", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "cheikh": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "daouda": ["configuration", "couche", "email", "daouda:encaissements", "etat", "daouda:facture", "feedback", "daouda:fne", "historique", "daouda:impaye", "livrable", "memoire", "onboarding", "outils", "point", "daouda:rapprochement", "daouda:recouvrement", "relire", "resume", "routines", "s", "tableau", "taches", "daouda:tresorerie", "valeur", "daouda:validations"], "djeneba": ["djeneba:agenda", "djeneba:compterendu", "configuration", "djeneba:coordination", "djeneba:courrier", "djeneba:decision", "djeneba:demo", "djeneba:deplacement", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "point", "relire", "resume", "djeneba:reunion", "s", "tableau", "taches", "valeur"], "fatima": ["fatima:bilan", "fatima:calendrier", "fatima:campagne", "fatima:concurrents", "configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "fatima:post", "fatima:pubs", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "fatou": ["fatou:attestation", "fatou:cnps", "configuration", "fatou:conges", "fatou:contrat", "couche", "email", "etat", "feedback", "fatou:formation", "historique", "livrable", "memoire", "onboarding", "outils", "fatou:paie", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "fifame": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "ibrahim": ["configuration", "ibrahim:conformite", "ibrahim:contrat", "couche", "ibrahim:echeances", "email", "etat", "feedback", "historique", "livrable", "memoire", "ibrahim:mise-en-demeure", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "kadiatou": ["kadiatou:achat", "kadiatou:bc", "configuration", "kadiatou:controle", "couche", "email", "etat", "kadiatou:facture", "feedback", "historique", "kadiatou:justificatif", "livrable", "memoire", "onboarding", "outils", "kadiatou:paiement", "kadiatou:pieces", "point", "kadiatou:reception", "relire", "resume", "routines", "s", "tableau", "taches", "valeur", "kadiatou:validations"], "koffi": ["koffi:animation", "koffi:charte", "configuration", "couche", "koffi:declinaisons", "email", "etat", "feedback", "koffi:goodies", "historique", "livrable", "koffi:maquette", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur", "koffi:visuel"], "kouassi": ["kouassi:appeldoffres", "configuration", "couche", "kouassi:devis", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "kouassi:pipeline", "point", "kouassi:prospects", "kouassi:rdv", "kouassi:relance", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "lamine": ["configuration", "couche", "email", "etat", "feedback", "lamine:formation", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "malick": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "malick:sav", "tableau", "taches", "valeur"], "mamadou": ["mamadou:achat", "mamadou:bc", "mamadou:budget", "mamadou:cloture", "configuration", "mamadou:controle", "couche", "mamadou:echeances", "email", "mamadou:encaissements", "etat", "mamadou:facture", "feedback", "mamadou:fne", "historique", "mamadou:impaye", "mamadou:justificatif", "livrable", "memoire", "onboarding", "outils", "mamadou:paiement", "mamadou:pieces", "point", "mamadou:rapprochement", "mamadou:reception", "mamadou:recouvrement", "mamadou:referentiel", "relire", "resume", "routines", "s", "mamadou:saisie", "mamadou:synthese", "tableau", "taches", "mamadou:tresorerie", "mamadou:tva", "valeur", "mamadou:validations"], "ousmane": ["configuration", "couche", "email", "etat", "ousmane:faq", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "rokia": ["configuration", "couche", "email", "etat", "feedback", "historique", "rokia:justificatif", "livrable", "memoire", "onboarding", "outils", "rokia:pieces", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur", "rokia:validations"], "salif": ["salif:achat", "salif:caisse", "configuration", "couche", "email", "etat", "feedback", "salif:fournisseurs", "historique", "livrable", "salif:livraison", "memoire", "onboarding", "outils", "point", "salif:procedure", "relire", "resume", "routines", "s", "salif:stock", "tableau", "taches", "valeur"], "sena": ["sena:appeldoffres", "configuration", "couche", "sena:devis", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "seydou": ["configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "seydou:prospects", "relire", "resume", "routines", "s", "tableau", "taches", "valeur", "seydou:veille"], "sidiki": ["sidiki:caisse", "configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "sidiki:livraison", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "yacouba": ["yacouba:achat", "configuration", "couche", "email", "etat", "feedback", "yacouba:fournisseurs", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"], "yao": ["yao:avis", "yao:bilan", "yao:concurrents", "configuration", "couche", "email", "etat", "feedback", "historique", "livrable", "memoire", "onboarding", "outils", "point", "relire", "resume", "routines", "s", "tableau", "taches", "valeur"]};

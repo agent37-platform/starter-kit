@@ -21,6 +21,9 @@ const INERT_TYPE = /^(image\/(png|jpeg|gif|webp|bmp|avif|x-icon|vnd\.microsoft\.
 // outside the preview's sandboxed <iframe>. So anything but a picture, a PDF, audio, video or plain
 // text is answered with `Content-Security-Policy: sandbox`: an HTML or SVG file opened by its link
 // then runs in an origin of its own, without the member's session.
+//
+// A Range header is forwarded; the instance's status (200, 206, 416) and its Content-Range and
+// Accept-Ranges come back as they are.
 export async function GET(request: Request, { params }: Ctx) {
   try {
     const { id } = await params;
@@ -35,7 +38,20 @@ export async function GET(request: Request, { params }: Ctx) {
     qs.set("path", path);
     if (disposition) qs.set("disposition", disposition);
 
-    const upstream = await instanceFetch(id, `/v1/files/content?${qs.toString()}`);
+    const reqHeaders: Record<string, string> = {};
+    const range = request.headers.get("range");
+    if (range) reqHeaders["Range"] = range;
+
+    const upstream = await instanceFetch(id, `/v1/files/content?${qs.toString()}`, {
+      headers: reqHeaders,
+    });
+
+    if (upstream.status === 416) {
+      const unsatisfied = new Headers({ "Cache-Control": "no-store" });
+      const size = upstream.headers.get("Content-Range");
+      if (size) unsatisfied.set("Content-Range", size);
+      return new Response(null, { status: 416, headers: unsatisfied });
+    }
     await assertUpstreamOk(upstream, "files/content", DOWNLOAD_FAILED, "download_error");
     if (!upstream.body) throw new ApiError(502, "download_error", DOWNLOAD_FAILED);
 
@@ -46,11 +62,15 @@ export async function GET(request: Request, { params }: Ctx) {
     if (cd) headers.set("Content-Disposition", cd);
     const cl = upstream.headers.get("Content-Length");
     if (cl) headers.set("Content-Length", cl);
+    const cr = upstream.headers.get("Content-Range");
+    if (cr) headers.set("Content-Range", cr);
+    const ar = upstream.headers.get("Accept-Ranges");
+    if (ar) headers.set("Accept-Ranges", ar);
     headers.set("Cache-Control", versioned ? "private, max-age=86400, immutable" : "no-store");
     headers.set("X-Content-Type-Options", "nosniff");
     if (!INERT_TYPE.test(ct ?? "")) headers.set("Content-Security-Policy", "sandbox");
 
-    return new Response(upstream.body, { status: 200, headers });
+    return new Response(upstream.body, { status: upstream.status, headers });
   } catch (e) {
     return handleError(e);
   }
