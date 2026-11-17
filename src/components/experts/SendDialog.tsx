@@ -150,7 +150,7 @@ export function SendDialog({
                 {chosen.length === files.length ? "Tout décocher" : "Tout cocher"}
               </button>
             </span>
-            <ul className="max-h-56 overflow-y-auto rounded-2xl border border-line">
+            <ul className="max-h-[18.5rem] overflow-y-auto rounded-2xl border border-line">
               {files.map((f) => {
                 const kind = docKind(f.name);
                 const on = picked.has(f.path);
@@ -161,7 +161,7 @@ export function SendDialog({
                       <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg text-white", kind === "other" ? "bg-tint text-brand-ink" : DOC_TONE[kind])}>
                         <FileText className="size-4" />
                       </span>
-                      <span className={cn("min-w-0 flex-1 truncate text-[13.5px]", on ? "text-ink" : "text-ink-3")} title={f.name}>
+                      <span className={cn("line-clamp-2 min-w-0 flex-1 break-all text-[13.5px] leading-snug", on ? "text-ink" : "text-ink-3")} title={f.name}>
                         {f.name}
                       </span>
                     </label>

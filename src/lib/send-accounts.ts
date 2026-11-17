@@ -4,6 +4,7 @@
 // Unipile when this expert reaches it. Nothing else is suggested. Pure, so `node --test` runs it as is.
 import { accountState, accountTitle, accountsBySlug } from "./connection-accounts.ts";
 import type { IntegrationConnection } from "./types";
+import { accountName } from "./unipile.ts";
 
 export type SendChannel = "mail" | "whatsapp" | "linkedin";
 
@@ -74,12 +75,13 @@ export function sendAccounts(s: SendSources): SendAccount[] {
     for (const a of u.accounts) {
       const kind = UNIPILE[a.type.trim().toUpperCase()];
       if (!kind || BROKEN.has((a.status ?? "").toUpperCase())) continue;
+      const shown = a.name ? accountName(a) : null;
       out.push({
         id: `unipile:${a.id}`,
         channel: kind.channel,
         title: `Votre ${kind.name}`,
-        detail: a.name || null,
-        how: `avec Unipile, depuis mon compte ${kind.name}${a.name ? ` « ${a.name} »` : ""}`,
+        detail: shown,
+        how: `avec Unipile, depuis mon compte ${kind.name}${shown ? ` « ${shown} »` : ""}`,
       });
     }
   }
