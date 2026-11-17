@@ -70,11 +70,10 @@ export interface MailDraft {
 
 export type MailRightsPatch = Partial<Pick<MailRights, "sendEnabled" | "senders" | "externalAllowed">>;
 
-export interface CreateMailInboxInput {
-  expert: string;
-  agentId: string;
-  displayName?: string;
-}
+/** Who carries an inbox: the member's own instance, or, for an admin, a member named by e-mail (the app shows no one else's instance id). */
+export type MailTarget = { agentId: string } | { member: string };
+
+export type CreateMailInboxInput = MailTarget & { expert: string; displayName?: string };
 
 const EXPERT_KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const AGENT_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
@@ -97,6 +96,18 @@ export function mailPath(expert: string, messageId?: string, attachmentId?: stri
 export const isExpertKey = (value: string): boolean => EXPERT_KEY.test(value);
 
 export const isMailAgentId = (value: string): boolean => AGENT_ID_RE.test(value);
+
+/** `agentId` or `member` from a query or a body, checked; null when neither, both, or a malformed one. */
+export function parseMailTarget(agentId: unknown, member: unknown): MailTarget | null {
+  if ((agentId == null) === (member == null)) return null;
+  if (typeof agentId === "string") return AGENT_ID_RE.test(agentId) ? { agentId } : null;
+  if (typeof member !== "string") return null;
+  const email = member.trim().toLowerCase();
+  return email.length <= 254 && ADDRESS.test(email) ? { member: email } : null;
+}
+
+/** The back office's query for a target (`agentId=…` or `member=…`). */
+export const mailTargetQuery = (t: MailTarget): string => new URLSearchParams(t).toString();
 
 /** The inbox of an expert on an instance, among those the back office listed for the member. */
 export function inboxOf(inboxes: readonly MailInbox[], expert: string, agentId: string): MailInbox | null {
@@ -144,9 +155,10 @@ const record = (body: unknown): Record<string, unknown> | null =>
 export function parseCreateMailInboxInput(body: unknown): CreateMailInboxInput | null {
   const r = record(body);
   if (!r || typeof r.expert !== "string" || !EXPERT_KEY.test(r.expert)) return null;
-  if (typeof r.agentId !== "string" || !AGENT_ID_RE.test(r.agentId)) return null;
+  const target = parseMailTarget(r.agentId, r.member);
+  if (!target) return null;
   const displayName = sanitizeInboxDisplayName(r.displayName);
-  return { expert: r.expert, agentId: r.agentId, ...(displayName !== undefined ? { displayName } : {}) };
+  return { expert: r.expert, ...target, ...(displayName !== undefined ? { displayName } : {}) };
 }
 
 const MAX_SUBJECT_LENGTH = 998;

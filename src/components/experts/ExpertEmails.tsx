@@ -278,6 +278,7 @@ export function ExpertEmails({
           <Inbox className="h-6 w-6" />
         </span>
         <h2 className="mt-3 text-base font-semibold text-ink">Pas de boîte e-mail</h2>
+        <p className="mx-auto mt-1 max-w-md text-sm text-ink-3">Votre administrateur peut attribuer une adresse à {expertName}.</p>
       </div>
     );
   }
@@ -438,13 +439,13 @@ export function ExpertEmails({
         <ConfirmDialog
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
-          title={`Supprimer l’adresse e-mail de ${expertName} ?`}
-          description={`L’adresse ${inbox.address} et sa boîte associée seront supprimées.`}
-          confirmText="Supprimer l’adresse"
+          title={`Retirer l’adresse e-mail de ${expertName} ?`}
+          description={`L’adresse ${inbox.address} ne recevra et n’enverra plus rien. Sa boîte est supprimée définitivement dans 30 jours ; d’ici là, l’attribuer de nouveau la rouvre telle quelle.`}
+          confirmText="Retirer l’adresse"
           destructive
           onConfirm={async () => {
             await onDeleteInbox(inbox.expert);
-            toast.success("Adresse e-mail supprimée.");
+            toast.success("Adresse e-mail retirée.");
           }}
         />
       )}

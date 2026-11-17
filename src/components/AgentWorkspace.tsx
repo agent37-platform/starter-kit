@@ -70,7 +70,9 @@ export function AgentWorkspace({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { setCurrentId } = useWorkspace();
+  const { setCurrentId, current } = useWorkspace();
+  // Only an admin gives or takes an expert's address; the back office checks it again.
+  const mailAdmin = current?.role === "admin";
 
   // Deep-linking to an agent scopes the WorkspaceProvider to its workspace, so the fleet/switcher
   // and any workspace-derived UI stay in sync after a refresh or shared link.
@@ -404,7 +406,7 @@ export function AgentWorkspace({
           {opened.has("emails") && profileId && (
             <div className={cn("min-h-0 flex-1 overflow-y-auto", currentTab !== "emails" && "hidden")}>
               <div className="mx-auto w-full max-w-4xl p-6 md:px-10 md:py-8">
-                <ExpertEmails inbox={inbox} expertKey={expert?.catalogueKey ?? null} expertName={expertName} loaded={mail.loaded} onCreateInbox={mail.createInbox} onDeleteInbox={mail.deleteInbox} />
+                <ExpertEmails inbox={inbox} expertKey={expert?.catalogueKey ?? null} expertName={expertName} loaded={mail.loaded} onCreateInbox={mailAdmin ? mail.createInbox : undefined} onDeleteInbox={mailAdmin ? mail.deleteInbox : undefined} />
               </div>
             </div>
           )}

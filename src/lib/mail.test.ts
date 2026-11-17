@@ -6,6 +6,8 @@ import {
   isSent,
   mailPath,
   parseCreateMailInboxInput,
+  parseMailTarget,
+  mailTargetQuery,
   parseMailDraft,
   parseMailReply,
   parseRecipients,
@@ -72,6 +74,14 @@ test("create-inbox payload: expert key and instance required, display name sanit
   assert.equal(parseCreateMailInboxInput(null), null);
   assert.equal(parseCreateMailInboxInput([]), null);
   assert.equal(sanitizeInboxDisplayName("a".repeat(80))?.length, 60);
+});
+
+test("inbox target: the instance or a member by e-mail, never both, never malformed", () => {
+  assert.deepEqual(parseCreateMailInboxInput({ expert: "koffi", member: " Awa@Acme.CI " }), { expert: "koffi", member: "awa@acme.ci" });
+  assert.equal(parseCreateMailInboxInput({ expert: "koffi", agentId: "inst-1", member: "awa@acme.ci" }), null);
+  assert.equal(parseCreateMailInboxInput({ expert: "koffi", member: "Awa <awa@acme.ci>" }), null);
+  assert.equal(mailTargetQuery({ member: "awa+x@acme.ci" }), "member=awa%2Bx%40acme.ci");
+  assert.equal(parseMailTarget(undefined, undefined), null);
 });
 
 test("an instance's inbox for an expert, among those listed for the member", () => {
