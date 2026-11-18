@@ -8,7 +8,7 @@ const AGENT = "^\\/api\\/agents\\/[A-Za-z0-9_-]{1,64}\\/";
 const ID = "[A-Za-z0-9_.:-]{1,128}";
 const READ = new RegExp(`${AGENT}(deliverables|files\\/tree|files\\/content|files\\/thumb|events|chat\\/sessions|chat\\/sessions\\/${ID}|chat\\/by-profile|chat\\/responses\\/${ID}\\/stream)$`);
 // The phone's chat: the same conversations as the web, written the same way (a turn, stopping it, an approval).
-const WRITE = new RegExp(`${AGENT}chat\\/(responses|responses\\/${ID}\\/(cancel|approval|steer))$`);
+const WRITE = new RegExp(`${AGENT}chat\\/(files|responses|responses\\/${ID}\\/(cancel|approval|steer))$`);
 
 export const bearerRoute = (method: string, pathname: string): boolean =>
   ((method === "GET" || method === "HEAD") && READ.test(pathname)) || (method === "POST" && WRITE.test(pathname));

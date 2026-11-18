@@ -16,7 +16,7 @@ pour les images d'aperçu, qu'il est seul à rendre (Gotenberg + `pdftoppm`).
 - En-têtes : `Authorization: Bearer <jeton d'accès de l'app>` + `X-Workspace-Id: <espace>`.
 - **Seulement** en `GET`/`HEAD` sur `/api/agents/<id>/deliverables`, `files/tree`, `files/content`,
   `files/thumb`, `events`, et pour le chat `chat/sessions`, `chat/sessions/<id>`, `chat/by-profile`,
-  `chat/responses/<id>/stream` ; en `POST` seulement sur `chat/responses`, `chat/responses/<id>/cancel`,
+  `chat/responses/<id>/stream` ; en `POST` seulement sur `chat/files` (pièce jointe vers « Pièces jointes »), `chat/responses`, `chat/responses/<id>/cancel`,
   `approval` et `steer` (`src/lib/bearer-access.ts`). Le téléphone lit et écrit ainsi les MÊMES
   conversations que le web (gardées sur l'instance) ; ni suppression, ni renommage, ni partage. Ailleurs, ou avec un cookie
   de session présent, l'en-tête est ignoré : le cookie garde la main.
