@@ -45,6 +45,20 @@ describe("🔒 jeton de l'app mobile sur les routes d'instance", () => {
     ] as const) assert.equal(bearerRoute(m, `/api/agents/inst00001/${p}`), false, `${m} ${p}`);
   });
 
+  it("les salons du téléphone : l'aperçu Buzz, la clé du téléphone, ouvrir un salon, prévenir qu'on a écrit", () => {
+    for (const m of ["GET", "HEAD"] as const) assert.ok(bearerRoute(m, "/api/buzz"));
+    for (const p of ["devices", "salons", "sent"]) assert.ok(bearerRoute("POST", `/api/buzz/${p}`), p);
+    for (const [m, p] of [
+      ["DELETE", "/api/buzz/devices"],
+      ["PATCH", "/api/buzz/salons/0b2c3d4e-0000-4000-8000-000000000000"],
+      ["DELETE", "/api/buzz/salons/0b2c3d4e-0000-4000-8000-000000000000"],
+      ["POST", "/api/buzz/salons/0b2c3d4e-0000-4000-8000-000000000000/guests"],
+      ["POST", "/api/buzz"],
+      ["GET", "/api/buzz/devices"],
+      ["GET", "/api/buzzx"],
+    ] as const) assert.equal(bearerRoute(m, p), false, `${m} ${p}`);
+  });
+
   it("le cookie garde la main : un jeton à côté ne change rien", async () => {
     assert.equal(await bearerDecision(req({ hasCookieSession: true }), verify), null);
     assert.equal(await bearerDecision(req({ hasCookieSession: true, authorization: "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxx" }), verify), null);
