@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useOwnAgentId } from "@/components/conversations/useAllConversations";
 import { DEFAULT_QUERY, type AnalyticsQuery } from "@/lib/analytics/query";
@@ -28,6 +28,11 @@ export function AnalyticsDashboard() {
   const [query, setQuery] = useState<AnalyticsQuery>(DEFAULT_QUERY);
   const [tab, setTab] = useState<TabKey>("experts");
   const { data, error } = useAnalytics(agentId, query);
+  // Opened from an expert's profile (« Analytics »): already filtered on it.
+  useEffect(() => {
+    const experts = new URLSearchParams(window.location.search).get("experts");
+    if (experts) setQuery((q) => ({ ...q, filters: { ...q.filters, experts: experts.split(",").filter(Boolean) } }));
+  }, []);
 
   const setFilters = (filters: AnalyticsFilters) => setQuery((q) => ({ ...q, filters }));
   const toggleFilter = ({ dimension, value }: NonNullable<AnalyticsItem["filter"]>) =>

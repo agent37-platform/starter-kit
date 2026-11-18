@@ -19,6 +19,7 @@ import { PreviewSiblings } from "@/components/files/preview-siblings";
 import { GoogleDocsRow, PinnedDocsProvider, usePinnedDocs } from "./GoogleDocs";
 import type { GoogleDoc } from "@/lib/google-docs";
 import { DropOverlay } from "@/components/DropOverlay";
+import { ExpertProfilePanel, ProfilePanelToggle, type ProfilePanelExpert } from "@/components/experts/ExpertProfilePanel";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChatComposer } from "./ChatComposer";
 import { ExpertReadiness } from "@/components/experts/ExpertReadiness";
@@ -57,6 +58,7 @@ export function ChatView({
   onAction,
   openDashboard = false,
   onDashboardOpened,
+  profilePanel = null,
 }: {
   initialMessage?: string | null;
   driveFolder?: string | null;
@@ -67,6 +69,8 @@ export function ChatView({
   /** « Tableau » was clicked in the header before the chat was ever opened: opened once mounted. */
   openDashboard?: boolean;
   onDashboardOpened?: () => void;
+  /** On an expert's page: its profile panel beside the chat, and what its links open. */
+  profilePanel?: { expert: ProfilePanelExpert; onTab: (tab: "files" | "calls") => void; onOpenCall: (id: string) => void } | null;
 }) {
   const {
     agentId,
@@ -312,6 +316,7 @@ export function ChatView({
           >
             {listHidden ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </button>
+          {profilePanel && <ProfilePanelToggle />}
           {/* On an expert's page its photo and name already head the page: shown once. */}
           {face && !profile && <ExpertAvatar expert={face} size="sm" />}
           <div className="min-w-0">
@@ -464,6 +469,7 @@ export function ChatView({
           <ComputerDialog expert={{ name: agentName }} busy={isStreaming} onTakeOver={stop} onWrite={requestComposerFocus} />
         </>
       )}
+      {profilePanel && <ExpertProfilePanel expert={profilePanel.expert} onTab={profilePanel.onTab} onOpenCall={profilePanel.onOpenCall} />}
       {Boolean(profile) && (
         <>
           <DashboardPanel />

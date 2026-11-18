@@ -369,6 +369,28 @@ export function AgentWorkspace({
                   onAction={() => selectTab("chat")}
                   openDashboard={dashboardAsked}
                   onDashboardOpened={() => setDashboardAsked(false)}
+                  profilePanel={
+                    profileId && expert
+                      ? {
+                          expert: {
+                            agentId,
+                            profileId,
+                            name: expertName,
+                            role: expert.role ?? null,
+                            photoUrl: portrait,
+                            key: expert.catalogueKey ?? null,
+                            email: inbox?.address ?? null,
+                            company: current?.name ?? null,
+                            team: expert.cycle?.label ?? (sheet ? sheet.category?.label : null) ?? null,
+                            folder: driveFolder ?? `${DRIVE_ROOT}/${expertName}`,
+                            hasComputer: hasScreen(agents.find((a) => a.agent37_id === agentId) ?? null),
+                            calls: Boolean(callee && voiceOn),
+                          },
+                          onTab: (tab) => selectTab(tab),
+                          onOpenCall: (id) => window.history.pushState(null, "", `${agentTabPath(agentId, "calls", profileId)}?appel=${encodeURIComponent(id)}`),
+                        }
+                      : null
+                  }
                 />
               </div>
             </div>
