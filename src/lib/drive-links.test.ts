@@ -114,3 +114,11 @@ test("an Expert's deliverables: its own finished files only", () => {
   ];
   assert.equal(deliverableCount(entries, "/home/node/Livrables/Fatou"), 2);
 });
+
+test("cards: no pattern, no font, and no picture beside a delivered document (Leslie, 18/11)", () => {
+  const written = ["Livrables/Koffi/Charte Revvo.pdf", "Livrables/Koffi/4.2_logo_revvo.png", "Livrables/Koffi/sources/4.2_logo_revvo.png", "Livrables/Koffi/Onest.ttf"];
+  const docs = turnDocs("Les polices : `~/Livrables/Koffi/*.ttf`", [], written);
+  assert.deepEqual(docs.map((d) => d.name), ["Charte Revvo.pdf"]);
+  // Pictures alone are the deliverable, each name once.
+  assert.deepEqual(turnDocs("", [], ["Livrables/Fatima/post.png", "Livrables/Fatima/copie/post.png"]).map((d) => d.name), ["post.png"]);
+});

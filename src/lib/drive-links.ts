@@ -119,6 +119,8 @@ export interface TurnDoc {
   kind: DocKind;
 }
 
+const DOCUMENT_KINDS = new Set<DocKind>(["pdf", "word", "excel", "powerpoint", "video"]);
+
 const parentOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 
 /**
@@ -128,12 +130,14 @@ const parentOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
  * from a folder the listing covers does not exist (a path the expert made up): no card for it.
  */
 /** Working files (data, code, logs, subtitle tracks) are the Expert's own kitchen, never a deliverable shown under a reply. */
-const TECHNICAL = /\.(srt|vtt|json|jsonl|py|js|mjs|ts|sh|yaml|yml|toml|log|lock|env|ini|cfg|pyc|sqlite|db)$/i;
+const TECHNICAL = /\.(srt|vtt|json|jsonl|py|js|mjs|ts|sh|yaml|yml|toml|log|lock|env|ini|cfg|pyc|sqlite|db|ttf|otf|woff2?|eot)$/i;
+/** A pattern the Expert wrote (« *.ttf »), never a real file name. */
+const PATTERN = /[*?[\]{}]/;
 export const isTechnicalFile = (name: string) => TECHNICAL.test(name);
 
 /** Never a card nor a link in the chat: working files, notes (.md, .txt: Leslie, 27/10) and anything in the memory folder. */
 export const isHiddenInChat = (path: string) =>
-  isTechnicalFile(path) || /\.(md|markdown|txt)$/i.test(path) || path.split("/").slice(0, -1).some(isMemoryFolder);
+  isTechnicalFile(path) || PATTERN.test(path.split("/").pop() ?? "") || /\.(md|markdown|txt)$/i.test(path) || path.split("/").slice(0, -1).some(isMemoryFolder);
 
 /** How many deliverables an Expert has made in its folder: no folder, nothing the member brought, no working file. */
 export function deliverableCount(entries: readonly { path: string; type: string }[], folder: string): number {
@@ -164,9 +168,20 @@ export function turnDocs(text: string, listing: readonly DriveFile[], written: r
     out.push({ name, path, size: f?.size ?? null, modified: f?.modified ?? null, kind: docKind(name) });
   };
   for (const p of drivePathsIn(text)) if (byPath.has(p) || !listed.has(parentOf(p))) add(p, byPath.get(p));
+  const named = out.length;
   for (const w of written) {
     const p = normDrivePath(w.startsWith("Livrables/") ? `~/${w}` : w);
     add(p, byPath.get(p));
   }
-  return out;
+  // A reply that delivers a document (PDF, Word, Excel, PowerPoint, video): the pictures the turn wrote
+  // beside it without naming them are what it was made with (a logo fetched to brand it), not
+  // deliverables (Leslie, 18/11). The same name twice (a copy in another folder) is one card.
+  const delivers = out.some((d) => DOCUMENT_KINDS.has(d.kind));
+  const names = new Set<string>();
+  return out.filter((d, i) => {
+    if (delivers && d.kind === "image" && i >= named) return false;
+    if (names.has(d.name)) return false;
+    names.add(d.name);
+    return true;
+  });
 }
