@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cardLines, fileKind, lastDeliverables, shareCardText, shortWhen } from "./expert-card.ts";
+import { cardLines, fileKind, hiredOn, lastDeliverables, shareCardText, shortWhen } from "./expert-card.ts";
 
 test("the panel shows the expert's last deliverables, not its notes, uploads or archives", () => {
   const f = "~/Livrables/Djénéba";
@@ -41,4 +41,10 @@ test("the card's lines are 44 signs, in capitals without accents, and carry no d
 test("« Partager » hands on the name, the job and the address", () => {
   assert.equal(shareCardText({ name: "Djénéba", role: "Chief of Staff", company: "Unifood", email: "djeneba@unifood.yelema.ai" }), "Djénéba, Chief of Staff\nExpert Yelema chez Unifood\ndjeneba@unifood.yelema.ai");
   assert.equal(shareCardText({ name: "Awa", role: null, company: null, email: null }), "Awa\nExpert Yelema");
+});
+
+test("« Embauché le » : la date du back-office en jj/mm/aaaa ; absente ou illisible, pas de ligne", () => {
+  assert.equal(hiredOn("2026-10-14T15:03:11.000Z"), "14/10/2026");
+  assert.equal(hiredOn(null), null);
+  assert.equal(hiredOn("x"), null);
 });

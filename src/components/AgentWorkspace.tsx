@@ -382,6 +382,7 @@ export function AgentWorkspace({
                             email: inbox?.address ?? null,
                             company: current?.name ?? null,
                             team: expert.cycle?.label ?? (sheet ? sheet.category?.label : null) ?? null,
+                            since: expert.since ?? null,
                             folder: driveFolder ?? `${DRIVE_ROOT}/${expertName}`,
                             hasComputer: hasScreen(agents.find((a) => a.agent37_id === agentId) ?? null),
                             calls: Boolean(callee && voiceOn),

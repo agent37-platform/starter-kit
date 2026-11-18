@@ -83,6 +83,8 @@ export interface Expert {
   driveFolder?: string | null;
   /** Le cycle souscrit qui l'a apporté (« Marketing événementiel »), quand le back-office le dit. */
   cycle?: { key: string; label: string } | null;
+  /** Arrivée de l'Expert sur l'instance (« Embauché le »), ISO 8601, quand le back-office la dit. */
+  since?: string | null;
 }
 
 /** Un expert tel que le back-office le présente : textes et médias, jamais de réglage d'agent. */

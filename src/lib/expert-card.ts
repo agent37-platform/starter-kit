@@ -47,7 +47,13 @@ export function shortWhen(ms: number, now: Date = new Date()): string {
 const mrzWord = (s: string): string =>
   s.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase().replace(/[^A-Z0-9]+/g, "<").replace(/^<+|<+$/g, "");
 
-/** The card's three lines of 44 signs, from what is known of the expert (no date: none is served). */
+/** « 14/10/2026 » ; null when the date is absent or unreadable. */
+export function hiredOn(iso: string | null): string | null {
+  const ms = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(ms) ? new Date(ms).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Africa/Abidjan" }) : null;
+}
+
+/** The card's three lines of 44 signs, from what is known of the expert. */
 export function cardLines(f: { name: string; company: string | null; team: string | null; role: string | null; key: string }): string[] {
   const pad = (s: string) => s.padEnd(44, "<").slice(0, 44);
   const id = mrzWord(f.key).replace(/</g, "");

@@ -8,7 +8,7 @@ import { BadgeCheck, BarChart3, Copy, CreditCard, LayoutDashboard, Mail, Monitor
 import { apiFetch } from "@/lib/api";
 import { driveTree, onDriveChanged } from "@/lib/drive-store";
 import { fileLabel } from "@/lib/drive-paths";
-import { cardLines, fileKind, lastDeliverables, shareCardText, shortWhen, type PanelFile } from "@/lib/expert-card";
+import { cardLines, fileKind, hiredOn, lastDeliverables, shareCardText, shortWhen, type PanelFile } from "@/lib/expert-card";
 import type { CallRecord } from "@/lib/voice";
 import { cn } from "@/lib/utils";
 import { setProfilePanel, setProfilePanelHere, useProfilePanel } from "@/components/chat/chat-layout";
@@ -39,6 +39,8 @@ export interface ProfilePanelExpert {
   company: string | null;
   /** The cycle or the catalogue's category it belongs to (« Direction »). */
   team: string | null;
+  /** « Embauché le » : its arrival on the instance (ISO 8601), null when unknown. */
+  since: string | null;
   /** Its folder in the drive (`~/Livrables/<dossier>`). */
   folder: string;
   hasComputer: boolean;
@@ -381,6 +383,7 @@ function ExpertCard({ expert, lines }: { expert: ProfilePanelExpert; lines: stri
             {field("Organisation", expert.company)}
             {field("Équipe", expert.team)}
             {field("Spécialité", expert.role)}
+            {field("Embauché le", hiredOn(expert.since))}
           </span>
         </span>
       </span>
