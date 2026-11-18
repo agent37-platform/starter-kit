@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Onest } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { branding } from "@/config/branding";
@@ -11,11 +11,20 @@ import { RumReporter } from "@/components/RumReporter";
 import { sampleRateOf } from "@/lib/rum";
 
 // Onest for the interface, Bricolage Grotesque for headings, greetings and expert names
-// (`font-display`).
-const onest = Onest({ subsets: ["latin"], variable: "--font-onest", display: "swap" });
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["600", "700"],
+// (`font-display`). Served from the repo (src/app/fonts, latin subset from Fontsource): with
+// next/font/google every build downloads them from fonts.gstatic.com, and the build fails when
+// Google does not answer.
+const onest = localFont({
+  src: "./fonts/onest-latin-wght-normal.woff2",
+  weight: "100 900",
+  variable: "--font-onest",
+  display: "swap",
+});
+const bricolage = localFont({
+  src: [
+    { path: "./fonts/bricolage-grotesque-latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/bricolage-grotesque-latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-bricolage",
   display: "swap",
 });
