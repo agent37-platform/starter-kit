@@ -28,7 +28,7 @@ function formatMajDate(dateStr?: string | null): string | null {
 
 // `inHeader`: in the expert's own header (Leslie, 28/10, variante B), a short word on a computer, the
 // icon alone on a phone; the panel still opens beside the chat.
-function useToggleDashboard() {
+export function useToggleDashboard() {
   const { panelOpen, setPanelOpen, dialogOpen, setDialogOpen } = useDashboard();
   const comp = useComputer();
   return () => {

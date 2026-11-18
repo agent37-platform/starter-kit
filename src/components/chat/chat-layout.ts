@@ -8,8 +8,11 @@ import { useSyncExternalStore } from "react";
 // header that holds the buttons.
 
 const LIST_KEY = "yelema.chat.list-hidden";
+const PROFILE_KEY = "yelema.chat.profile-panel";
 
 let listHidden = false;
+let profileOpen = false;
+let profileHere = false;
 let full = false;
 let sidePanel = false;
 let loaded = false;
@@ -20,6 +23,7 @@ function load() {
   loaded = true;
   try {
     listHidden = localStorage.getItem(LIST_KEY) === "1";
+    profileOpen = localStorage.getItem(PROFILE_KEY) === "1";
   } catch {
     // Stockage indisponible : la colonne reste affichée.
   }
@@ -58,8 +62,33 @@ export function setChatSidePanel(open: boolean) {
   emit();
 }
 
+// The expert's profile beside its chat (Myriel's choice A, Leslie 18/11): closed at first, then as the
+// member left it (remembered in this browser). Open, it folds the column of conversations like the others.
+export function setProfilePanel(open: boolean) {
+  if (profileOpen === open) return;
+  profileOpen = open;
+  try {
+    localStorage.setItem(PROFILE_KEY, open ? "1" : "0");
+  } catch {
+    // Le choix ne survivra pas au rechargement.
+  }
+  emit();
+}
+
+export function useProfilePanel(): boolean {
+  return useSyncExternalStore(subscribe, () => (load(), profileOpen), () => false);
+}
+
+/** The page has a profile panel (an expert's chat): only there does an open one fold the conversations. */
+export function setProfilePanelHere(here: boolean) {
+  if (profileHere === here) return;
+  profileHere = here;
+  emit();
+}
+
+/** A panel is open beside the chat (Son ordinateur, Tableau de bord or the profile). */
 export function useChatSidePanel(): boolean {
-  return useSyncExternalStore(subscribe, () => sidePanel, () => false);
+  return useSyncExternalStore(subscribe, () => (load(), sidePanel || (profileOpen && profileHere)), () => false);
 }
 
 export function useChatListHidden(): boolean {
