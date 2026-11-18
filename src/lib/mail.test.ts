@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  INBOX_LIMIT_CODE,
+  INBOX_LIMIT_TEXT,
+  MAIL_DOWN_TEXT,
+  inboxRefusal,
+  moreInboxesHref,
   bareAddress,
   inboxOf,
   isSent,
@@ -124,4 +129,14 @@ test("a draft is reduced to its fields and checked: recipients, subject without 
   assert.equal(parseMailDraft({ to: ["awa@acme.ci"], subject: "s", text: "t", attachments: [{ filename: "a", contentType: "text/plain", content: "<script>" }] }), null);
   assert.deepEqual(parseMailReply({ text: "Merci", to: ["autre@acme.ci"] }), { text: "Merci" });
   assert.equal(parseMailReply({}), null);
+});
+
+test("an address refused because none is left says so; an outage says it is one", () => {
+  assert.deepEqual(inboxRefusal(403, "inbox_limit_reached", "Le service d’e-mail ne répond pas."), { status: 409, code: INBOX_LIMIT_CODE, message: INBOX_LIMIT_TEXT });
+  assert.equal(inboxRefusal(502, "unavailable", "x").message, MAIL_DOWN_TEXT);
+  assert.equal(inboxRefusal(503, null, "x").code, "unavailable");
+  assert.deepEqual(inboxRefusal(403, "forbidden", "Seul un administrateur…"), { status: 403, code: "forbidden", message: "Seul un administrateur…" });
+  const href = moreInboxesHref("Unifood", "Djénéba");
+  assert.ok(href.startsWith("mailto:contact@yelema.ai?subject="));
+  assert.ok(decodeURIComponent(href).includes("pour Djénéba"));
 });

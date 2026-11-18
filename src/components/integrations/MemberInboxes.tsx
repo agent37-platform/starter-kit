@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiFetchError } from "@/lib/api";
 import { isCompanionProfile } from "@/lib/companion";
 import { expertDisplayName } from "@/lib/experts";
-import type { MailInbox } from "@/lib/mail";
+import { INBOX_LIMIT_CODE, moreInboxesHref, type MailInbox } from "@/lib/mail";
 import type { WorkspaceInstance } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ExpertAvatar } from "@/components/experts/ExpertAvatar";
@@ -56,7 +56,11 @@ export function MemberInboxes() {
       setInboxes((list) => [...(list ?? []).filter((i) => i.expert !== expert), inbox]);
       toast.success(`Adresse attribuée : ${inbox.address}`);
     } catch (e) {
-      toast.error((e as Error).message);
+      // None left: the sentence, and a way to ask Yelema's team for more (Leslie, 18/11).
+      if (e instanceof ApiFetchError && e.code === INBOX_LIMIT_CODE) {
+        const href = moreInboxesHref(current?.name ?? null, nameOf(expert));
+        toast.error(e.message, { duration: 12_000, action: { label: "Contacter Yelema", onClick: () => window.open(href, "_self") } });
+      } else toast.error((e as Error).message);
     } finally {
       setBusy(null);
     }
