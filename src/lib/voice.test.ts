@@ -31,6 +31,14 @@ test("call headers: expert and language required, voice optional, all normalised
   assert.equal(callHeaders(new Headers({ "x-yelema-expert": "koffi", "x-yelema-language": "fr", "x-yelema-voice": "a/b" })), null);
 });
 
+test("call headers: the member's time zone passes when it is an IANA name, else it is dropped", () => {
+  const base = { "x-yelema-expert": "koffi", "x-yelema-language": "fr" };
+  assert.equal(callHeaders(new Headers({ ...base, "x-yelema-timezone": "Africa/Abidjan" }))?.["X-Yelema-Timezone"], "Africa/Abidjan");
+  assert.equal(callHeaders(new Headers({ ...base, "x-yelema-timezone": "America/Argentina/Buenos_Aires" }))?.["X-Yelema-Timezone"], "America/Argentina/Buenos_Aires");
+  assert.equal(callHeaders(new Headers({ ...base, "x-yelema-timezone": "UTC" }))?.["X-Yelema-Timezone"], "UTC");
+  for (const bad of ["../etc", "Africa/Abidjan; drop", "a".repeat(80)]) assert.equal(callHeaders(new Headers({ ...base, "x-yelema-timezone": bad }))?.["X-Yelema-Timezone"], undefined, bad);
+});
+
 test("the voice of a call: the one chosen for the language, else its default, else its first", () => {
   const v = (key: string, language: "fr" | "en", isDefault = false) => ({ key, label: key, language, gender: "female" as const, country: "CI", previewUrl: "", default: isDefault });
   const voices = [v("adjoua", "fr"), v("akissi", "fr", true), v("amelia", "en")];

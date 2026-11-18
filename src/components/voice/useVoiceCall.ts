@@ -23,6 +23,16 @@ import { playHangupTone } from "./useRingback";
 // channel (`bot-output`, the member's final `user-transcription`, `llm-function-call-in-progress` and
 // `-stopped`), read as the mobile app does: the peer connection's data channels are listened to.
 
+
+/** The browser's IANA time zone (« Africa/Abidjan »), for the expert to greet by the member's hour; null if unknown. */
+function timeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
 export type { CallPhase };
 
 /** One line of the live transcript. */
@@ -228,7 +238,7 @@ export function useVoiceCall(): UseVoiceCall {
             agentId: "yelema", // ignored: the back office picks the agent
             apiBaseUrl: VOICE_BASE,
             endpoints: { connect: "calls", offer: "calls/:id/offer", ice: "calls/:id/ice", end: "calls/:id/end", status: "calls/:id/status" },
-            headers: { "X-Yelema-Expert": expert, "X-Yelema-Language": language, ...(voice ? { "X-Yelema-Voice": voice } : {}) },
+            headers: { "X-Yelema-Expert": expert, "X-Yelema-Language": language, ...(voice ? { "X-Yelema-Voice": voice } : {}), ...(timeZone() ? { "X-Yelema-Timezone": timeZone()! } : {}) },
             fetchImpl,
             platform,
             callbacks: {
