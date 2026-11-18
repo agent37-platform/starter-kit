@@ -30,6 +30,21 @@ describe("🔒 jeton de l'app mobile sur les routes d'instance", () => {
     for (const p of ["files/tree", "files/content", "files/thumb", "events"]) assert.ok(bearerRoute("GET", `/api/agents/inst00001/${p}`), p);
   });
 
+  it("le chat du téléphone : lire les conversations, écrire un tour, l'arrêter, répondre à une demande d'accord", () => {
+    for (const p of ["chat/sessions", "chat/sessions/20261118_101200_ab12cd", "chat/by-profile", "chat/responses/resp_abc123/stream"]) assert.ok(bearerRoute("GET", `/api/agents/inst00001/${p}`), p);
+    for (const p of ["chat/responses", "chat/responses/resp_abc123/cancel", "chat/responses/resp_abc123/approval", "chat/responses/resp_abc123/steer"]) assert.ok(bearerRoute("POST", `/api/agents/inst00001/${p}`), p);
+    for (const [m, p] of [
+      ["DELETE", "chat/sessions/s1"],
+      ["PATCH", "chat/sessions/s1"],
+      ["POST", "chat/sessions/s1/share"],
+      ["GET", "chat/sessions/s1/share"],
+      ["POST", "chat/files"],
+      ["GET", "chat/models"],
+      ["POST", "chat/sessions"],
+      ["GET", "chat/sessions/../../x"],
+    ] as const) assert.equal(bearerRoute(m, `/api/agents/inst00001/${p}`), false, `${m} ${p}`);
+  });
+
   it("le cookie garde la main : un jeton à côté ne change rien", async () => {
     assert.equal(await bearerDecision(req({ hasCookieSession: true }), verify), null);
     assert.equal(await bearerDecision(req({ hasCookieSession: true, authorization: "Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxx" }), verify), null);
