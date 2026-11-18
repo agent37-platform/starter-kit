@@ -95,7 +95,7 @@ async function installation(): Promise<{ installation: "running" | "ready" | "fa
 // The name and picture the member chose for each of their experts, and the cycle that brought it, by
 // profile, as the back office keeps them. None where it does not sign users in.
 async function memberLooks(): Promise<
-  Map<string, { displayName: string | null; avatarUrl: string | null; cycle: { key: string; label: string } | null }>
+  Map<string, { displayName: string | null; avatarUrl: string | null; cycle: { key: string; label: string } | null; since: string | null }>
 > {
   if (!authViaBackoffice()) return new Map();
   const instance = await currentInstance().catch(() => null);
@@ -106,6 +106,7 @@ async function memberLooks(): Promise<
         displayName: e.displayName ?? null,
         avatarUrl: e.avatarUrl ?? null,
         cycle: e.cycle?.key && e.cycle.label ? { key: e.cycle.key, label: e.cycle.label } : null,
+        since: e.since ?? null,
       },
     ])
   );
@@ -145,6 +146,7 @@ export async function userExperts(agents: AgentRow[]): Promise<UserExperts> {
       photoUrl: look?.avatarUrl || entry?.avatarUrl || null,
       driveFolder: entry?.driveFolder ?? entry?.name ?? null,
       cycle: catalogueCycle({ catalogueKey: entry?.key ?? null, profileId: p.profileId }, look?.cycle ?? null),
+      since: look?.since ?? null,
     };
   });
 

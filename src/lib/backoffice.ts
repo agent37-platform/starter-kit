@@ -112,6 +112,8 @@ export interface BoInstanceView {
     profile: string;
     key: string;
     version: string | null;
+    /** Its arrival on the instance (« Embauché le »), ISO 8601. */
+    since?: string | null;
     displayName?: string | null;
     avatarUrl?: string | null;
     cycle?: { key: string; label: string } | null;
