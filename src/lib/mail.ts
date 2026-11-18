@@ -234,3 +234,28 @@ const MAIL_CSP = "default-src 'none'; img-src data: https:; style-src 'unsafe-in
 export function sandboxedMail(html: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${MAIL_CSP}"><base target="_blank"><style>body{margin:0;padding:12px;font:14px/1.6 system-ui,sans-serif;color:#1b1b1f;background:#fff;overflow-wrap:anywhere}img{max-width:100%;height:auto}</style></head><body>${html}</body></html>`;
 }
+
+// ── No address left to give (Leslie, 18/11) ─────────────────────────────────────────────────────────
+// An address refused because none is left read « Le service d'e-mail ne répond pas », like an outage.
+// The back office answers that case with its own code; the app then says what to do.
+
+/** The codes the back office may give when no address is left to give. */
+export const INBOX_LIMIT_CODES: ReadonlySet<string> = new Set(["inbox_limit", "inbox_limit_reached", "inbox_quota_exceeded", "mail_quota_exceeded"]);
+export const INBOX_LIMIT_CODE = "inbox_limit";
+export const INBOX_LIMIT_TEXT = "Il n’y a plus d’adresse e-mail disponible pour le moment. Contactez l’équipe Yelema pour en obtenir d’autres.";
+export const MAIL_DOWN_TEXT = "Le service d’e-mail ne répond pas. Réessayez dans quelques minutes.";
+export const YELEMA_CONTACT = "contact@yelema.ai";
+
+/** A refusal of an address, as the member reads it: none left, an outage, or the back office's own sentence. */
+export function inboxRefusal(status: number, code: string | null, message: string): { status: number; code: string; message: string } {
+  if (code && INBOX_LIMIT_CODES.has(code)) return { status: 409, code: INBOX_LIMIT_CODE, message: INBOX_LIMIT_TEXT };
+  if (status >= 500 || code === "unavailable") return { status: 503, code: "unavailable", message: MAIL_DOWN_TEXT };
+  return { status, code: code ?? "error", message };
+}
+
+/** The e-mail to Yelema's team asking for more addresses, with who asks and for which expert. */
+export function moreInboxesHref(company: string | null, expertName: string | null): string {
+  const subject = `Plus d’adresses e-mail${company ? ` pour ${company}` : ""}`;
+  const body = `Bonjour,\n\nNous n’avons plus d’adresse e-mail disponible${expertName ? ` pour ${expertName}` : ""}. Pouvez-vous nous en ouvrir d’autres ?\n\nMerci.`;
+  return `mailto:${YELEMA_CONTACT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}

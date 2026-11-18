@@ -1,7 +1,7 @@
 import { requireBackofficeToken } from "@/lib/auth";
 import { backoffice, BackofficeError } from "@/lib/backoffice";
 import { ApiError, handleError, json, readJson } from "@/lib/http";
-import { isExpertKey, parseCreateMailInboxInput, parseMailTarget, type MailTarget } from "@/lib/mail";
+import { inboxRefusal, isExpertKey, parseCreateMailInboxInput, parseMailTarget, type MailTarget } from "@/lib/mail";
 import { authViaBackoffice } from "@/lib/runtime-config";
 import { mailToken, noStore } from "../_session";
 
@@ -40,7 +40,16 @@ export async function POST(request: Request) {
     const token = await adminToken();
     const input = parseCreateMailInboxInput(await readJson<unknown>(request));
     if (!input) throw new ApiError(400, "invalid_request", "La demande de création de boîte e-mail est invalide.");
-    return noStore(json({ inbox: await backoffice.createMailInbox(token, input) }));
+    try {
+      return noStore(json({ inbox: await backoffice.createMailInbox(token, input) }));
+    } catch (e) {
+      // No address left and an outage are two answers, not one « ne répond pas » (Leslie, 18/11).
+      if (e instanceof BackofficeError) {
+        const r = inboxRefusal(e.status, e.code, e.message);
+        throw new ApiError(r.status, r.code, r.message);
+      }
+      throw e;
+    }
   } catch (e) {
     return handleError(e);
   }

@@ -4,10 +4,10 @@ import { BackButton } from "@/components/ui/back-button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Check, Copy, Inbox, Loader2, Mail, Paperclip, Plus, RefreshCw, Send, Trash2, TriangleAlert, X } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiFetchError } from "@/lib/api";
 import type { ExpertLook } from "@/lib/backoffice";
 import { EXPERT_NAME_MAX, EXPERT_NAME_RULE, expertName as cleanExpertName } from "@/lib/expert-looks";
-import { bareAddress, isSent, parseRecipients, sandboxedMail, sanitizeInboxDisplayName, type CreateMailInboxInput, type MailDetail, type MailInbox, type MailOutgoingAttachment, type MailSummary } from "@/lib/mail";
+import { INBOX_LIMIT_CODE, moreInboxesHref, bareAddress, isSent, parseRecipients, sandboxedMail, sanitizeInboxDisplayName, type CreateMailInboxInput, type MailDetail, type MailInbox, type MailOutgoingAttachment, type MailSummary } from "@/lib/mail";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload-limit";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -76,6 +76,7 @@ export function ExpertEmails({
   const [chosenName, setChosenName] = useState(expertName);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [noneLeft, setNoneLeft] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // An answer for an expert the screen has left is dropped.
   const asked = useRef<string | null>(null);
@@ -166,6 +167,7 @@ export function ExpertEmails({
       toast.success(`Adresse attribuée : ${created.address}`);
     } catch (err) {
       setCreateError((err as Error).message);
+      setNoneLeft(err instanceof ApiFetchError && err.code === INBOX_LIMIT_CODE);
     } finally {
       setCreating(false);
     }
@@ -254,7 +256,17 @@ export function ExpertEmails({
                   />
                 </div>
 
-                {createError && <p className="rounded-xl bg-ko-pale px-4 py-3 text-sm text-ko">{createError}</p>}
+                {createError && (
+                  <div className="rounded-xl bg-ko-pale px-4 py-3 text-sm text-ko">
+                    <p>{createError}</p>
+                    {noneLeft && (
+                      <a href={moreInboxesHref(null, cleanedName || expertName)} className="mt-2 inline-flex items-center gap-1.5 font-semibold underline underline-offset-2">
+                        <Mail className="size-4" />
+                        Contacter Yelema
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
