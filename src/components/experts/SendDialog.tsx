@@ -1,48 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { Check, FileCheck, CalendarCheck, Linkedin, Mail, MessageCircle, Send } from "lucide-react";
+import Link from "next/link";
+import { Check, FileCheck, FileText, CalendarCheck, Linkedin, Loader2, Mail, MessageCircle, Plug, Send } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DOC_TONE } from "@/components/files/preview-siblings";
+import { docKind } from "@/lib/drive-links";
+import { recipientList, sendFilesText, sendRoutineText, type SendChannel } from "@/lib/send-accounts";
+import { useSendAccounts } from "./useSendAccounts";
 import { cn } from "@/lib/utils";
 
-// « Envoyer » on a deliverable, and « Envoi automatique » among the routines (Leslie, 16/11). Nothing new
-// on the back office: the expert already sends mail and messages with its own tools, asking first when it
-// must. The dialog only writes the instruction, which lands in the expert's chat field for the member to send.
+// « Envoyer » on a deliverable, and « Envoi automatique » among the routines (Leslie, 16/11 and 17/11). The
+// dialog offers only the accounts really plugged in for this expert (`useSendAccounts`), the files one by
+// one, and the member's own address for « Moi-même ». It writes the instruction (account, exact paths, a
+// proof asked back), which lands in the expert's chat; the expert sends with its own tools.
 
-type Channel = "mail" | "whatsapp" | "linkedin";
 type What = "each" | "minutes";
-
-const CHANNELS: { id: Channel; label: string; words: string; icon: typeof Mail }[] = [
-  { id: "mail", label: "E-mail", words: "par e-mail", icon: Mail },
-  { id: "whatsapp", label: "WhatsApp", words: "par WhatsApp", icon: MessageCircle },
-  { id: "linkedin", label: "LinkedIn", words: "par LinkedIn", icon: Linkedin },
-];
 
 const WHATS: { id: What; label: string; hint: string; icon: typeof Mail }[] = [
   { id: "each", label: "Chaque livrable", hint: "Dès qu’il est prêt", icon: FileCheck },
   { id: "minutes", label: "Le compte rendu d’un rendez-vous", hint: "Après chaque rendez-vous de l’agenda", icon: CalendarCheck },
 ];
 
-function recipients(me: boolean, others: string): string {
-  const list = [...(me ? ["moi-même"] : []), ...(others.trim() ? [others.trim()] : [])];
-  return list.join(" et ");
-}
+const CHANNEL_ICON: Record<SendChannel, typeof Mail> = { mail: Mail, whatsapp: MessageCircle, linkedin: Linkedin };
 
-/** The instruction for one file sent now. */
-export function sendFileText(name: string, to: string, channel: Channel): string {
-  return `Envoie « ${name} » à ${to} ${CHANNELS.find((c) => c.id === channel)!.words}.`;
-}
-
-/** The standing instruction of an automatic sending. */
-export function sendRoutineText(what: What, to: string, channel: Channel, ask: boolean): string {
-  const words = CHANNELS.find((c) => c.id === channel)!.words;
-  const head =
-    what === "each"
-      ? `Nouvelle routine d’envoi : dès qu’un livrable est prêt, envoie-le à ${to} ${words}.`
-      : `Nouvelle routine d’envoi : après chaque rendez-vous, envoie le compte rendu à ${to} ${words}.`;
-  return `${head} ${ask ? "Demande-moi avant chaque envoi." : "Envoie sans me demander."} Garde cette consigne jusqu’à ce que je te dise d’arrêter.`;
+export interface SendFile {
+  name: string;
+  path: string;
 }
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -65,28 +51,49 @@ const label = "mb-2 mt-4 block text-[12.5px] font-semibold text-ink-3";
 
 export function SendDialog({
   mode,
+  agentId,
+  profileId,
   expertName,
-  fileName,
+  files = [],
+  prefer = "mail",
   toMe = true,
   onSend,
   onClose,
 }: {
-  /** "file": one deliverable now; "routine": an automatic sending. */
+  /** "file": deliverables now; "routine": an automatic sending. */
   mode: "file" | "routine";
+  agentId: string;
+  profileId: string | null;
   expertName: string;
-  fileName?: string;
+  /** The deliverables offered, all ticked at first. */
+  files?: SendFile[];
+  /** The channel picked first when an account of it is plugged in. */
+  prefer?: SendChannel;
   /** « Moi-même » ticked at first (« À quelqu'un d'autre » opens it unticked). */
   toMe?: boolean;
   /** The instruction, handed to the expert's chat. */
   onSend: (text: string) => void;
   onClose: () => void;
 }) {
+  const { accounts, loaded, myEmail } = useSendAccounts(agentId, profileId);
   const [what, setWhat] = useState<What>("each");
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(files.map((f) => f.path)));
   const [me, setMe] = useState(toMe);
   const [others, setOthers] = useState("");
-  const [channel, setChannel] = useState<Channel>("mail");
+  const [accountId, setAccountId] = useState<string | null>(null);
   const [ask, setAsk] = useState(true);
-  const to = recipients(me, others);
+  const account = accounts.find((a) => a.id === accountId) ?? accounts.find((a) => a.channel === prefer) ?? accounts[0] ?? null;
+  const channel = account?.channel ?? "mail";
+  const to = recipientList(me, myEmail, others, channel);
+  const chosen = files.filter((f) => picked.has(f.path));
+  const ready = Boolean(account) && to.length > 0 && (mode === "routine" || chosen.length > 0);
+  const toggle = (path: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -94,7 +101,11 @@ export function SendDialog({
         <DialogHeader>
           <DialogTitle>{mode === "file" ? "Envoyer" : "Envoi automatique"}</DialogTitle>
           <DialogDescription>
-            {mode === "file" ? (fileName ?? "") : `${expertName} envoie pour vous, à chaque fois.`}
+            {mode === "file"
+              ? files.length > 1
+                ? `${chosen.length} livrable${chosen.length > 1 ? "s" : ""} sur ${files.length}`
+                : (files[0]?.name ?? "")
+              : `${expertName} envoie pour vous, à chaque fois.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -127,30 +138,101 @@ export function SendDialog({
           </>
         )}
 
-        <span className={cn(label, mode === "file" && "mt-0")}>À qui</span>
-        <div className="flex flex-wrap gap-2">
-          <Chip on={me} onClick={() => setMe(!me)}>
-            {me && <Check className="size-4" />}
-            Moi-même
-          </Chip>
-        </div>
+        {mode === "file" && files.length > 1 && (
+          <>
+            <span className={cn(label, "mt-0 flex items-center justify-between")}>
+              Quoi
+              <button
+                type="button"
+                onClick={() => setPicked(chosen.length === files.length ? new Set() : new Set(files.map((f) => f.path)))}
+                className="text-[12.5px] font-semibold text-brand-ink hover:underline"
+              >
+                {chosen.length === files.length ? "Tout décocher" : "Tout cocher"}
+              </button>
+            </span>
+            <ul className="max-h-[18.5rem] overflow-y-auto rounded-2xl border border-line">
+              {files.map((f) => {
+                const kind = docKind(f.name);
+                const on = picked.has(f.path);
+                return (
+                  <li key={f.path} className="border-t border-line first:border-t-0">
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-soft">
+                      <input type="checkbox" checked={on} onChange={() => toggle(f.path)} className="size-[18px] shrink-0 accent-[var(--brand)]" />
+                      <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg text-white", kind === "other" ? "bg-tint text-brand-ink" : DOC_TONE[kind])}>
+                        <FileText className="size-4" />
+                      </span>
+                      <span className={cn("line-clamp-2 min-w-0 flex-1 break-all text-[13.5px] leading-snug", on ? "text-ink" : "text-ink-3")} title={f.name}>
+                        {f.name}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+
+        <span className={cn(label, mode === "file" && files.length <= 1 && "mt-0")}>À qui</span>
+        {channel === "mail" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip on={me} onClick={() => setMe(!me)}>
+              {me && <Check className="size-4" />}
+              Moi-même
+            </Chip>
+            {me && myEmail && <span className="min-w-0 truncate text-[12.5px] text-ink-3">{myEmail}</span>}
+          </div>
+        )}
         <Input
-          className="mt-2"
+          className={cn(channel === "mail" && "mt-2")}
           value={others}
           onChange={(e) => setOthers(e.target.value)}
-          placeholder="Autres personnes : nom, e-mail ou numéro"
+          placeholder={channel === "mail" ? "Autres personnes : nom ou e-mail" : channel === "whatsapp" ? "Nom ou numéro" : "Nom de la personne sur LinkedIn"}
           aria-label="Autres personnes"
         />
 
-        <span className={label}>Par</span>
-        <div className="flex flex-wrap gap-2">
-          {CHANNELS.map((c) => (
-            <Chip key={c.id} on={channel === c.id} onClick={() => setChannel(c.id)}>
-              <c.icon className="size-4" />
-              {c.label}
-            </Chip>
-          ))}
-        </div>
+        <span className={label}>Envoyé depuis</span>
+        {!loaded && !accounts.length ? (
+          <p className="flex h-11 items-center gap-2 text-[13px] text-ink-3">
+            <Loader2 className="size-4 animate-spin" />
+            Lecture de vos comptes…
+          </p>
+        ) : !accounts.length ? (
+          <div className="rounded-2xl bg-soft p-3.5 text-[13.5px] text-ink-2">
+            Aucun compte d’envoi n’est branché pour {expertName}.
+            <Link href="/integrations/connecteurs" className="mt-2 flex items-center gap-1.5 font-semibold text-brand-ink hover:underline">
+              <Plug className="size-4" />
+              Brancher un compte d’envoi
+            </Link>
+          </div>
+        ) : (
+          <div role="radiogroup" aria-label="Envoyé depuis" className="overflow-hidden rounded-2xl border border-line">
+            {accounts.map((a) => {
+              const Icon = CHANNEL_ICON[a.channel];
+              const on = account?.id === a.id;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setAccountId(a.id)}
+                  className={cn("flex min-h-12 w-full items-center gap-3 border-t border-line px-3 py-2 text-left first:border-t-0", on ? "bg-tint/60" : "hover:bg-soft")}
+                >
+                  <span className={cn("grid size-[18px] shrink-0 place-items-center rounded-full border-[1.5px]", on ? "border-brand" : "border-ink-3/40")}>
+                    {on && <span className="size-2 rounded-full bg-brand" />}
+                  </span>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface text-brand-ink ring-1 ring-line">
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block text-[13.5px] font-semibold text-ink">{a.title}</span>
+                    {a.detail && <span className="mt-0.5 block truncate text-[12px] text-ink-3">{a.detail}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {mode === "routine" && (
           <>
@@ -176,8 +258,8 @@ export function SendDialog({
 
         <Button
           className="mt-5 w-full"
-          disabled={!to}
-          onClick={() => onSend(mode === "file" ? sendFileText(fileName ?? "ce fichier", to, channel) : sendRoutineText(what, to, channel, ask))}
+          disabled={!ready}
+          onClick={() => account && onSend(mode === "file" ? sendFilesText(chosen, to, account) : sendRoutineText(what, to, account, ask))}
         >
           <Send className="h-4 w-4" />
           {mode === "file" ? "Préparer l’envoi" : "Continuer dans le chat"}

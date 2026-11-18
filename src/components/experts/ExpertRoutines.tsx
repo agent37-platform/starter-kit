@@ -213,6 +213,8 @@ export function ExpertRoutines({ agentId, expert, active: shown = true }: { agen
       {sendingRoutine && (
         <SendDialog
           mode="routine"
+          agentId={agentId}
+          profileId={expertKey}
           expertName={expert.name}
           onClose={() => setSendingRoutine(false)}
           onSend={(text) => {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, readApiError } from "@/lib/api";
-import { addApproval, answerOutcome, expireOpen, isApprovalChoice, parseApproval, settleApproval, type ApprovalChoice, type ApprovalState } from "@/lib/approval";
+import { addApproval, answerOutcome, autoApproves, expireOpen, isApprovalChoice, parseApproval, settleApproval, type ApprovalChoice, type ApprovalState } from "@/lib/approval";
 import { cached, cachedFetch, forget, remember, whenKept } from "@/lib/client-cache";
 import { finishTiming, keepLast, mark, startTiming, type TurnTiming } from "@/lib/chat-timing";
 import { chatFailureMessage, OFFLINE } from "@/lib/chat-errors";
@@ -15,6 +15,9 @@ import { finalReply } from "@/lib/turn-reply";
 import { visibleHistory } from "@/lib/compaction";
 import { attachedFiles, cleanUserMessage } from "@/lib/chat-errors";
 import { useTurnReporter } from "@/components/activity/hooks";
+import { systemNotify } from "@/components/activity/system-notify";
+import { alertInTab } from "@/components/activity/DeliverableWatcher";
+import { isDialogSend } from "@/lib/send-accounts";
 import { FILES_ONLY_PROMPT, type SessionDetail } from "@/lib/types";
 import { uid, type ChatMessage, type ChatSettings, type MessageAttachment, type ToolEvent, type ToolStatus } from "./types";
 import { toMs } from "@/lib/activity";
@@ -442,7 +445,25 @@ export function useChat({ agentId, profile, sessionId, refreshToken = 0, onSessi
               }
               case "response.approval_requested": {
                 const a = parseApproval(data);
-                if (a) patchRun(run, (m) => ({ ...m, approvals: addApproval(m.approvals, a) }));
+                if (!a) break;
+                const texts = [run.sent?.content ?? "", ...run.users.map((u) => u.content)];
+                if (run.responseId && autoApproves(texts, a.message, isDialogSend)) {
+                  // Sent from « Envoyer »: that click was the member's yes (Leslie, 17/11). Given at once, said on the card.
+                  patchRun(run, (m) => ({ ...m, approvals: addApproval(m.approvals, { ...a, auto: true, state: "sending", choice: "once" }) }));
+                  const settle = (state: ApprovalState) => patchRun(run, (m) => ({ ...m, approvals: settleApproval(m.approvals, a.requestId, state, "once") }));
+                  void fetch(`/api/agents/${agentId}/chat/responses/${encodeURIComponent(run.responseId)}/approval`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ request_id: a.requestId, choice: "once" }),
+                  }).then((res) => answerOutcome(res.status), () => "error" as const).then((o) => settle(o === "error" ? "pending" : o));
+                  break;
+                }
+                patchRun(run, (m) => ({ ...m, approvals: addApproval(m.approvals, a) }));
+                // The expert waits a few minutes only: said outside the page too (Leslie, 17/11: the e-mail never left).
+                if (document.visibilityState === "hidden") {
+                  alertInTab(1);
+                  systemNotify("Votre accord est attendu", a.message.slice(0, 180), `accord-${a.requestId}`, () => {});
+                }
                 break;
               }
               case "response.approval_resolved": {
@@ -517,7 +538,7 @@ export function useChat({ agentId, profile, sessionId, refreshToken = 0, onSessi
         if (next.length) startTurnRef.current(run.sessionId, next);
       }
     },
-    [patchRun, isViewed, forgetRun, refreshHistory, turns, profile, frames]
+    [patchRun, isViewed, forgetRun, refreshHistory, turns, profile, frames, agentId]
   );
 
   // Reattach to a turn that outlived this component (page reload / workspace re-entry): register

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addApproval, answerOutcome, expireOpen, isApprovalChoice, isOpen, parseApproval, settleApproval } from "./approval.ts";
+import { addApproval, autoApproves, answerOutcome, expireOpen, isApprovalChoice, isOpen, parseApproval, settleApproval } from "./approval.ts";
 
 const NOW = Date.parse("2026-11-08T10:00:00Z");
 
@@ -35,4 +35,25 @@ test("a replayed request is added once; answered and expired states", () => {
 test("the instance's answer: 2xx answered, 409 expired, anything else an error", () => {
   assert.deepEqual([answerOutcome(200), answerOutcome(409), answerOutcome(502)], ["answered", "expired", "error"]);
   assert.deepEqual(["once", "always", "deny", "session", 1].map(isApprovalChoice), [true, true, true, false, false]);
+});
+
+test("accord donné d'office seulement pour un envoi lancé depuis la fenêtre Envoyer", () => {
+  const dialog = (t: string) => t.includes("Utilise ce compte et aucun autre.");
+  const sent = "Envoie ces 2 livrables à a@b.ci par e-mail, avec l’outil Gmail connecté :\n- ~/Livrables/a.pdf\n\nUtilise ce compte et aucun autre.";
+  assert.equal(autoApproves([sent], "Envoyer un message avec Gmail : a@b.ci", dialog), true);
+  assert.equal(autoApproves([sent], "Envoyer un e-mail depuis la boîte de votre expert à A@B.ci", dialog), true);
+  assert.equal(autoApproves(["Envoie-le à a@b.ci"], "Envoyer un message avec Gmail : a@b.ci", dialog), false);
+  // Another recipient, a batch, a reply, a deletion or a card without destination keep the card.
+  assert.equal(autoApproves([sent], "Envoyer un message avec Gmail : x@pirate.io", dialog), false);
+  assert.equal(autoApproves([sent], "Envoyer un message avec Gmail : a@b.ci, x@pirate.io", dialog), false);
+  assert.equal(autoApproves([sent], "Envoyer un message avec Gmail : a@b.ci (et 1 autre(s))", dialog), false);
+  assert.equal(autoApproves([sent], "Envoyer une réponse avec Gmail : a@b.ci", dialog), false);
+  assert.equal(autoApproves([sent], "Supprimer avec Google Drive : a@b.ci", dialog), false);
+  assert.equal(autoApproves([sent], "Envoyer un message avec Outlook", dialog), false);
+  assert.equal(autoApproves([sent], "Envoyer un message sur Telegram (canal principal)", dialog), false);
+  assert.equal(autoApproves([sent], "Envoyer un message avec Gmail : a@b.c", dialog), false);
+  assert.equal(autoApproves([sent], "Envoyer un message avec Gmail : b.ci", dialog), false);
+  // A recipient quoted in the file list, not in the « à … » line, does not count.
+  const listed = "Envoie ce livrable à a@b.ci par e-mail, avec l’outil Gmail connecté :\n- ~/Livrables/x@pirate.io.pdf\n\nUtilise ce compte et aucun autre.";
+  assert.equal(autoApproves([listed], "Envoyer un message avec Gmail : x@pirate.io", dialog), false);
 });

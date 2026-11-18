@@ -46,6 +46,8 @@ function countInTab(n: number) {
   tabCount.n += n;
   document.title = `(${tabCount.n}) ${tabCount.title}`;
 }
+/** « (1) » in the tab title while it is hidden, cleared when it shows (an approval waiting, a deliverable ready). */
+export const alertInTab = (n: number): void => countInTab(n);
 function clearTabCount() {
   if (!tabCount.n) return;
   if (document.title.startsWith(`(${tabCount.n}) `)) document.title = tabCount.title;

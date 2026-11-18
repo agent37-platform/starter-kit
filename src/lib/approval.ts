@@ -12,7 +12,47 @@ export interface ApprovalRequest {
   expiresAt: number;
   state: ApprovalState;
   choice?: ApprovalChoice;
+  /** Given by the app: the member already said yes in the « Envoyer » window. */
+  auto?: boolean;
 }
+
+// Card texts the guard of the image builds for a send (yelema-context `garde_outils.py`), destination after.
+// Only these are given on the member's behalf: a reply, a forward, a deletion or a batch keeps its card.
+const AUTO_SENDS = [
+  /^Envoyer un e-mail depuis la boîte de votre expert à (.+)$/,
+  /^Envoyer un message avec (?:Gmail|Outlook) : (.+)$/,
+  /^Écrire à quelqu'un sur WhatsApp ou LinkedIn : (.+)$/,
+  /^Envoyer un message WhatsApp ou LinkedIn dans une discussion existante : (.+)$/,
+];
+
+const destinationOf = (message: string): string | null => {
+  for (const re of AUTO_SENDS) {
+    const m = re.exec(message.trim());
+    if (m) return m[1].trim();
+  }
+  return null;
+};
+
+/**
+ * True when an approval asked during a turn may be given at once: the turn was sent by the « Envoyer » window
+ * (its click is the agreement, Leslie 17/11), the request is one plain send, and every recipient it names is
+ * one the window named.
+ */
+export function autoApproves(turnTexts: readonly string[], approvalMessage: string, isDialogSend: (t: string) => boolean): boolean {
+  const dest = destinationOf(approvalMessage);
+  if (!dest) return false;
+  const asked = turnTexts.filter(isDialogSend).map((t) => t.split("\n")[0].toLowerCase());
+  const parts = dest.split(",").map((p) => p.trim().toLowerCase()).filter(Boolean);
+  return parts.length > 0 && asked.some((line) => parts.every((p) => named(line, p)));
+}
+
+// Whole recipient only: « a@b.c » is not named by « à a@b.ci ».
+const named = (line: string, who: string): boolean => {
+  const at = line.indexOf(` ${who}`);
+  if (at < 0) return false;
+  const after = line.charAt(at + who.length + 1);
+  return after === "" || /[\s,;]/.test(after);
+};
 
 export const APPROVAL_CHOICES: readonly ApprovalChoice[] = ["once", "always", "deny"];
 export const MODIFY_PREFIX = "Modifie plutôt : ";

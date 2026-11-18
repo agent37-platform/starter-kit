@@ -413,7 +413,13 @@ const MessageRow = memo(function MessageRow({
           {m.thinking && <ThinkingBlock content={m.thinking} live={live && !m.content} />}
           {waitShown && <LiveWait tools={tools} name={face?.displayName ?? null} since={since} compacting={m.compacting} status={m.status?.message} />}
           {onApproval && onModifyApproval && m.approvals?.map((a) => (
-            <ApprovalCard key={a.requestId} approval={a} onAnswer={(c) => onApproval(m.id, a.requestId, c)} onModify={() => onModifyApproval(m.id, a.requestId)} />
+            <ApprovalCard
+              key={a.requestId}
+              approval={a}
+              onAnswer={(c) => onApproval(m.id, a.requestId, c)}
+              onModify={() => onModifyApproval(m.id, a.requestId)}
+              onRetry={request && onReply ? () => onReply(request) : undefined}
+            />
           ))}
           {!live && tools.length > 0 && <StepsList tools={tools} />}
           {routineThread && !live && isSilentRun(m.content) ? (
@@ -435,6 +441,8 @@ const MessageRow = memo(function MessageRow({
           {offerSend && (
             <NextAction
               id={m.id}
+              agentId={agentId}
+              profile={profile}
               docs={docs}
               expertName={face?.displayName ?? null}
               person={citedPerson(request ?? "", face?.displayName)}
