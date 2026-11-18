@@ -6,6 +6,7 @@ import { backoffice, BackofficeError, type ComposioCallsDeclaration } from "@/li
 import { composioUserId, hashAppsToken, mintMcpSession, stageFile, type McpSession } from "@/lib/composio";
 import { pinnedAccounts } from "@/lib/connection-accounts";
 import { extractComposioCalls } from "@/lib/composio-usage";
+import { formatEmailCalls } from "@/lib/composio-email";
 import { fetchUntilHeaders } from "@/lib/fetch-timeout";
 import {
   addBridgeTool,
@@ -237,8 +238,11 @@ async function handle(request: Request): Promise<Response> {
   const seat = found ? null : (request.headers.get("x-yelema-profile")?.trim() ?? null);
   const pins = await defaultPins(token, row.workspace_id, seat);
 
-  const body = request.method === "POST" ? await request.arrayBuffer() : undefined;
-  const text = body ? new TextDecoder().decode(body) : "";
+  const raw = request.method === "POST" ? await request.arrayBuffer() : undefined;
+  const text = raw ? new TextDecoder().decode(raw) : "";
+  // An e-mail sent through the client's Gmail or Outlook leaves formatted, never as raw text.
+  const formatted = text ? formatEmailCalls(text) : null;
+  const body = formatted ? (new TextEncoder().encode(formatted).buffer as ArrayBuffer) : raw;
   // The bridge reads the expert's own instance: an enterprise seat has no instance of its own here.
   const bridge = text ? bridgeCall(text) : null;
   if (bridge) {
