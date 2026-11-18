@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { googleDocs, googleDocOf, usedGoogleDocs, parseShortcut, shortcutKind, shortcutTitle, titleFromLabel, withoutGoogleActions } from "./google-docs.ts";
+import { cleanName, dayHeading, docName, googleDocs, googleDocOf, isUnnamed, usedTime, usedGoogleDocs, parseShortcut, shortcutKind, shortcutTitle, titleFromLabel, withoutGoogleActions } from "./google-docs.ts";
 
 const SHEET = "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd/edit#gid=0";
 const DOC = "https://docs.google.com/document/d/1ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210zyxw/edit?usp=sharing";
@@ -63,4 +63,24 @@ test("a bare link takes its title from the sentence before it", () => {
   assert.equal(f.title, "Kit de test WhatsApp v3");
   const [g] = googleDocs(`Voici le document : ${url}`);
   assert.equal(g.title, "Google Slides");
+});
+
+test("a page count names nothing; an unnamed document says so, a member's name wins", () => {
+  const url = "https://docs.google.com/presentation/d/1P2wblICUsczE5qoSsDbYjaWAlxHJppINmZkXaQmWI/edit";
+  const [d] = googleDocs(`Voici la présentation de 3 pages : ${url}`);
+  assert.equal(d.title, "Google Slides");
+  assert.ok(isUnnamed(d));
+  assert.equal(docName(d, {}), "Présentation sans nom");
+  assert.equal(docName(d, { [d.id]: "Books des artistes" }), "Books des artistes");
+  assert.equal(docName({ ...d, title: "Deck démo" }, { [d.id]: "  " }), "Deck démo");
+  assert.equal(cleanName("  Deck   démo \n v2 "), "Deck démo v2");
+});
+
+test("documents are grouped by the day they were last used, with the time", () => {
+  const now = new Date(2026, 10, 18, 9, 0);
+  assert.equal(dayHeading(new Date(2026, 10, 18, 8, 5).getTime(), now), "Aujourd’hui");
+  assert.match(dayHeading(new Date(2026, 10, 17, 18, 20).getTime(), now), /^Hier, 17 nov/);
+  assert.match(dayHeading(new Date(2026, 10, 14, 10, 0).getTime(), now), /^Samedi 14 nov/);
+  assert.equal(dayHeading(null, now), "Plus ancien");
+  assert.equal(usedTime(new Date(2026, 10, 18, 9, 5).getTime()), "09 h 05");
 });

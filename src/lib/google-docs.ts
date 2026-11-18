@@ -14,6 +14,46 @@ export interface GoogleDoc {
 }
 
 export const GOOGLE_LABEL: Record<GoogleKind, string> = { sheets: "Google Sheets", docs: "Google Docs", slides: "Google Slides" };
+/** The format in a word, under a document's name (« Slides, 11 h 42 »). */
+export const SHORT_LABEL: Record<GoogleKind, string> = { sheets: "Sheets", docs: "Docs", slides: "Slides" };
+/** What a document no text names is called (Leslie, 18/11: « tout s'appelle Google Slides »). */
+export const UNNAMED: Record<GoogleKind, string> = { sheets: "Tableur sans nom", docs: "Document sans nom", slides: "Présentation sans nom" };
+
+/** True when nothing gave the document a name (its title is still the format's). */
+export const isUnnamed = (d: Pick<GoogleDoc, "kind" | "title">): boolean => d.title === GOOGLE_LABEL[d.kind];
+
+/** The name shown: the member's own, else the one the text gave, else « Présentation sans nom ». */
+export function docName(d: Pick<GoogleDoc, "id" | "kind" | "title">, names: Readonly<Record<string, string>>): string {
+  const own = names[d.id]?.trim();
+  return own || (isUnnamed(d) ? UNNAMED[d.kind] : d.title);
+}
+
+/** A rename kept: trimmed, at most 120 signs; empty gives the document its own name back. */
+export function cleanName(name: string): string {
+  return name.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+/** Today's, yesterday's or the date's heading of a document last used at `ms` (null: « Plus ancien »). */
+export function dayHeading(ms: number | null, now: Date = new Date()): string {
+  if (!ms) return "Plus ancien";
+  const d = new Date(ms);
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86_400_000);
+  const date = d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  if (diff === 0) return "Aujourd’hui";
+  if (diff === 1) return `Hier, ${date}`;
+  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" }).replace(/^./, (c) => c.toUpperCase());
+}
+
+/** « 11 h 42 »: the day is the heading above. */
+export function usedTime(ms: number | null): string | null {
+  if (!ms) return null;
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")} h ${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** The fold used to search a name: no accents, no case. */
+export const foldName = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 const PATH_KIND: Record<string, GoogleKind> = { spreadsheets: "sheets", document: "docs", presentation: "slides" };
 const URL_RE = /https:\/\/docs\.google\.com\/(spreadsheets|document|presentation)\/d\/([A-Za-z0-9_-]{20,})[^\s)\]>"'«»]*/g;
@@ -58,8 +98,8 @@ export function titleBefore(text: string, at: number): string | null {
   if (!last) return null;
   const t = last.replace(/\s+(?:est|sont|se|qui|que|avec|dans|sur|pour|en|à|a)\b.*$/iu, "").replace(/\s+(?:pages?|p\.)\s*\d.*$/iu, "").trim();
   const words = t.split(/\s+/);
-  // « le document » alone names nothing; « la présentation WhatsApp » does.
-  if (words.length < 2) return null;
+  // « le document » alone names nothing; « la présentation WhatsApp » does, « la présentation de 3 pages » does not.
+  if (words.length < 2 || /^\p{L}+\s+(?:de|d['’]|en)\s*\d/u.test(t)) return null;
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
