@@ -1,12 +1,17 @@
 // The mobile app reads its instance here with the back office's access token in `Authorization: Bearer`,
-// no cookie. Only these GET routes, and only without a session cookie; the token is checked against the
+// no cookie. Only these routes (reads, and the chat's writes), and only without a session cookie; the token is checked against the
 // project's keys first, then goes down the cookie's own path (same access checks). Pure, so it is tested.
 // Contract: docs/plans/mobile-par-la-passerelle.md.
 import type { VerifiedClaims } from "./jwt.ts";
 
-const ROUTES = /^\/api\/agents\/[A-Za-z0-9_-]{1,64}\/(deliverables|files\/tree|files\/content|files\/thumb|events)$/;
+const AGENT = "^\\/api\\/agents\\/[A-Za-z0-9_-]{1,64}\\/";
+const ID = "[A-Za-z0-9_.:-]{1,128}";
+const READ = new RegExp(`${AGENT}(deliverables|files\\/tree|files\\/content|files\\/thumb|events|chat\\/sessions|chat\\/sessions\\/${ID}|chat\\/by-profile|chat\\/responses\\/${ID}\\/stream)$`);
+// The phone's chat: the same conversations as the web, written the same way (a turn, stopping it, an approval).
+const WRITE = new RegExp(`${AGENT}chat\\/(files|responses|responses\\/${ID}\\/(cancel|approval|steer))$`);
 
-export const bearerRoute = (method: string, pathname: string): boolean => (method === "GET" || method === "HEAD") && ROUTES.test(pathname);
+export const bearerRoute = (method: string, pathname: string): boolean =>
+  ((method === "GET" || method === "HEAD") && READ.test(pathname)) || (method === "POST" && WRITE.test(pathname));
 
 export interface BearerRequest {
   method: string;
