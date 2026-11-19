@@ -136,7 +136,7 @@ export function ModelsView() {
 
       {scope.kind === "own" && data.mine && (
         <ModelsBoundary key="answer-check">
-          <AnswerCheck models={models} />
+          <AnswerCheck models={models} scope={scope} scopeLabel={scopeLabel} {...catalogues} onAccountAdded={() => changed()} />
         </ModelsBoundary>
       )}
 
