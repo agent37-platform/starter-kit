@@ -19,9 +19,9 @@ type Entry = DriveTree["entries"][number];
 type Dir = { path: string; depth: number; expert: string | null; base: string };
 
 const ROOT = "Livrables";
-const MAX_LISTINGS = 40;
+const MAX_LISTINGS = 80;
 const MAX_ITEMS = 500;
-const MAX_DEPTH = 3;
+const MAX_DEPTH = 4;
 const KINDS: Record<string, DeliverableKind> = {
   pdf: "pdf", xlsx: "xlsx", xls: "xlsx", csv: "xlsx", docx: "docx", doc: "docx", pptx: "pptx", ppt: "pptx",
   png: "image", jpg: "image", jpeg: "image", webp: "image", gif: "image", svg: "image", url: "link", webloc: "link",

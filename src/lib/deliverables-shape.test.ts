@@ -37,6 +37,14 @@ describe("livrables du mobile, depuis l'arbre", () => {
     assert.deepEqual(items.map((i) => [i.expertId, i.title, i.folder]).sort(), [["u-abc123", "b.pdf", ""], ["u-abc123", "c.pdf", "Q4"]]);
   });
 
+  it("compte rendu rangé par date, un niveau plus bas (Djénéba, Réunions/<date>/)", () => {
+    const items = deliverablesFromTree(
+      tree([dir("Djénéba", 0), dir("Djénéba/Réunions", 1), dir("Djénéba/Réunions/2026-11-19", 2), file("Djénéba/Réunions/2026-11-19/CR-Unifood.pdf", 3)]),
+      { profiles: ["unifood__djeneba"], only: null, link }
+    );
+    assert.deepEqual(items.map((i) => [i.expertId, i.title, i.folder]), [["djeneba", "CR-Unifood.pdf", "Réunions/2026-11-19"]]);
+  });
+
   it("dossier d'expert : accents et majuscules repliés, clé du catalogue (profil d'une copie compris)", () => {
     assert.equal(expertOfFolder("Djénéba", ["djeneba"]), "djeneba");
     assert.equal(expertOfFolder("Inconnu", ["djeneba"]), "inconnu");
