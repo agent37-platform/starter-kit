@@ -932,7 +932,7 @@ img.av{border-radius:50%;object-position:50% 20%}
 .g2e{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:16px}
 .kv{display:flex;flex-direction:column}.kv>div{display:flex;justify-content:space-between;gap:10px}.kv span{color:var(--ink-2)}
 
-/* visuels Koroba Distribution réels à la place des aplats */
+/* visuels Entreprise Exemple réels à la place des aplats */
 .poster{background:url(img/flyer-sossa.jpg) center/cover no-repeat!important}
 .poster>*{visibility:hidden}
 .drv .fl:nth-child(2n) .th.poster,.docs a:nth-child(2) .th.poster{background-image:url(img/flyer-supermint.jpg)!important}
