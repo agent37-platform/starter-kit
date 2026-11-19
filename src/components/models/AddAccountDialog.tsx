@@ -22,8 +22,12 @@ type Choice = { kind: "key"; provider: LlmProvider } | { kind: "login"; provider
 // endpoint privé), autant de fois qu'on veut, y compris plusieurs fois le même fournisseur. Le compte
 // rejoint son fournisseur en dernier ; le modèle, laissé vide, reprend celui du fournisseur. Le compte
 // ne sert que l'instance visée : jamais celle d'un autre membre.
-export function AddAccountDialog({ open, scope, scopeLabel, catalogue, logins, customEndpoints, onAdded, onClose }: {
+// `only` : entrées du catalogue proposées (un seul fournisseur, depuis la vérification des réponses) ; `notice`
+// remplace l'avertissement quand le compte ne change pas le modèle des Experts.
+export function AddAccountDialog({ open, scope, scopeLabel, catalogue, logins, customEndpoints, only, notice, onAdded, onClose }: {
   open: boolean;
+  only?: string[];
+  notice?: string;
   scope: InstanceScope;
   scopeLabel: string;
   catalogue: LlmProvider[];
@@ -44,10 +48,11 @@ export function AddAccountDialog({ open, scope, scopeLabel, catalogue, logins, c
 
   useEffect(() => {
     if (!open) return;
-    setChoice(null);
+    const sole = only?.length === 1 ? catalogue.find((p) => p.id === only[0]) : undefined;
+    setChoice(sole ? { kind: "key", provider: sole } : null);
     setQuery("");
     setPending(null);
-  }, [open]);
+  }, [open, only, catalogue]);
   useEffect(() => {
     setForm({ secret: "", model: "", label: "", name: "", baseUrl: "" });
     setShown(false);
@@ -55,14 +60,15 @@ export function AddAccountDialog({ open, scope, scopeLabel, catalogue, logins, c
   }, [choice]);
 
   const options = useMemo(() => {
+    const keys = only ? catalogue.filter((p) => only.includes(p.id)) : catalogue;
     const all: { choice: Choice; label: string; family: string; hint: string }[] = [
-      ...catalogue.map((p) => ({ choice: { kind: "key" as const, provider: p }, label: p.label, family: p.family, hint: p.defaultModel ?? "Clé" })),
-      ...logins.map((l) => ({ choice: { kind: "login" as const, provider: l }, label: l.label, family: l.family, hint: "Connexion avec votre compte" })),
-      ...(customEndpoints ? [{ choice: { kind: "custom" as const }, label: "Serveur privé", family: "custom", hint: "Pour une IA hébergée par votre entreprise" }] : []),
+      ...keys.map((p) => ({ choice: { kind: "key" as const, provider: p }, label: p.label, family: p.family, hint: p.defaultModel ?? "Clé" })),
+      ...(only ? [] : logins.map((l) => ({ choice: { kind: "login" as const, provider: l }, label: l.label, family: l.family, hint: "Connexion avec votre compte" }))),
+      ...(customEndpoints && !only ? [{ choice: { kind: "custom" as const }, label: "Serveur privé", family: "custom", hint: "Pour une IA hébergée par votre entreprise" }] : []),
     ];
     const q = query.trim().toLowerCase();
     return q ? all.filter((o) => [o.label, o.family, o.hint].some((v) => v.toLowerCase().includes(q))) : all;
-  }, [catalogue, logins, customEndpoints, query]);
+  }, [catalogue, logins, customEndpoints, only, query]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -164,7 +170,7 @@ export function AddAccountDialog({ open, scope, scopeLabel, catalogue, logins, c
               </div>
             )}
             <Field id="acc-label" label="Nom du compte (facultatif)" value={form.label} onChange={set("label")} placeholder="Compta, Abonnement de l’équipe…" />
-            <p className="text-[11px] leading-relaxed text-ink-3">{SAVE_WARNING}</p>
+            <p className="text-[11px] leading-relaxed text-ink-3">{notice ?? SAVE_WARNING}</p>
             {error && <p role="alert" className="rounded-xl bg-ko-pale px-3 py-2 text-xs text-ko">{error}</p>}
             <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Annuler</Button>

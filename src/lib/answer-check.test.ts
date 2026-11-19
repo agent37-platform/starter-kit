@@ -10,7 +10,13 @@ describe("answer check", () => {
     assert.equal(v.effective.mode, "relance");
     assert.deepEqual(v.providers, [{ value: "anthropic", label: "Anthropic" }]);
     const empty = readAnswerCheck(null);
-    assert.deepEqual(empty, { source: "global", effective: { provider: null, providerLabel: null, model: null, mode: "observation" }, own: { provider: null, providerLabel: null, model: null }, providers: [], lost: false });
+    assert.deepEqual(empty, { source: "global", effective: { provider: null, providerLabel: null, model: null, mode: "observation" }, own: { provider: null, providerLabel: null, model: null }, providers: [], lost: false, others: [], canAdd: false });
+  });
+
+  it("reads the providers to add, with their catalogue entries; one without entries is dropped", () => {
+    const v = readAnswerCheck({ others: [{ value: "openrouter", label: "OpenRouter", keys: ["openrouter"] }, { value: "x", label: "X", keys: [] }, { value: "y", label: "Y", keys: ["a b"] }], canAdd: true });
+    assert.deepEqual(v.others, [{ value: "openrouter", label: "OpenRouter", keys: ["openrouter"] }]);
+    assert.equal(v.canAdd, true);
   });
 
   it("sends provider and model only, never a mode, and refuses odd values", () => {

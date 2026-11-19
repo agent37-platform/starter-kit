@@ -18,6 +18,10 @@ export interface AnswerCheckView {
   providers: { value: string; label: string }[];
   /** Le fournisseur choisi n'a plus de compte sur l'instance : celui de l'Expert sert. */
   lost: boolean;
+  /** Fournisseurs sans compte, à ajouter d'abord ; `keys` : leurs entrées du catalogue des comptes. */
+  others: { value: string; label: string; keys: string[] }[];
+  /** Faux tant que l'espace n'a pas ses propres comptes : un compte ajouté deviendrait le modèle des Experts. */
+  canAdd: boolean;
 }
 
 const PROVIDER = /^(custom:[A-Za-z][A-Za-z0-9_-]{1,39}|[a-z0-9][a-z0-9-]{0,63})$/;
@@ -39,6 +43,11 @@ export function readAnswerCheck(v: unknown): AnswerCheckView {
     own: choiceOf(o.own),
     providers: recordsOf(o.providers, (p) => (str(p.value) && str(p.label) ? { value: p.value as string, label: p.label as string } : null)),
     lost: o.lost === true,
+    others: recordsOf(o.others, (p) => {
+      const keys = Array.isArray(p.keys) ? p.keys.filter((k): k is string => typeof k === "string" && PROVIDER.test(k)) : [];
+      return str(p.value) && str(p.label) && keys.length ? { value: p.value as string, label: p.label as string, keys } : null;
+    }),
+    canAdd: o.canAdd === true,
   };
 }
 
