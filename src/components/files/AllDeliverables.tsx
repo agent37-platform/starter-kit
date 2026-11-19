@@ -40,7 +40,7 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
   // The gallery first (Leslie, 16/11: « plus en grille médias »), the list one click away.
   const [mode, setMode] = useState<"list" | "grid">("grid");
   // Pictures apart from documents, like a phone's gallery; a project holds both and stays in both.
-  const [kind, setKind] = useState<"all" | "media" | "docs">("all");
+  const [kind, setKind] = useState<"all" | "media" | "docs" | "creations">("all");
   const [preview, setPreview] = useState<{ agentId: string; entry: FileEntry } | null>(null);
   // Read once per render of the list: « Nouveau » is the browser's own memory of what was opened.
   const [, setSeenTick] = useState(0);
@@ -57,7 +57,7 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
       (d) =>
         (who === ALL || (who === COMPANY ? !d.expert : d.expert && expertId(d.expert) === who)) &&
         (!onlyNew || isNew(d)) &&
-        (kind === "all" || d.folder || (kind === "media") === isMedia(d.name)) &&
+        (kind === "all" || (kind === "creations" ? isCreation(d.path) : !isCreation(d.path) && (d.folder || (kind === "media") === isMedia(d.name)))) &&
         matchesDriveQuery(d.name, query)
     );
     return sort === "name" ? [...rows].sort((a, b) => a.name.localeCompare(b.name, "fr", { sensitivity: "base", numeric: true })) : rows;
@@ -162,6 +162,8 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
               ["all", "Tout"],
               ["media", "Médias"],
               ["docs", "Documents"],
+              // The online tools an Expert builds (« Créer »), kept in Livrables/<Expert>/Créations (Leslie, 19/11).
+              ...((all ?? []).some((d) => isCreation(d.path)) ? ([["creations", "Créations"]] as const) : []),
             ] as const
           ).map(([v, label]) => (
             <button
@@ -304,6 +306,8 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
   );
 }
 
+/** A Création is its own folder under « Créations » in the Expert's drive. */
+const isCreation = (path: string) => /(^|\/)Cr[ée]ations\//i.test(path);
 const isMedia = (name: string) => docKind(name) === "image" || /\.(mp4|mov|webm|m4v)$/i.test(name);
 
 // « Cette semaine », then one heading per month, newest first.

@@ -438,8 +438,9 @@ const MessageRow = memo(function MessageRow({
           {answerable && <ReplyChoices choices={finished.choices} note={finished.choicesNote} onSend={onReply} />}
           {!live && m.content && <GoogleDocCards docs={googleDocs(cleanReply(m.content))} />}
           {docs.length > 0 && <DocumentCards agentId={agentId} docs={docs} />}
-          {offerSend && (
+          {!!onReply && !live && !routineThread && docs.length > 0 && (
             <NextAction
+              offer={offerSend}
               id={m.id}
               agentId={agentId}
               profile={profile}
