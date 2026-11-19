@@ -8,6 +8,7 @@ import { llmPending, readOverview, type LlmMember, type LlmOverview, type LlmWri
 import { scopeParam, type InstanceScope, type LlmSetup } from "@/lib/llm-accounts";
 import type { ClaudeAuthView } from "@/lib/claude-code-auth";
 import { AccountsBoard, describe } from "./AccountsBoard";
+import { AnswerCheck } from "./AnswerCheck";
 import { ClaudeCodeModel } from "./ClaudeCodeModel";
 import { ExpertModels } from "./ExpertModels";
 import { MemberSources } from "./MemberSources";
@@ -132,6 +133,12 @@ export function ModelsView() {
       <ModelsBoundary key={`experts-${scopeParam(scope) ?? "own"}`}>
         <ExpertModels scope={scope} setup={setup} yelema={data.yelema} models={models} groupName={(g) => describe(g, catalogues).name} onChanged={changed} />
       </ModelsBoundary>
+
+      {scope.kind === "own" && data.mine && (
+        <ModelsBoundary key="answer-check">
+          <AnswerCheck models={models} />
+        </ModelsBoundary>
+      )}
 
       {data.yelema && <YelemaEngine yelema={data.yelema} />}
 

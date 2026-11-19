@@ -572,6 +572,11 @@ export const backoffice = {
     call<LlmWritten>("/app/llm/own/model", { method: "PUT", token, body: choice, timeoutMs: SETTING_WRITE_TIMEOUT_MS }),
   setLlmSettings: (token: string, settings: { membersMayBringKey: boolean }) =>
     call<{ membersMayBringKey: boolean }>("/app/llm/settings", { method: "PUT", token, body: settings }),
+  // Answer check of the caller's own instance: provider and model only, the mode is set at Yelema.
+  answerCheck: (token: string) => call<unknown>("/app/judge", { token }),
+  setAnswerCheck: (token: string, choice: { provider: string; model: string }) =>
+    call<LlmWritten>("/app/judge", { method: "PUT", token, body: choice, timeoutMs: SETTING_WRITE_TIMEOUT_MS }),
+  resetAnswerCheck: (token: string) => call<LlmWritten>("/app/judge", { method: "DELETE", token, timeoutMs: SETTING_WRITE_TIMEOUT_MS }),
   // Several accounts per provider and their order (backup accounts and models). `scope` is checked
   // into `own`, `client` or a member id before it reaches a path.
   addLlmAccount: (token: string, scope: string, draft: AccountDraft) =>
