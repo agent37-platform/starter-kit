@@ -63,7 +63,7 @@ export function ConversationDocs({
   const shownDocs = q ? docs.filter((d) => foldName(d.name).includes(q)) : docs;
   const startEdit = (g: GoogleDoc) => {
     setEditing(g.id);
-    setDraft(names[g.id] ?? (isUnnamed(g) ? "" : g.title));
+    setDraft(names[g.id] ?? (isUnnamed(g) ? g.guess ?? "" : g.title));
   };
   const save = () => {
     if (editing) rename(editing, draft);
@@ -118,7 +118,7 @@ export function ConversationDocs({
           {shownGoogle.map((g) => {
             const isPinned = g.id === pinnedId;
             const title = docName(g, names);
-            const unnamed = !names[g.id] && isUnnamed(g);
+            const unnamed = !names[g.id] && isUnnamed(g) && !g.guess;
             const day = dayHeading(g.usedAt);
             const heading = day !== lastDay ? day : null;
             lastDay = day;
@@ -163,16 +163,8 @@ export function ConversationDocs({
                         </span>
                       </a>
                     </DropdownMenuItem>
-                    {unnamed ? (
-                      <button
-                        type="button"
-                        onClick={() => startEdit(g)}
-                        className="h-8 shrink-0 rounded-lg bg-tint px-2.5 text-[12.5px] font-semibold text-brand-ink hover:bg-soft-2"
-                      >
-                        Nommer
-                      </button>
-                    ) : (
-                      <button
+                    {/* Pas de « Nommer » (Leslie, 19/11) : un nom par défaut tiré du message, le crayon pour le changer. */}
+                    <button
                         type="button"
                         onClick={() => startEdit(g)}
                         title="Renommer"
@@ -181,7 +173,6 @@ export function ConversationDocs({
                       >
                         <Pencil className="size-4" />
                       </button>
-                    )}
                     {pins && google.length > 1 && (
                       <button
                         type="button"
