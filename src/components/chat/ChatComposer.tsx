@@ -171,6 +171,12 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // « /envoi » typed whole: answered here at once, before the commands menu picks a look-alike.
+    if (e.key === "Enter" && !e.shiftKey && !chosen && /^\/envoi$/i.test(text.trim())) {
+      e.preventDefault();
+      submit();
+      return;
+    }
     if (menuOpen) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
