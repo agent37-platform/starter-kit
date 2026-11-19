@@ -26,6 +26,8 @@ export type SignalingStep = keyof typeof SIGNALING_METHOD;
 
 export const CONVERSATION_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+// An IANA time zone (« Africa/Abidjan », « America/Argentina/Buenos_Aires », « UTC »).
+const TIME_ZONE = /^[A-Za-z][A-Za-z_]{0,29}(\/[A-Za-z0-9_+-]{1,30}){0,2}$/;
 
 /** The step a relayed request names, or null when the path or the method is not one the SDK sends. */
 export function signalingStep(id: string, action: string, method: string): SignalingStep | null {
@@ -39,9 +41,16 @@ export function callHeaders(h: Headers): Record<string, string> | null {
   const expert = h.get("x-yelema-expert")?.trim().toLowerCase() ?? "";
   const language = h.get("x-yelema-language")?.trim().toLowerCase() ?? "";
   const voice = h.get("x-yelema-voice")?.trim().toLowerCase() ?? "";
+  // The member's time zone, for the expert to greet by their hour (Leslie, 18/11: « belle journée » at night). Dropped if malformed.
+  const zone = h.get("x-yelema-timezone")?.trim() ?? "";
   if (!KEY.test(expert) || !VOICE_LANGUAGES.some((l) => l.id === language)) return null;
   if (voice && !KEY.test(voice)) return null;
-  return { "X-Yelema-Expert": expert, "X-Yelema-Language": language, ...(voice ? { "X-Yelema-Voice": voice } : {}) };
+  return {
+    "X-Yelema-Expert": expert,
+    "X-Yelema-Language": language,
+    ...(voice ? { "X-Yelema-Voice": voice } : {}),
+    ...(TIME_ZONE.test(zone) ? { "X-Yelema-Timezone": zone } : {}),
+  };
 }
 
 // ---- The member's choice ------------------------------------------------------------------------
