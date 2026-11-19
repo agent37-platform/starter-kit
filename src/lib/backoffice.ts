@@ -738,6 +738,13 @@ export const backoffice = {
   buzzSent: (token: string, sent: { kind: string; recipients: string[]; salon?: string; nom?: string }) => call<{ ok: true }>("/app/buzz/outbox", { method: "POST", token, body: sent }),
   memoryItems: (token: string) => call<MemoryList>("/app/memory/items", { token }),
   createMemoryNote: (token: string, note: MemoryNote) => call<{ id: string }>("/app/memory/items", { method: "POST", token, body: note }),
+  // A document too large to pass through this app (over 4 MB): the back office answers a short-lived
+  // address where the browser sends the file itself, then the deposit names that upload (`upload`).
+  // 404 until the back office serves it. Contract: docs/plans/contexte-gros-documents.md.
+  startMemoryUpload: (token: string, file: { name: string; size: number; type: string; unit?: string | null }) =>
+    call<{ upload: string; url: string; headers?: Record<string, string> }>("/app/memory/uploads", { method: "POST", token, body: file }),
+  createMemoryDocument: (token: string, doc: { title: string; upload: string; unit?: string | null }) =>
+    call<{ id: string }>("/app/memory/items", { method: "POST", token, body: doc, timeoutMs: MAIL_SEND_TIMEOUT_MS }),
   uploadMemoryDocument: (token: string, form: FormData) => call<{ id: string }>("/app/memory/items", { method: "POST", token, form, timeoutMs: MAIL_SEND_TIMEOUT_MS }),
   updateMemoryItem: (token: string, id: string, patch: MemoryPatch) => call<{ ok: true }>(ownPath("/app/memory/items", id), { method: "PATCH", token, body: patch }),
   deleteMemoryItem: (token: string, id: string) => call<{ ok: true }>(ownPath("/app/memory/items", id), { method: "DELETE", token }),
