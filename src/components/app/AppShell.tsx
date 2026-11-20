@@ -26,7 +26,8 @@ import type { CatalogueResponse, MergedAgent } from "@/lib/types";
 import { AgentsProvider } from "@/components/useMyAgents";
 import { catalogueKey } from "@/components/experts/useCatalogue";
 
-const COLLAPSE_KEY = "sbmini";
+// Nouvelle clé (20/11) : le défaut passe à replié pour tous, même pour qui avait déjà touché au menu.
+const COLLAPSE_KEY = "sbmini2";
 
 /**
  * Le cadre unique de l'application : menu à gauche, barre en haut, contenu à droite.
@@ -59,7 +60,8 @@ export function AppShell({
   // The catalogue the server read with the page: every screen that lists it starts from it.
   useState(() => current && initialCatalogue && remember(catalogueKey(userEmail, current.id), initialCatalogue));
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  // Le menu s'ouvre replié (icônes et photos) ; le membre le déplie à la main, et ce choix est retenu.
+  const [collapsed, setCollapsed] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // "Son ordinateur" keeps ONE live connection, to the instance last opened, so moving between its
@@ -70,9 +72,9 @@ export function AppShell({
 
   useEffect(() => {
     try {
-      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) !== "0");
     } catch {
-      // Stockage indisponible : le menu s'ouvre déplié, ce qui est le bon défaut.
+      // Stockage indisponible : le menu reste replié, le défaut.
     }
   }, []);
 
