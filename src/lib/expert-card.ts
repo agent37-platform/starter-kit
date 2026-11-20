@@ -11,9 +11,11 @@ export interface PanelFile {
 
 /** The expert's last `n` deliverables in its folder, newest first: no folder, nothing the member brought, no working file, nothing archived. */
 export function lastDeliverables(entries: readonly { name: string; path: string; type: string; modified?: number | null; hidden?: boolean }[], folder: string, n = 4): PanelFile[] {
-  const inside = `${folder.replace(/\/+$/, "")}/`;
+  // The catalogue says « Djénéba », the expert may have written « Djeneba » or « djénéba »: the same folder.
+  const plain = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const inside = plain(`${folder.replace(/\/+$/, "")}/`);
   return entries
-    .filter((e) => e.type === "file" && !e.hidden && e.path.startsWith(inside) && !isMemberUpload(e.path) && !isHiddenInChat(e.path) && !/(^|\/)Archivées\//i.test(e.path))
+    .filter((e) => e.type === "file" && !e.hidden && plain(e.path).startsWith(inside) && !isMemberUpload(e.path) && !isHiddenInChat(e.path) && !/(^|\/)Archivées\//i.test(e.path))
     .map((e) => ({ name: e.name, path: e.path, modified: e.modified ?? 0 }))
     .sort((a, b) => b.modified - a.modified)
     .slice(0, n);

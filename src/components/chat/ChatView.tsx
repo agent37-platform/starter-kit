@@ -70,7 +70,7 @@ export function ChatView({
   openDashboard?: boolean;
   onDashboardOpened?: () => void;
   /** On an expert's page: its profile panel beside the chat, and what its links open. */
-  profilePanel?: { expert: ProfilePanelExpert; onTab: (tab: "files" | "calls") => void; onOpenCall: (id: string) => void } | null;
+  profilePanel?: { expert: ProfilePanelExpert; onTab: (tab: "files" | "calls" | "emails") => void; onOpenCall: (id: string) => void } | null;
 }) {
   const {
     agentId,

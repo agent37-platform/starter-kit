@@ -399,6 +399,7 @@ export function AgentWorkspace({
                             folder: driveFolder ?? `${DRIVE_ROOT}/${expertName}`,
                             hasComputer: hasScreen(agents.find((a) => a.agent37_id === agentId) ?? null),
                             calls: Boolean(callee && voiceOn),
+                            canGiveEmail: Boolean(!inbox && mail.enabled && expert.catalogueKey),
                           },
                           onTab: (tab) => selectTab(tab),
                           onOpenCall: (id) => window.history.pushState(null, "", `${agentTabPath(agentId, "calls", profileId)}?appel=${encodeURIComponent(id)}`),
