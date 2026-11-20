@@ -7,9 +7,12 @@ import { authViaBackoffice, deploymentWorkspaceId, multiTenant, resolverToken, s
 import { bearerDecision } from "@/lib/bearer-access";
 import { guestCookieApplies, guestCookieName } from "@/lib/guest-access";
 import { decodeSession, encodeSession, LEGACY_SESSION_COOKIE, secondsLeft, SESSION_COOKIE, sessionCookieOptions, sessionCookieValue, verifiedAccessToken } from "@/lib/session";
-import { publicSiteOrigin } from "@/lib/site-url";
+import { requestSiteOrigin } from "@/lib/site-url";
 import { sealTenant, writeTenantHeader } from "@/lib/tenant-header";
 import { hostOf, resolveHost, TenantError, type ResolvedTenant } from "@/lib/tenant-resolver";
+
+// Where /login lives. Not nextUrl alone: behind a reverse proxy it carries the listen address (localhost:3000).
+const loginOrigin = (request: NextRequest): string => requestSiteOrigin(multiTenant(), siteUrl(), hostOf(request.headers), request.nextUrl.origin);
 
 export async function updateSession(request: NextRequest) {
   // Only this proxy writes the resolved client: whatever the browser sent is dropped.
@@ -75,8 +78,7 @@ export async function updateSession(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: { code: "unauthorized", message: "Sign in required" } }, { status: 401 });
     }
-    // SITE_URL, not nextUrl: behind the reverse proxy nextUrl can carry the listen address.
-    const url = new URL("/login", publicSiteOrigin(siteUrl(), request.nextUrl.origin));
+    const url = new URL("/login", loginOrigin(request));
     url.searchParams.set("next", pathname + request.nextUrl.search); // a shared link keeps its ?c= / ?s=
     return NextResponse.redirect(url);
   }
@@ -184,7 +186,7 @@ async function updateBackofficeSession(request: NextRequest, workspace: string |
     if (pathname.startsWith("/api/")) {
       response = NextResponse.json({ error: { code: "unauthorized", message: "Sign in required" } }, { status: 401 });
     } else {
-      const url = new URL("/login", publicSiteOrigin(siteUrl(), request.nextUrl.origin));
+      const url = new URL("/login", loginOrigin(request));
       url.searchParams.set("next", pathname + request.nextUrl.search); // a shared link keeps its ?c= / ?s=
       response = NextResponse.redirect(url);
     }
