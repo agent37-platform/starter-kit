@@ -33,6 +33,8 @@ describe("🔒 jeton de l'app mobile sur les routes d'instance", () => {
   it("le chat du téléphone : lire les conversations, écrire un tour, l'arrêter, répondre à une demande d'accord", () => {
     for (const p of ["chat/sessions", "chat/sessions/20261118_101200_ab12cd", "chat/by-profile", "chat/responses/resp_abc123/stream"]) assert.ok(bearerRoute("GET", `/api/agents/inst00001/${p}`), p);
     for (const p of ["chat/responses", "chat/responses/resp_abc123/cancel", "chat/responses/resp_abc123/approval", "chat/responses/resp_abc123/steer", "chat/files"]) assert.ok(bearerRoute("POST", `/api/agents/inst00001/${p}`), p);
+    for (const p of ["/api/uploads", "/api/uploads/up_abc123/parts/0", "/api/uploads/up_abc123/parts/8", "/api/uploads/up_abc123/complete"]) assert.ok(bearerRoute("POST", p), p);
+    for (const p of ["/api/uploads/up_abc123", "/api/uploads/up_abc123/parts/100", "/api/uploads/up_abc123/file"]) assert.ok(!bearerRoute("POST", p), p);
     for (const [m, p] of [
       ["DELETE", "chat/sessions/s1"],
       ["PATCH", "chat/sessions/s1"],

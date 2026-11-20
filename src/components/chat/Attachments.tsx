@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { FileText, Loader2, Paperclip, RotateCw, X } from "lucide-react";
 import { HiddenFileInput } from "@/components/HiddenFileInput";
-import { tooLarge } from "@/lib/upload-limit";
+import { TOO_LARGE, tooLargeDocument } from "@/lib/upload-limit";
 import { cn } from "@/lib/utils";
 import type { PendingFile } from "./useChatAttachments";
 
@@ -55,8 +55,10 @@ export function AttachmentTray({
           )}
           <span className="max-w-[10rem] truncate">{f.file.name}</span>
           {f.status === "uploading" && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-          {f.status === "error" && tooLarge(f.file) && <span className="font-semibold">plus de 4 Mo</span>}
-          {f.status === "error" && !tooLarge(f.file) && (
+          {f.status === "uploading" && f.progress !== undefined && <span className="tabular-nums text-ink-3">{Math.round(f.progress * 100)} %</span>}
+          {f.status === "error" && tooLargeDocument(f.file) && <span className="font-semibold">plus de 25 Mo</span>}
+          {f.status === "error" && !tooLargeDocument(f.file) && f.error === TOO_LARGE && <span className="font-semibold">plus de 4 Mo</span>}
+          {f.status === "error" && !tooLargeDocument(f.file) && f.error !== TOO_LARGE && (
             <button
               type="button"
               onClick={() => onRetry(f.id)}
