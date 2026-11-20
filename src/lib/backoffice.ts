@@ -14,6 +14,7 @@ import { isPublicId, type MemoryList, type MemoryNote, type MemoryPatch, type Or
 import { backofficeUrl, resolverToken } from "@/lib/runtime-config";
 import { SIGNALING_METHOD, type CallRecord, type SignalingStep, type VoiceOption } from "@/lib/voice";
 import { pinnedWorkspaceId } from "@/lib/tenant";
+import { requestTailnetClient } from "@/lib/tailnet-client";
 import type { BuzzOverview } from "@/lib/buzz";
 import type { GuestFile, GuestParticipant, GuestSessionView } from "@/lib/guest-access";
 import type { GuestRefusal, SalonGuest } from "@/lib/salon-guests";
@@ -272,7 +273,7 @@ async function send(path: string, init: { method?: string; workspace?: string; t
   try {
     return await fetch(`${base}/api/v1${path}`, {
       method: init.method ?? "GET",
-      headers: { "X-Workspace-Id": workspace, ...init.headers },
+      headers: { "X-Workspace-Id": workspace, ...(await requestTailnetClient()), ...init.headers },
       body: init.body,
       cache: "no-store",
       signal: AbortSignal.timeout(init.timeoutMs ?? TIMEOUT_MS),

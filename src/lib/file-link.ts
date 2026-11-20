@@ -5,9 +5,9 @@ import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 
 export const LINK_TTL_MS = 15 * 60_000;
 
-/** Derived from AGENT37_API_KEY (always set where instances are read); null ⇒ no links. */
+/** Derived from FILE_LINK_SECRET, else AGENT37_API_KEY (a deployment behind the gateway has no Agent37 key); null ⇒ no links. */
 export function fileLinkKey(env: Record<string, string | undefined> = process.env): Buffer | null {
-  const secret = env.AGENT37_API_KEY?.trim();
+  const secret = env.FILE_LINK_SECRET?.trim() || env.AGENT37_API_KEY?.trim();
   if (!secret || secret.length < 16) return null;
   return Buffer.from(hkdfSync("sha256", secret, "yelema", "deliverable-file-link-v1", 32));
 }

@@ -27,6 +27,9 @@ describe("🔒 lien signé d'un livrable", () => {
   it("sans clé de serveur, aucun lien", () => {
     assert.equal(fileLinkKey({}), null);
     assert.equal(fileLinkKey({ AGENT37_API_KEY: "court" }), null);
+    // Behind the gateway, without an Agent37 key: its own secret; it wins over the key when both are set.
+    assert.ok(fileLinkKey({ FILE_LINK_SECRET: "un-secret-de-liens-0123456789" }));
+    assert.notDeepEqual(fileLinkKey({ FILE_LINK_SECRET: "un-secret-de-liens-0123456789", AGENT37_API_KEY: "sk_live_0123456789abcdef" }), key);
     const other = fileLinkKey({ AGENT37_API_KEY: "sk_live_autre_cle_0000000" })!;
     const exp = NOW + 60_000;
     assert.ok(!verifyFileLink(other, "ws1", "inst1", P, exp, signFileLink(key, "ws1", "inst1", P, exp), NOW));

@@ -97,7 +97,8 @@ export function deployVersion(): string {
 // whether the deployment is complete — never which values it holds.
 export function missingRequired(): string[] {
   const required: [string, string | undefined][] = [
-    ["AGENT37_API_KEY", read("AGENT37_API_KEY")],
+    // Behind the runtime gateway the app never calls Agent37 itself: no key to hold (sensitive clients).
+    ["AGENT37_API_KEY", read("AGENT37_API_KEY") ?? (read("RUNTIME_GATEWAY_URL") && read("RUNTIME_GATEWAY_TOKEN") ? "gateway" : undefined)],
     ["SUPABASE_URL", supabaseUrl()],
     ["SUPABASE_ANON_KEY", supabaseAnonKey()],
     ["SUPABASE_SERVICE_ROLE_KEY", supabaseServiceRoleKey()],
