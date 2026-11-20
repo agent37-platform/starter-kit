@@ -316,7 +316,6 @@ export function ChatView({
           >
             {listHidden ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </button>
-          {profilePanel && <ProfilePanelToggle />}
           {/* On an expert's page its photo and name already head the page: shown once. */}
           {face && !profile && <ExpertAvatar expert={face} size="sm" />}
           <div className="min-w-0">
@@ -364,6 +363,8 @@ export function ChatView({
         >
           {full ? <Minimize2 className="h-[18px] w-[18px]" /> : <Maximize2 className="h-[18px] w-[18px]" />}
         </button>
+        {/* The profile opens on the right: its button sits on that side, last (Leslie, 20/11). */}
+        {profilePanel && <ProfilePanelToggle />}
         </div>
       </header>
       {messages.length > 0 && <GoogleDocsRow docs={google} />}

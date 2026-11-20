@@ -48,7 +48,7 @@ export interface ProfilePanelExpert {
   calls: boolean;
 }
 
-/** The button beside « Discussion » that opens and closes the panel. */
+/** The button at the right end of the chat bar, on the side the panel opens, that opens and closes it. */
 export function ProfilePanelToggle() {
   const open = useProfilePanel();
   return (

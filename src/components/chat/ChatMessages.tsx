@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, ClipboardCheck, Copy, CornerDownLeft, FileText, Image as ImageIcon, Loader2, PhoneCall, Repeat } from "lucide-react";
 import { turnDocs, type DriveFile, type TurnDoc } from "@/lib/drive-links";
 import { kanbanNotice } from "@/lib/kanban-notice";
+import { autoRequest } from "@/lib/auto-request";
 import { isRoutineRun, isSilentRun, routinePlainText, SILENT_RUN_LABEL } from "@/lib/routines";
 import { isCallTranscript } from "@/lib/voice";
 import { isResumeSeed } from "@/lib/conversation-resume";
@@ -335,6 +336,14 @@ const MessageRow = memo(function MessageRow({
       return (
         <p className="flex items-center justify-center gap-2 text-xs text-ink-3">
           <PhoneCall className="h-3.5 w-3.5" /> Transcription de l’appel transmise à l’Expert
+        </p>
+      );
+    }
+    const auto = m.role === "user" ? autoRequest(m.content) : null;
+    if (auto) {
+      return (
+        <p className="flex items-center justify-center gap-2 text-center text-xs text-ink-3">
+          <FileText className="h-3.5 w-3.5 shrink-0" /> {auto.label}
         </p>
       );
     }
