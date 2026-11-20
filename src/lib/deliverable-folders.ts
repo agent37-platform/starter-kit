@@ -94,3 +94,45 @@ export function deliverableItems(entries: readonly TreeEntry[]): DeliverableItem
   }
   return [...items.values()].sort((a, b) => b.modified - a.modified || a.name.localeCompare(b.name, "fr"));
 }
+
+export interface FolderPeek {
+  /** The best picture, video, PDF, slide deck, page or sheet anywhere inside, as on the general page. */
+  cover: string | null;
+  coverModified: number;
+  /** What lies directly inside, newest first, for a folder with nothing to show as a cover (Leslie, 20/11 : « qu'on entrevoie ce qu'il y a à l'intérieur »). */
+  first: { name: string; folder: boolean }[];
+  /** How many things lie directly inside. */
+  count: number;
+}
+
+/** A glimpse of each of `folders` from the drive tree: its cover, else its first three entries; working files never shown. */
+export function folderPeeks(entries: readonly TreeEntry[], folders: readonly string[], shown = 3): Map<string, FolderPeek> {
+  const out = new Map<string, FolderPeek>();
+  const wanted = new Set(folders);
+  const kids = new Map<string, TreeEntry[]>();
+  const skipped = (e: TreeEntry) => e.hidden || (e.type === "directory" ? NOT_DELIVERABLE_FOLDER.test(plain(e.name)) : WORKING_FILE.test(plain(e.name)));
+  for (const f of folders) out.set(f, { cover: null, coverModified: 0, first: [], count: 0 });
+  for (const e of entries) {
+    if (skipped(e)) continue;
+    const parent = parentOf(e.path);
+    if (wanted.has(parent)) kids.set(parent, [...(kids.get(parent) ?? []), e]);
+    if (e.type === "directory" || !coverRank(e.name)) continue;
+    // Every displayed ancestor may take it as its cover: a picture beats a PDF, a PDF a slide deck…
+    for (let p = parent; p.includes("/"); p = parentOf(p)) {
+      const peek = out.get(p);
+      if (!peek) continue;
+      const below = e.path.slice(p.length + 1).split("/").slice(0, -1);
+      if (below.some((part) => NOT_DELIVERABLE_FOLDER.test(plain(part)))) continue;
+      if (coverRank(e.name) > (peek.cover ? coverRank(peek.cover) : 0)) {
+        peek.cover = e.path;
+        peek.coverModified = e.modified || 0;
+      }
+    }
+  }
+  for (const [f, list] of kids) {
+    const peek = out.get(f)!;
+    peek.count = list.length;
+    peek.first = [...list].sort((a, b) => (b.modified || 0) - (a.modified || 0) || a.name.localeCompare(b.name, "fr")).slice(0, shown).map((e) => ({ name: e.name, folder: e.type === "directory" }));
+  }
+  return out;
+}
