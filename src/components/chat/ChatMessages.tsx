@@ -17,6 +17,7 @@ import { UpdateSpinner, useDeployPhase } from "@/components/app/DeployStatus";
 import type { Expert } from "@/lib/types";
 import { useChatContext } from "./ChatProvider";
 import { DocumentCards, useDriveListing } from "./DocumentCards";
+import { CallCard } from "./CallCard";
 import { GoogleDocCards } from "./GoogleDocs";
 import { googleDocs, usedGoogleDocs, withoutGoogleActions, type GoogleDoc } from "@/lib/google-docs";
 import { Markdown } from "./Markdown";
@@ -278,6 +279,9 @@ export function ChatMessages({
             agentId={agentId}
             profile={profile}
             listing={listing}
+            // The first transcript of a call opens its conversation as the call's card.
+            first={isCallTranscript(m.content) && !messages.slice(0, i).some((x) => x.role === "user" && isCallTranscript(x.content))}
+            driveFolder={driveFolder}
             routine={routine}
             pronoun={pronoun}
             onReply={onReply ? reply : undefined}
@@ -305,6 +309,8 @@ const MessageRow = memo(function MessageRow({
   agentId,
   profile,
   listing,
+  first = false,
+  driveFolder = null,
   routine,
   pronoun,
   onReply,
@@ -324,6 +330,8 @@ const MessageRow = memo(function MessageRow({
   agentId: string;
   profile: string | null;
   listing: DriveFile[];
+  first?: boolean;
+  driveFolder?: string | null;
   routine: string | null;
   pronoun: "elle" | "il" | null;
   onReply?: (text: string) => void;
@@ -331,10 +339,14 @@ const MessageRow = memo(function MessageRow({
   onApproval?: (messageId: string, requestId: string, choice: ApprovalChoice) => void;
   onModifyApproval?: (messageId: string, requestId: string) => void;
 }) {
+    // The call's conversation opens on its transcript: the call, its summary and its files instead
+    // (Leslie, 20/11). A later part of the same transcript stays one quiet line.
     if (m.role === "user" && isCallTranscript(m.content)) {
-      return (
+      return first ? (
+        <CallCard content={m.content} at={m.at ?? null} driveFolder={driveFolder} />
+      ) : (
         <p className="flex items-center justify-center gap-2 text-xs text-ink-3">
-          <PhoneCall className="h-3.5 w-3.5" /> Transcription de l’appel transmise à l’Expert
+          <PhoneCall className="h-3.5 w-3.5" /> Suite de la transcription de l’appel transmise à l’Expert
         </p>
       );
     }
