@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/http";
 import { composePrompt, splitPrompt, summarize, type Routine } from "@/lib/routines";
 import { runPool } from "@/lib/bulk";
 import { parseGoals, type Goal } from "@/lib/objectifs";
+import type { NightTask } from "@/lib/nuit";
 import { currentInstance } from "@/lib/session";
 
 // Hermes's own scheduler: each expert's routines live in its profile, the instance's gateway runs
@@ -212,6 +213,17 @@ export const hermesCron = {
   objectifs: async (agentId: string, profile: string): Promise<Goal[] | null> => {
     try {
       return parseGoals(await hermes<unknown>(agentId, "GET", `/p/${encodeURIComponent(profile)}/api/objectifs`));
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  },
+
+  // The expert's Kanban tasks of the last hours, read-only (image I79), for « Cette nuit »; null on an image without them (404).
+  taches: async (agentId: string, profile: string, heures = 36): Promise<NightTask[] | null> => {
+    try {
+      const body = await hermes<{ taches?: unknown }>(agentId, "GET", `/p/${encodeURIComponent(profile)}/api/taches?heures=${heures}`);
+      return Array.isArray(body.taches) ? (body.taches as NightTask[]) : [];
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) return null;
       throw e;

@@ -15,6 +15,7 @@ import { ReadAhead } from "@/components/app/ReadAhead";
 import { AnalyticsReadAhead } from "@/components/settings/analytics/AnalyticsReadAhead";
 import { TopBar } from "@/components/app/TopBar";
 import { DeployStatusProvider, UpdateStrip } from "@/components/app/DeployStatus";
+import { NightStrip } from "@/components/app/NightReview";
 import { ComputerProvider } from "@/components/experts/ComputerProvider";
 import { ExpertsProvider } from "@/components/experts/ExpertsProvider";
 import type { InitialExperts } from "@/components/experts/useExperts";
@@ -148,6 +149,7 @@ export function AppShell({
           <main className="flex h-screen min-w-0 flex-col overflow-y-auto">
             <TopBar onMenu={() => setDrawerOpen(true)} />
             <UpdateStrip />
+            {!chatOnly && <NightStrip />}
             <CallStrip />
             <ComputerProvider key={computerAgentId ?? "none"} agentId={computerAgentId}>
               {children}
