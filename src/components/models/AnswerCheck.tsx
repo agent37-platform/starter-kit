@@ -4,21 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
-import { readAnswerCheck, type AnswerCheckView } from "@/lib/answer-check";
+import { checkDefault, readAnswerCheck, type AnswerCheckView } from "@/lib/answer-check";
 import type { LlmLogin, LlmProvider, LlmWritten } from "@/lib/llm";
 import type { InstanceScope, ModelChoice } from "@/lib/llm-accounts";
 import type { ModelGroup } from "@/lib/model-options";
 import { AddAccountDialog } from "./AddAccountDialog";
 import { ModelPicker } from "./ModelPicker";
 
-const SAME = "Comme le modèle de l’Expert";
 const ADDED_NOTICE = "Ce compte passe après vos comptes actuels : vos Experts gardent leur modèle. Il vérifie les réponses et ne sert d’appoint que si tous vos autres comptes sont épuisés.";
 const NO_OWN = "Pour vérifier avec un autre fournisseur, branchez d’abord vos propres comptes d’IA : votre espace utilise aujourd’hui le modèle fourni par Yelema.";
 
 type Adding = { value: string; label: string; keys: string[] };
 
 // Bloc « Vérification des réponses » : avant de partir, une réponse qui affirme un fait est relue par un
-// modèle qui en cherche la preuve. Par défaut celui de l'Expert ; sinon un modèle d'un compte de l'espace.
+// modèle qui en cherche la preuve. Par défaut un autre fournisseur de l'espace, sinon le modèle de l'Expert.
 // Un autre fournisseur s'ajoute ici même : sa clé par le parcours des comptes, puis il vérifie aussitôt.
 export function AnswerCheck({ models, scope, scopeLabel, catalogue, logins, onAccountAdded }: {
   models: ModelGroup[] | null;
@@ -70,6 +69,7 @@ export function AnswerCheck({ models, scope, scopeLabel, catalogue, logins, onAc
   const allowed = new Set(view.providers.map((p) => p.value));
   const groups = (models ?? []).filter((g) => allowed.has(g.provider));
   const value: ModelChoice | null = view.source === "instance" && view.own.provider && view.own.model ? { provider: view.own.provider, model: view.own.model } : null;
+  const fallback = checkDefault(view);
 
   return (
     <section className="space-y-3 rounded-[22px] border border-line bg-surface p-4 sm:p-5">
@@ -79,8 +79,9 @@ export function AnswerCheck({ models, scope, scopeLabel, catalogue, logins, onAc
       <p className="text-xs text-ink-3">Avant d’envoyer une réponse qui affirme un fait, un modèle vérifie qu’elle s’appuie sur ce que l’Expert a réellement consulté.</p>
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
         <span className="truncate text-sm font-medium text-ink">Modèle de vérification</span>
-        <ModelPicker label="Modèle de vérification des réponses" groups={groups} value={value} nullLabel={SAME} disabled={busy || groups.length === 0} onChange={(c) => void pick(c)} />
+        <ModelPicker label="Modèle de vérification des réponses" groups={groups} value={value} nullLabel={fallback.label} disabled={busy || groups.length === 0} onChange={(c) => void pick(c)} />
       </div>
+      {view.source === "global" && <p className="text-[11px] max-sm:text-[12px] text-ink-3">{fallback.line}</p>}
       {view.source === "instance" && view.own.provider && !view.own.model && (
         <p className="text-[11px] max-sm:text-[12px] text-ink-3">Vérifié par {view.own.providerLabel ?? view.own.provider}, avec son modèle par défaut.</p>
       )}
@@ -97,7 +98,7 @@ export function AnswerCheck({ models, scope, scopeLabel, catalogue, logins, onAc
         </div>
       )}
       {!view.canAdd && <p className="text-[11px] max-sm:text-[12px] text-ink-3">{NO_OWN}</p>}
-      {view.lost && <p className="text-[11px] max-sm:text-[12px] text-ko">Le compte choisi n’est plus branché : le modèle de l’Expert vérifie en attendant.</p>}
+      {view.lost && <p className="text-[11px] max-sm:text-[12px] text-ko">Le compte choisi n’est plus branché : le réglage par défaut vérifie en attendant.</p>}
       {view.source === "instance" && (
         <button type="button" disabled={busy} onClick={() => void pick(null)} className="text-xs font-semibold text-brand hover:underline disabled:opacity-50">
           Revenir au réglage par défaut

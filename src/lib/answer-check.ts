@@ -3,7 +3,8 @@ import { llmRefusalMessage } from "./llm.ts";
 
 // Vérification des réponses de l'instance du membre (back office : `/app/judge`). Avant de partir, une
 // réponse qui affirme un fait est relue par un modèle qui en cherche la preuve dans les outils appelés.
-// Nul = le fournisseur et le modèle de l'Expert. Le mode (note seulement ou reprise) se règle chez Yelema.
+// Nul = le fournisseur et le modèle de l'Expert. Sans choix : `default` (un autre fournisseur de l'espace s'il y en a
+// un). Le mode (note seulement ou reprise) se règle chez Yelema.
 
 export interface CheckChoice {
   provider: string | null;
@@ -11,12 +12,16 @@ export interface CheckChoice {
   model: string | null;
 }
 
+export type CheckDefaultReason = "autre_fournisseur" | "meme_fournisseur" | "client_sensible";
+
 export interface AnswerCheckView {
   source: "instance" | "global";
+  /** Sans choix du membre ni de Yelema : le premier autre fournisseur des comptes, sinon celui de l'Expert (toujours pour un client sensible). */
+  default: CheckChoice & { reason: CheckDefaultReason };
   effective: CheckChoice & { mode: "observation" | "relance" };
   own: CheckChoice;
   providers: { value: string; label: string }[];
-  /** Le fournisseur choisi n'a plus de compte sur l'instance : celui de l'Expert sert. */
+  /** Le fournisseur choisi n'a plus de compte sur l'instance : le défaut sert. */
   lost: boolean;
   /** Fournisseurs sans compte, à ajouter d'abord ; `keys` : leurs entrées du catalogue des comptes. */
   others: { value: string; label: string; keys: string[] }[];
@@ -37,8 +42,11 @@ function choiceOf(v: unknown): CheckChoice {
 export function readAnswerCheck(v: unknown): AnswerCheckView {
   const o = isRecord(v) ? v : {};
   const effective = isRecord(o.effective) ? o.effective : {};
+  const fallback = choiceOf(o.default);
+  const other = isRecord(o.default) && o.default.reason === "autre_fournisseur" && !!fallback.provider && !!fallback.model;
   return {
     source: o.source === "instance" ? "instance" : "global",
+    default: { ...fallback, reason: other ? "autre_fournisseur" : isRecord(o.default) && o.default.reason === "client_sensible" ? "client_sensible" : "meme_fournisseur" },
     effective: { ...choiceOf(effective), mode: effective.mode === "relance" ? "relance" : "observation" },
     own: choiceOf(o.own),
     providers: recordsOf(o.providers, (p) => (str(p.value) && str(p.label) ? { value: p.value as string, label: p.label as string } : null)),
@@ -49,6 +57,17 @@ export function readAnswerCheck(v: unknown): AnswerCheckView {
     }),
     canAdd: o.canAdd === true,
   };
+}
+
+/** Le libellé du défaut (dans le choix) et la phrase sous le choix quand rien n'est choisi. */
+export function checkDefault(view: AnswerCheckView): { label: string; line: string } {
+  const d = view.default;
+  const label = d.reason === "autre_fournisseur" ? `Par défaut : ${d.providerLabel ?? d.provider} · ${d.model}` : "Par défaut : même modèle que l’Expert";
+  if (d.reason === "client_sensible" && !view.effective.provider && !view.effective.model) return { label, line: "Même modèle que l’Expert (client à données sensibles)." };
+  const e = view.effective;
+  const isDefault = d.reason === "autre_fournisseur" ? e.provider === d.provider && e.model === d.model : !e.provider && !e.model;
+  if (!isDefault) return { label, line: `Réglé par Yelema : ${e.providerLabel ?? e.provider ?? "fournisseur de l’Expert"}${e.model ? ` · ${e.model}` : ""}.` };
+  return { label, line: d.reason === "autre_fournisseur" ? "Un autre fournisseur relit les réponses de l’Expert." : "Le modèle de l’Expert relit ses propres réponses : un compte d’IA chez un autre fournisseur le remplacerait." };
 }
 
 /** Le corps envoyé au back office : fournisseur et modèle seulement, jamais le mode. */
