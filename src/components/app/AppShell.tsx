@@ -26,9 +26,6 @@ import type { CatalogueResponse, MergedAgent } from "@/lib/types";
 import { AgentsProvider } from "@/components/useMyAgents";
 import { catalogueKey } from "@/components/experts/useCatalogue";
 
-// Nouvelle clé (20/11) : le défaut passe à replié pour tous, même pour qui avait déjà touché au menu.
-const COLLAPSE_KEY = "sbmini2";
-
 /**
  * Le cadre unique de l'application : menu à gauche, barre en haut, contenu à droite.
  *
@@ -60,7 +57,7 @@ export function AppShell({
   // The catalogue the server read with the page: every screen that lists it starts from it.
   useState(() => current && initialCatalogue && remember(catalogueKey(userEmail, current.id), initialCatalogue));
   const pathname = usePathname();
-  // Le menu s'ouvre replié (icônes et photos) ; le membre le déplie à la main, et ce choix est retenu.
+  // Le menu s'ouvre toujours replié (icônes et photos) ; le membre le déplie à la main, pour la visite en cours seulement.
   const [collapsed, setCollapsed] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -69,14 +66,6 @@ export function AppShell({
   const routeAgentId = pathname.startsWith("/experts/") ? (pathname.split("/")[2] ?? null) : null;
   const [computerAgentId, setComputerAgentId] = useState<string | null>(routeAgentId);
   if (routeAgentId && routeAgentId !== computerAgentId) setComputerAgentId(routeAgentId);
-
-  useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(COLLAPSE_KEY) !== "0");
-    } catch {
-      // Stockage indisponible : le menu reste replié, le défaut.
-    }
-  }, []);
 
   // Une navigation depuis le tiroir le referme.
   useEffect(() => {
@@ -97,15 +86,7 @@ export function AppShell({
       setDrawerOpen(false);
       return;
     }
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-      } catch {
-        // Le choix ne survivra pas au rechargement.
-      }
-      return next;
-    });
+    setCollapsed((c) => !c);
   }
 
   return (
