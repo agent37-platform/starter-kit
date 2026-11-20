@@ -55,3 +55,15 @@ test("la consigne de la fenêtre se reconnaît, pas une demande tapée", () => {
   assert.equal(isDialogSend(sendFilesText([{ name: "a.pdf", path: "~/Livrables/a.pdf" }], ["x@y.ci"], account)), true);
   assert.equal(isDialogSend("Envoie le devis à Moussa"), false);
 });
+
+test("the copies go on the first line, on e-mail only, and a file line reads as its name", async () => {
+  const { sendFilesText: text, sentFileLine } = await import("./send-accounts.ts");
+  const gmail = { id: "composio:1", channel: "mail" as const, title: "Gmail", detail: null, how: "avec l’outil Gmail connecté" };
+  const files = [{ name: "R.pdf", path: "~/Livrables/Djeneba/R.pdf" }];
+  const first = text(files, ["kirane@mstudio.vc"], gmail, { cc: ["leslie@mstudio.vc"], bcc: ["a@b.ci", "c@d.ci"] }).split("\n")[0];
+  assert.equal(first, "Envoie ce livrable à kirane@mstudio.vc, en copie (Cc) leslie@mstudio.vc, en copie cachée (Cci) a@b.ci et c@d.ci, par e-mail, avec l’outil Gmail connecté, en pièces jointes :");
+  const wa = { ...gmail, channel: "whatsapp" as const, how: "avec Unipile" };
+  assert.doesNotMatch(text(files, ["Moussa"], wa, { cc: ["x@y.z"] }), /copie/);
+  assert.deepEqual(sentFileLine("- ~/Livrables/Djeneba/Silverplate/R v13.pdf"), { path: "~/Livrables/Djeneba/Silverplate/R v13.pdf", name: "R v13.pdf" });
+  assert.equal(sentFileLine("Utilise ce compte et aucun autre."), null);
+});
