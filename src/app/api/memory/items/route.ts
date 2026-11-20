@@ -20,9 +20,7 @@ export async function POST(request: Request) {
     if (request.headers.get("content-type")?.startsWith("multipart/form-data")) {
       return noStore(json(await backoffice.uploadMemoryDocument(token, await request.formData())));
     }
-    const { title, note, url, description, unit, upload } = await readJson<MemoryNote & { upload?: string }>(request);
-    // A large document the browser already sent to the back office's storage.
-    if (upload) return noStore(json(await backoffice.createMemoryDocument(token, { title, upload, unit })));
+    const { title, note, url, description, unit } = await readJson<MemoryNote>(request);
     // A website (`url`, read again every week by the back office) or a note.
     return noStore(json(await backoffice.createMemoryNote(token, url ? { title, url, description, unit } : { title, note, description, unit })));
   } catch (e) {

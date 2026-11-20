@@ -21,18 +21,6 @@ import { runPool } from "@/lib/bulk";
 import { MAX_UPLOAD_BYTES, tooLarge } from "@/lib/upload-limit";
 
 // The limit said in every refusal of a too large file (Leslie, 07/11): the host refuses it before the app sees it.
-/** A document over 4 MB: an upload address from the back office, the file sent there, then the deposit. "absent" while the back office has no such route. */
-async function sendLarge(file: File, unit: string | null | undefined): Promise<"ok" | "absent" | string> {
-  const start = await fetch("/api/memory/uploads", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, type: file.type, unit: unit ?? null }) });
-  if (start.status === 404) return "absent";
-  if (!start.ok) return readApiError(start, "Le document n’a pas pu être déposé");
-  const { upload, url, headers } = (await start.json()) as { upload: string; url: string; headers?: Record<string, string> };
-  const put = await fetch(url, { method: "PUT", headers: { "content-type": file.type || "application/octet-stream", ...headers }, body: file }).catch(() => null);
-  if (!put?.ok) return "l’envoi s’est interrompu. Réessayez dans un instant.";
-  const done = await fetch("/api/memory/items", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: file.name, upload, unit: unit ?? null }) });
-  return done.ok ? "ok" : readApiError(done, "Le document n’a pas pu être déposé");
-}
-
 const LIMIT_MB = Math.round(MAX_UPLOAD_BYTES / (1024 * 1024));
 const tooBig = (what: string) => `${what} dépasse ${LIMIT_MB} Mo, la taille maximale d’un envoi. Réduisez-la (un PDF compressé, par exemple) puis réessayez.`;
 import { driveTree } from "@/lib/drive-store";
@@ -199,10 +187,7 @@ export function MemoryView({
         // Three documents at a time; the ones refused stay in the window, in their order.
         const sent = await runPool(files, 3, async (file) => {
           if (tooLarge(file)) {
-            // Sent straight to the back office's storage, then deposited by name.
-            const big = await sendLarge(file, unitId);
-            if (big === "ok") return true;
-            toast.error(`${file.name} : ${big === "absent" ? tooBig("ce document").replace(/^ce/, "Ce").replace("Réduisez-la", "Réduisez-le") : big}`);
+            toast.error(`${file.name} : ${tooBig("ce document").replace(/^ce/, "Ce").replace("Réduisez-la", "Réduisez-le")}`);
             return false;
           }
           const form = new FormData();
