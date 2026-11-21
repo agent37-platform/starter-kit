@@ -60,6 +60,10 @@ test("routinePlainText is null when only technical lines are left", () => {
 test("upkeep routines are told apart from the work", () => {
   const r = (name: string, task: string) => ({ name, task });
   assert.equal(isUpkeep(r("Mémoire : regrouper les conversations", "Routine de mémoire, silencieuse : personne n'attend de réponse.")), true);
+  assert.equal(isUpkeep(r("Préparation du matin (Adjoua)", "Tu es Adjoua. Il est 7 h : prépare ta journée en silence.")), true);
+  assert.equal(isUpkeep(r("Preparation Du Matin", "Note Yelema : les outils cités…")), true);
+  assert.equal(isUpkeep(r("Mise en route", "Tu es Adjoua. Il est 7 h : prépare ta journée en silence.")), true);
+  assert.equal(isUpkeep(r("Préparer demain (Adjoua)", "Tu es Adjoua. Il est 15 h : prépare les rendez-vous de demain.")), false);
   assert.equal(isUpkeep(r("Rangement du soir", "Tu es Fatima. Il est 19 h 30 : range ta journée sans écrire.")), true);
   assert.equal(isUpkeep(r("Révision de la mémoire", "Tu es Djénéba. C'est le 1er du mois : révise ta mémoire.")), true);
   assert.equal(isUpkeep(r("Revision Memoire", "Note Yelema : les outils cités…")), true);
