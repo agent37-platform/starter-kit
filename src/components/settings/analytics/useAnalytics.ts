@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { cached, cachedFetch, subscribe } from "@/lib/client-cache";
 import { queryString, type AnalyticsQuery } from "@/lib/analytics/query";
@@ -22,20 +22,25 @@ export function useAnalytics(agentId: string | null, query: AnalyticsQuery) {
   const [data, setData] = useState<AnalyticsOverview | null>(() => (key ? cached<AnalyticsOverview>(key) ?? null : null));
   const [error, setError] = useState<string | null>(null);
 
+  // The reading of the query on screen only: an older one that answers late (the read-ahead's, unfiltered)
+  // never replaces it, and while a new query loads the previous figures are not shown as its own.
+  const shown = useRef<string | null>(key);
+  shown.current = key;
   const load = useCallback(async () => {
     if (!agentId) return;
+    const asked = keyOf(agentId, query);
     setError(null);
     try {
-      setData(await loadAnalytics(agentId, query));
+      const d = await loadAnalytics(agentId, query);
+      if (shown.current === asked) setData(d);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Chargement impossible");
+      if (shown.current === asked) setError(e instanceof Error ? e.message : "Chargement impossible");
     }
   }, [agentId, query]);
 
   useEffect(() => {
     if (!key) return;
-    const known = cached<AnalyticsOverview>(key);
-    if (known) setData(known);
+    setData(cached<AnalyticsOverview>(key) ?? null);
     void load();
     return subscribe<AnalyticsOverview>(key, setData);
   }, [key, load]);

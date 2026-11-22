@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { useOwnAgentId } from "@/components/conversations/useAllConversations";
 import { DEFAULT_QUERY, type AnalyticsQuery } from "@/lib/analytics/query";
@@ -25,14 +26,14 @@ function headline(data: AnalyticsOverview): string {
 
 export function AnalyticsDashboard() {
   const agentId = useOwnAgentId();
-  const [query, setQuery] = useState<AnalyticsQuery>(DEFAULT_QUERY);
+  // Opened from an expert's profile (« Analytics »): filtered on it from the first reading, so the whole
+  // instance's figures never show first.
+  const fromProfile = useSearchParams().get("experts");
+  const [query, setQuery] = useState<AnalyticsQuery>(() =>
+    fromProfile ? { ...DEFAULT_QUERY, filters: { ...DEFAULT_QUERY.filters, experts: fromProfile.split(",").filter(Boolean) } } : DEFAULT_QUERY
+  );
   const [tab, setTab] = useState<TabKey>("experts");
   const { data, error } = useAnalytics(agentId, query);
-  // Opened from an expert's profile (« Analytics »): already filtered on it.
-  useEffect(() => {
-    const experts = new URLSearchParams(window.location.search).get("experts");
-    if (experts) setQuery((q) => ({ ...q, filters: { ...q.filters, experts: experts.split(",").filter(Boolean) } }));
-  }, []);
 
   const setFilters = (filters: AnalyticsFilters) => setQuery((q) => ({ ...q, filters }));
   const toggleFilter = ({ dimension, value }: NonNullable<AnalyticsItem["filter"]>) =>

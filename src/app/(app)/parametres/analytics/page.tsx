@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AnalyticsDashboard } from "@/components/settings/analytics/AnalyticsDashboard";
 import { PageBody } from "@/components/app/PageBody";
 
@@ -6,7 +7,9 @@ import { PageBody } from "@/components/app/PageBody";
 export default function Page() {
   return (
     <PageBody>
-      <AnalyticsDashboard />
+      <Suspense>
+        <AnalyticsDashboard />
+      </Suspense>
     </PageBody>
   );
 }

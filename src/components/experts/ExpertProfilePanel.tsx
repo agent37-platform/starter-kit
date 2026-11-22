@@ -17,11 +17,15 @@ import { useDashboard } from "@/components/experts/DashboardProvider";
 import { useToggleDashboard } from "@/components/experts/ExpertDashboard";
 import { ExpertReadiness } from "@/components/experts/ExpertReadiness";
 import { CallButton } from "@/components/voice/CallButton";
-import { FilePreview } from "@/components/files/FilePreview";
+import { FilePreview, ReducedImage } from "@/components/files/FilePreview";
+import { Preview as DocPreview } from "@/components/chat/DocumentCards";
+import { contentUrl, thumbUrl } from "@/components/files/types";
+import { docKind } from "@/lib/drive-links";
 import type { FileEntry } from "@/components/files/types";
 
 // « Profil de l'Expert » beside its chat (Team design export, 18/11; Myriel's choice A, Leslie): the header
-// above keeps Appeler and « … », so the page works with the panel open or closed. Closed at first, then as
+// above keeps Appeler and « … », so the page works with the panel open or closed. Open at first on a wide
+// screen (Leslie, 20/11), then as
 // the member left it. On a wide screen it sits beside the chat and folds the conversations away; narrower,
 // it slides over the chat. One panel at a time: opening it closes Son ordinateur and Tableau de bord.
 
@@ -46,6 +50,8 @@ export interface ProfilePanelExpert {
   hasComputer: boolean;
   /** Calls exist for it (voice on, an expert of the catalogue). */
   calls: boolean;
+  /** No address yet, and one can be given (E-mails is on): the envelope with its red cross. */
+  canGiveEmail?: boolean;
 }
 
 /** The button beside « Discussion » that opens and closes the panel. */
@@ -72,7 +78,7 @@ export function ExpertProfilePanel({
 }: {
   expert: ProfilePanelExpert;
   /** « Tout voir » of Livrables or Appels: that tab. */
-  onTab: (tab: "files" | "calls") => void;
+  onTab: (tab: "files" | "calls" | "emails") => void;
   onOpenCall: (id: string) => void;
 }) {
   const router = useRouter();
@@ -223,13 +229,28 @@ export function ExpertProfilePanel({
               </span>
             </button>
             <div className="yp-name">{expert.name}</div>
-            {expert.role && <div className="yp-role">{expert.role}</div>}
-            <ExpertReadiness variant="dot" agentId={expert.agentId} profileId={expert.profileId} expertName={expert.name} onOpenTools={() => router.push("/integrations/connecteurs")} className="mt-1 text-[12px]" />
+            {/* The job and the green check on one line (Leslie, 20/11). */}
+            <div className="yp-role">
+              {expert.role && <span>{expert.role}</span>}
+              <ExpertReadiness variant="dot" agentId={expert.agentId} profileId={expert.profileId} expertName={expert.name} onOpenTools={() => router.push("/integrations/connecteurs")} className="text-[12px]" />
+            </div>
             {expert.email && (
               <button type="button" className="yp-mail" onClick={() => copy(expert.email!, "Adresse e-mail copiée.")} title="Copier l’adresse e-mail">
                 <Mail className="yp-i" />
                 <span>{expert.email}</span>
                 <Copy className="yp-i" />
+              </button>
+            )}
+            {!expert.email && expert.canGiveEmail && (
+              // As in the chat's header (Leslie, 20/11): the envelope crossed in red, to its E-mails tab.
+              <button type="button" className="yp-mail" onClick={() => onTab("emails")} title="Attribuer une adresse e-mail à votre expert">
+                <span className="relative inline-flex">
+                  <Mail className="yp-i" />
+                  <span className="absolute -bottom-1 -right-1 grid size-2.5 place-items-center rounded-full bg-ko text-white ring-1 ring-surface">
+                    <X className="size-2 stroke-[3]" />
+                  </span>
+                </span>
+                <span>Attribuer une adresse e-mail</span>
               </button>
             )}
           </div>
@@ -270,7 +291,7 @@ export function ExpertProfilePanel({
               <div className="yp-dl">
                 {files.map((f) => (
                   <button key={f.path} type="button" className="yp-d" onClick={() => setPreview({ name: f.name, path: f.path, type: "file", size: 0, modified: f.modified, hidden: false })}>
-                    <span className="yp-th place-items-center text-[11px] font-bold uppercase tracking-wide text-brand-ink/70" style={{ display: "grid" }}>{fileKind(f.name)}</span>
+                    <span className="yp-th"><PanelCover agentId={expert.agentId} file={f} /></span>
                     <div>
                       <b title={fileLabel(f)}>{fileLabel(f).replace(/\.[^.]+$/, "")}</b>
                       <small>{[fileKind(f.name), shortWhen(f.modified)].filter(Boolean).join(" · ")}</small>
@@ -398,6 +419,22 @@ function ExpertCard({ expert, lines }: { expert: ProfilePanelExpert; lines: stri
           ))}
         </span>
       </span>
+    </span>
+  );
+}
+
+// A deliverable's thumbnail, as in the app and in Livrables (Leslie, 20/11): a picture reduced on the
+// server, a PDF's or a document's first page; its kind in words when it cannot be drawn.
+function PanelCover({ agentId, file }: { agentId: string; file: PanelFile }) {
+  const [failed, setFailed] = useState(false);
+  const kind = docKind(file.name);
+  if (failed) return <span className="yp-kind">{fileKind(file.name)}</span>;
+  if (kind === "image")
+    return <ReducedImage thumb={thumbUrl(agentId, file.path, 480, file.modified)} original={thumbUrl(agentId, file.path, 480)} alt="" className="size-full object-cover object-top" onFail={() => setFailed(true)} />;
+  if (kind === "video") return <video src={contentUrl(agentId, file.path, "inline")} className="size-full object-cover" muted preload="metadata" />;
+  return (
+    <span className="pointer-events-none block size-full">
+      <DocPreview agentId={agentId} doc={{ name: file.name, path: file.path, size: null, modified: file.modified, kind }} />
     </span>
   );
 }

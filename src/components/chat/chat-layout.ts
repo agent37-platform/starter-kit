@@ -8,7 +8,8 @@ import { useSyncExternalStore } from "react";
 // header that holds the buttons.
 
 const LIST_KEY = "yelema.chat.list-hidden";
-const PROFILE_KEY = "yelema.chat.profile-panel";
+// A new key (Leslie, 20/11: open by default): an earlier « closed » does not carry over.
+const PROFILE_KEY = "yelema.chat.profile-panel-v2";
 
 let listHidden = false;
 let profileOpen = false;
@@ -23,7 +24,9 @@ function load() {
   loaded = true;
   try {
     listHidden = localStorage.getItem(LIST_KEY) === "1";
-    profileOpen = localStorage.getItem(PROFILE_KEY) === "1";
+    const saved = localStorage.getItem(PROFILE_KEY);
+    // Open at first where it sits beside the chat; narrower it would cover the chat, so closed there.
+    profileOpen = saved === null ? window.matchMedia("(min-width: 85rem)").matches : saved === "1";
   } catch {
     // Stockage indisponible : la colonne reste affichée.
   }
@@ -62,7 +65,7 @@ export function setChatSidePanel(open: boolean) {
   emit();
 }
 
-// The expert's profile beside its chat (Myriel's choice A, Leslie 18/11): closed at first, then as the
+// The expert's profile beside its chat (Myriel's choice A, Leslie 18/11 then 20/11): open at first on a wide screen, then as the
 // member left it (remembered in this browser). Open, it folds the column of conversations like the others.
 export function setProfilePanel(open: boolean) {
   if (profileOpen === open) return;

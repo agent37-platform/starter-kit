@@ -45,3 +45,9 @@ test("the cycles follow the order of the offer", () => {
   const order = ["kouassi", "fatima", "awa", "fatou", "mamadou", "salif", "alioune"].map(rank);
   assert.deepEqual([...order].sort((a, b) => a - b), order);
 });
+
+test("Ali, who replaced Yacouba, is in Opérations; Alioune stays in Investissement", () => {
+  assert.equal(catalogueCycle({ catalogueKey: "ali", profileId: "unifood__ali" }, null)?.label, "Opérations");
+  assert.equal(catalogueCycle({ catalogueKey: "alioune", profileId: "unifood__alioune" }, null)?.label, "Investissement");
+  assert.equal(catalogueJob({ catalogueKey: "ali", profileId: "unifood__ali" }, null), "Achats et import");
+});

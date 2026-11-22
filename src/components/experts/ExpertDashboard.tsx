@@ -221,7 +221,8 @@ function DashboardHeader({
   const majFormatted = formatMajDate(data?.maj);
 
   return (
-    <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line px-4">
+    // The last button (✕) kept off the corner (Leslie, 20/11).
+    <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line pl-4 pr-6">
       <div className="min-w-0 pr-2">
         <h2 className="truncate text-sm font-semibold text-ink">{title}</h2>
         <div className="flex min-w-0 items-center gap-2 text-xs text-ink-3">

@@ -23,7 +23,7 @@
 
 
 .yp-name{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--ink);line-height:1.15}
-.yp-role{font-size:13.5px;color:var(--ink-2)}
+.yp-role{display:flex;align-items:center;justify-content:center;gap:4px;font-size:13.5px;color:var(--ink-2);min-height:24px}
 .yp-on{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ok);margin-top:4px}
 .yp-on i{width:7px;height:7px;border-radius:99px;background:var(--ok)}
 .yp-mail{display:flex;align-items:center;gap:8px;margin-top:10px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:12.5px;color:var(--ink-2);max-width:100%}
@@ -47,7 +47,8 @@
 .yp-dl{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .yp-d{display:block;text-align:left;border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface);padding:0}
 .yp-d:hover{background:var(--soft)}
-.yp-th{display:block;aspect-ratio:16/10;background:linear-gradient(135deg,var(--tint-2),var(--tint) 55%,var(--soft-2))}
+.yp-th{display:block;aspect-ratio:16/10;background:linear-gradient(135deg,var(--tint-2),var(--tint) 55%,var(--soft-2));position:relative;overflow:hidden}
+.yp-kind{display:grid;height:100%;place-items:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand-ink)}
 .yp-d img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top;background:var(--soft)}
 .yp-d div{padding:8px 10px 10px}
 .yp-d b{display:block;font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

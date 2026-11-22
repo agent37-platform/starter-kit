@@ -40,7 +40,8 @@ const CATALOGUE: Record<string, [cycle: string, place: number]> = Object.fromEnt
       ["RH", ["fatou", "adjoua", "lamine", "cheikh"]],
       ["Finance", ["mamadou", "kadiatou", "daouda", "rokia"]],
       ["Service client", ["awa", "akissi", "ousmane", "malick"]],
-      ["Opérations", ["salif", "yacouba", "sidiki", "assita"]],
+      // Ali a remplacé Yacouba au catalogue (09/11) ; Yacouba reste pour les comptes qui l'ont déjà.
+      ["Opérations", ["salif", "ali", "sidiki", "assita", "yacouba"]],
       ["Investissement", ["alioune", "fifame", "ibrahim", "aicha"]],
     ] as const
   ).flatMap(([cycle, names]) => names.map((n, i) => [n, [cycle, i]] as const))
@@ -59,7 +60,7 @@ const JOBS: Record<string, string> = {
   fatou: "Ressources humaines et paie", adjoua: "Recrutement", lamine: "Développement des personnes", cheikh: "Climat social et lieux de travail",
   mamadou: "Comptable général", kadiatou: "Comptable fournisseurs", daouda: "Comptable clients", rokia: "Contrôleuse de gestion",
   awa: "Support et relation client", akissi: "Satisfaction et fidélisation", ousmane: "Qualité du service client", malick: "Après-vente",
-  salif: "Opérations", yacouba: "Achats et import", sidiki: "Livraisons et flotte", assita: "Production, qualité et sécurité",
+  salif: "Opérations", ali: "Achats et import", yacouba: "Achats et import", sidiki: "Livraisons et flotte", assita: "Production, qualité et sécurité",
   alioune: "Investissement", fifame: "Sourcing d’investissement", ibrahim: "Juridique", aicha: "Portefeuille",
 };
 
