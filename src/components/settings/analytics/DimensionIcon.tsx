@@ -63,6 +63,15 @@ export function DimensionIcon({ item, color, photo }: { item: AnalyticsItem; col
       </span>
     );
   }
+  if (item.iconKind === "expert" && photo?.startsWith("/yele/")) {
+    // Yélé : l'astérisque au visage, entier sur fond clair, comme dans un appel.
+    return (
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-tint">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo} alt="" width={64} height={64} className="size-[78%] object-contain" loading="lazy" />
+      </span>
+    );
+  }
   if (item.iconKind === "expert") {
     return (
       // Le visage de l'Expert en version légère (48 px, celle du menu, déjà en cache) ; l'initiale

@@ -8,6 +8,8 @@ import { formatBytes, formatWhole } from "@/lib/analytics/format";
 import type { AnalyticsItem, AnalyticsOverview, Readable, TabKey } from "@/lib/analytics/types";
 import { cn } from "@/lib/utils";
 import { useExpertsContext } from "@/components/experts/ExpertsProvider";
+import { YELE_FACE } from "@/components/yele/YelePortrait";
+import { isCompanionProfile } from "@/lib/companion";
 import { expertColors } from "./colors";
 import { DimensionIcon } from "./DimensionIcon";
 
@@ -95,7 +97,8 @@ export function DimensionsTable({
       byProfile.set(e.profileId, e.photoUrl);
       byKey.set(catalogueKeyOf(e.profileId), e.photoUrl);
     }
-    return (id: string) => byProfile.get(id) ?? byKey.get(catalogueKeyOf(id)) ?? null;
+    // Yélé n'est pas au catalogue des Experts : son visage fixe (WebP de 5 Ko, celui des appels).
+    return (id: string) => (isCompanionProfile(catalogueKeyOf(id)) ? YELE_FACE : byProfile.get(id) ?? byKey.get(catalogueKeyOf(id)) ?? null);
   }, [experts]);
   const isActive = (f: AnalyticsItem["filter"]) => !!f && data.filters[f.dimension].includes(f.value);
 
