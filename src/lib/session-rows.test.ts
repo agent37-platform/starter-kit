@@ -47,3 +47,15 @@ describe("session rows", () => {
     assert.equal(spaceProfile("c__x"), "c__x");
   });
 });
+
+it("le fil : la conversation d'un appel y est, nommée « Appel du … » ; les autres sessions d'appel non (Leslie, 20/11)", () => {
+  const rows = railOf(
+    [
+      { id: "c1", title: "Transcription appel vocal", preview: "Transcription exacte de l'appel vocal du 20/11/2026 à 14:05 UTC (pour mémoire…)", last_active: 3 },
+      { id: "c2", title: null, preview: "Demande faite pendant un appel vocal : ta réponse sera lue", last_active: 2 },
+      { id: "c3", title: null, preview: "Exact transcript of the voice call", started_at: Date.UTC(2026, 10, 19, 9, 30) / 1000, last_active: 1 },
+    ],
+    new Map()
+  );
+  assert.deepEqual(rows.map((r) => [r.session_id, r.title]), [["c1", "Appel du 20 nov. à 14:05"], ["c3", "Appel du 19 nov. à 09:30"]]);
+});
