@@ -23,6 +23,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { ExpertImage } from "@/components/experts/ExpertImage";
 import type { AnalyticsItem } from "@/lib/analytics/types";
 import { SESSION_SOURCES as S } from "@/lib/yele-mcp/hermes-layout";
 
@@ -53,7 +54,7 @@ const ICONS: Record<string, LucideIcon> = {
 
 const BOX = "flex size-7 shrink-0 items-center justify-center rounded-lg bg-soft text-ink-2 ring-1 ring-line";
 
-export function DimensionIcon({ item, color }: { item: AnalyticsItem; color?: string }) {
+export function DimensionIcon({ item, color, photo }: { item: AnalyticsItem; color?: string; photo?: string | null }) {
   if (item.logo) {
     return (
       <span className={BOX}>
@@ -64,8 +65,11 @@ export function DimensionIcon({ item, color }: { item: AnalyticsItem; color?: st
   }
   if (item.iconKind === "expert") {
     return (
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: color }}>
+      // Le visage de l'Expert en version légère (48 px, celle du menu, déjà en cache) ; l'initiale
+      // dans sa couleur attend dessous et reste si la photo manque.
+      <span className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white" style={{ backgroundColor: color }}>
         {item.name.charAt(0).toUpperCase()}
+        {photo && <ExpertImage src={photo} size={48} className="absolute inset-0 size-full rounded-full object-cover object-[50%_20%]" />}
       </span>
     );
   }
