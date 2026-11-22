@@ -77,8 +77,11 @@ export function ExpertReadiness({
     };
   }, [agentId, profileId, jzKey]);
 
-  // An expert already at work counts as ready: its conversation shows no preparation step.
-  const st = jz ? (jz.working ? "ready" : stage(jz)) : null;
+  // « Faire connaissance » is offered to every expert until it is done (its journal says so) or until it has
+  // made INTRO_MAX deliverables (ChatView). A folder that merely holds files (installed by the pack, or an old
+  // document) no longer hides it: that was why it showed for some experts and not others (Leslie, 19/11).
+  // The chip beside the name still treats such an expert as at work.
+  const st = jz ? stage(jz) : null;
   useEffect(() => onStage?.(st), [onStage, st]);
 
   // During an update the strip under the top bar says so (DeployStatus): no chip beside the name.
