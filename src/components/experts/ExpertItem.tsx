@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { useNotifications } from "@/components/activity/ActivityProvider";
@@ -50,6 +52,13 @@ export function ExpertItem({
   const intent = useIntent(() => void preloadExpert(expert.agentId, expert.profileId, expert.catalogueKey));
   const inView = useInView<HTMLAnchorElement>(() => preloadSpace(expert.agentId, expert.profileId));
   const hint = unread ? (unread === 1 ? "1 nouvelle réponse" : `${unread} nouvelles réponses`) : running ? "En cours" : null;
+  // Menu replié : au survol ou au focus, une étiquette à droite du visage avec le prénom et le poste
+  // (Leslie, 22/11). Posée dans <body> : la colonne du menu défile et couperait une étiquette dedans.
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+  const showTip = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    setTip({ x: r.right + 12, y: r.top + r.height / 2 });
+  };
 
   return (
     <Link
@@ -69,7 +78,21 @@ export function ExpertItem({
       }}
       ref={inView}
       {...intent}
-      title={hint ? `${expert.displayName} · ${hint}` : expert.displayName}
+      onPointerEnter={(e) => {
+        intent.onPointerEnter();
+        if (compact) showTip(e.currentTarget);
+      }}
+      onPointerLeave={() => {
+        intent.onPointerLeave();
+        setTip(null);
+      }}
+      onFocus={(e) => {
+        intent.onFocus();
+        if (compact) showTip(e.currentTarget);
+      }}
+      onBlur={() => setTip(null)}
+      aria-label={compact ? [expert.displayName, subtitle, hint].filter(Boolean).join(", ") : undefined}
+      title={compact ? undefined : hint ? `${expert.displayName} · ${hint}` : expert.displayName}
       className={cn(
         "flex min-h-12 items-center gap-2.5 rounded-[11px] px-2 text-sm font-semibold transition-colors",
         active ? (compact ? "text-ink" : "bg-soft-2 text-ink") : "text-ink-2 hover:bg-soft",
@@ -100,6 +123,21 @@ export function ExpertItem({
         </span>
       )}
       {!compact && !unread && running && <Loader2 className="size-4 shrink-0 animate-spin text-ok" aria-label="En cours" />}
+      {compact &&
+        tip &&
+        createPortal(
+          <span
+            role="tooltip"
+            className="pointer-events-none fixed z-50 max-w-64 -translate-y-1/2 rounded-xl bg-card px-3 py-2 shadow-lg ring-1 ring-line"
+            style={{ left: tip.x, top: tip.y }}
+          >
+            <span className="absolute top-1/2 -left-1 size-2 -translate-y-1/2 rotate-45 bg-card ring-1 ring-line [clip-path:polygon(0_0,0_100%,100%_100%)]" aria-hidden />
+            <span className="block text-sm font-semibold text-ink">{expert.displayName}</span>
+            {subtitle && <span className="block text-xs font-medium text-ink-3">{subtitle}</span>}
+            {hint && <span className={cn("mt-1 block text-xs font-semibold", unread ? "text-brand-ink" : "text-ok")}>{hint}</span>}
+          </span>,
+          document.body
+        )}
     </Link>
   );
 }
