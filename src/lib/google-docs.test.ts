@@ -84,3 +84,17 @@ test("documents are grouped by the day they were last used, with the time", () =
   assert.equal(dayHeading(null, now), "Plus ancien");
   assert.equal(usedTime(new Date(2026, 10, 18, 9, 5).getTime()), "09 h 05");
 });
+
+test("an unnamed document takes a default name from its reply (Leslie, 19/11)", () => {
+  const url = "https://docs.google.com/presentation/d/1P2wblICUsczE5qoSsDbYjaWAlxHJppINmZkXaQmWI/edit";
+  const [a] = googleDocs(`## Recueil des livrables Silverplate\n\nVoici le document : ${url}`);
+  assert.ok(isUnnamed(a));
+  assert.equal(docName(a, {}), "Recueil des livrables Silverplate");
+  const [b] = googleDocs(`Voici **le plan de la tournée Abidjan** pour jeudi.\n${url}`);
+  assert.equal(docName(b, {}), "Le plan de la tournée Abidjan");
+  const [c] = googleDocs(`✅ C'est prêt : les prix des jus face à Hyper Lagune, mis à jour ce matin.\n${url}`);
+  assert.equal(docName(c, {}), "Les prix des jus face à Hyper Lagune");
+  const [d] = googleDocs(url);
+  assert.equal(docName(d, {}), "Présentation sans nom");
+  assert.equal(docName(a, { [a.id]: "Deck" }), "Deck");
+});

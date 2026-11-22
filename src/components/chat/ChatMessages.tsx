@@ -33,6 +33,7 @@ import type { ApprovalChoice } from "@/lib/approval";
 import { replyParts } from "@/lib/reply-parts";
 import type { ChatMessage, MessageAttachment } from "./types";
 import { commandText } from "@/lib/session-title";
+import { isDialogSend, sentFileLine } from "@/lib/send-accounts";
 
 const PAGE = 80;
 
@@ -371,7 +372,7 @@ const MessageRow = memo(function MessageRow({
             {attachments.length > 0 && <MessageAttachments attachments={attachments} agentId={agentId} />}
             {m.content && (
               <div className={cn("max-w-full whitespace-pre-wrap rounded-[18px] rounded-br-md bg-brand [overflow-wrap:anywhere] px-4 py-2.5 text-[15px] text-on-brand", m.queued && "opacity-60", m.steered && !m.queued && "bg-brand/80")}>
-                {commandText(m.content, pronoun)}
+                {isDialogSend(m.content) ? <SentFiles text={m.content} agentId={agentId} /> : commandText(m.content, pronoun)}
               </div>
             )}
             {m.queued && (
@@ -441,8 +442,9 @@ const MessageRow = memo(function MessageRow({
           {answerable && <ReplyChoices choices={finished.choices} note={finished.choicesNote} onSend={onReply} />}
           {!live && m.content && <GoogleDocCards docs={googleDocs(cleanReply(m.content))} />}
           {docs.length > 0 && <DocumentCards agentId={agentId} docs={docs} />}
-          {offerSend && (
+          {!!onReply && !live && !routineThread && docs.length > 0 && (
             <NextAction
+              offer={offerSend}
               id={m.id}
               agentId={agentId}
               profile={profile}
@@ -480,5 +482,31 @@ function CopyReply({ text }: { text: string }) {
     >
       {done ? <Check className="h-4 w-4 text-ok" /> : <Copy className="h-4 w-4" />}
     </button>
+  );
+}
+
+// The « Envoyer » instruction as the member reads it (Leslie, 20/11): each file by its name, opening the
+// document, never the drive's path. The expert still receives the path.
+function SentFiles({ text, agentId }: { text: string; agentId: string }) {
+  return (
+    <>
+      {text.split("\n").map((line, i) => {
+        const f = sentFileLine(line);
+        return (
+          <span key={i} className="block min-h-[1lh]">
+            {f ? (
+              <>
+                {"• "}
+                <a href={contentUrl(agentId, f.path, "inline")} target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 hover:opacity-80" title={f.name}>
+                  {f.name}
+                </a>
+              </>
+            ) : (
+              line
+            )}
+          </span>
+        );
+      })}
+    </>
   );
 }

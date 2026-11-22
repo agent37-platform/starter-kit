@@ -19,6 +19,10 @@ import { useCallState } from "@/components/voice/CallProvider";
 import { useVoices } from "@/components/voice/useVoices";
 import { useExpertsContext } from "@/components/experts/ExpertsProvider";
 import { commandsOf, filterCommands, missingFor, type ExpertCommand } from "@/lib/expert-commands";
+import { ENVOI_EVENT } from "./NextAction";
+
+/** « /envoi »: answered here, never sent to the Expert. */
+const ENVOI_COMMAND: ExpertCommand = { cmd: "envoi", label: "Envoyer le dernier livrable", phrase: "Retrouver le choix d’envoi du dernier livrable de la conversation.", example: "", need: null, fileOk: false, common: true };
 import { CommandMenu } from "./CommandMenu";
 import { UpdateSpinner, useDeployPhase } from "@/components/app/DeployStatus";
 
@@ -108,7 +112,10 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
   // the Expert's fault (Leslie, 06/11: « il faut que ça se voie même dans le chat »).
   const updating = useDeployPhase() === "maintenance";
   // « / » opens the Expert's commands; a command picked shows as a chip and says what it still needs.
-  const commands = useMemo(() => commandsOf(expertKey, expert?.driveFolder ?? expert?.displayName), [expertKey, expert?.driveFolder, expert?.displayName]);
+  const commands = useMemo(() => {
+    const own = commandsOf(expertKey, expert?.driveFolder ?? expert?.displayName);
+    return own.length && !own.some((c) => c.cmd === "envoi") ? [...own, ENVOI_COMMAND] : own;
+  }, [expertKey, expert?.driveFolder, expert?.displayName]);
   const [chosen, setChosen] = useState<ExpertCommand | null>(null);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
@@ -145,6 +152,13 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
 
   const submit = () => {
     const typed = text.trim();
+    // « /envoi » (Leslie, 19/11): the offer to send the conversation's last document, shown again; nothing is sent.
+    if ((chosen?.cmd === "envoi" && !typed) || (!chosen && /^\/envoi$/i.test(typed))) {
+      window.dispatchEvent(new Event(ENVOI_EVENT));
+      setText("");
+      setChosen(null);
+      return;
+    }
     if (chosen ? missing !== null : !typed && !att.hasFiles) return;
     if (att.blocksSend) return;
     const trimmed = chosen ? `/${chosen.cmd}${typed ? ` ${typed}` : ""}` : typed;
@@ -157,6 +171,12 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // « /envoi » typed whole: answered here at once, before the commands menu picks a look-alike.
+    if (e.key === "Enter" && !e.shiftKey && !chosen && /^\/envoi$/i.test(text.trim())) {
+      e.preventDefault();
+      submit();
+      return;
+    }
     if (menuOpen) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();

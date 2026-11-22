@@ -1,4 +1,5 @@
 import "server-only";
+import { jobOnly } from "@/lib/job-only";
 import { memo } from "@/lib/memo";
 import { backofficeUrl } from "@/lib/runtime-config";
 import type { CatalogueExpert, CatalogueExpertDetail, ExpertSheet } from "@/lib/types";
@@ -53,8 +54,8 @@ function toExpert(raw: Raw): CatalogueExpert | null {
   return {
     key,
     name: str(raw.personaName) ?? str(raw.name) ?? str(raw.label) ?? key,
-    role: str(raw.role),
-    title: str(raw.shortTitle) ?? str(raw.title),
+    role: jobOnly(str(raw.role)),
+    title: jobOnly(str(raw.shortTitle) ?? str(raw.title)),
     tagline: str(raw.tagline),
     description: str(raw.description),
     pronoun: pronoun === "elle" || pronoun === "il" ? pronoun : null,

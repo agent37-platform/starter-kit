@@ -14,7 +14,7 @@ import { usePoll } from "@/components/usePoll";
 import { usePublicConfig } from "@/components/PublicConfigProvider";
 import { askNotificationPermission, notificationSupport, systemNotify } from "./system-notify";
 
-// A file of the drive (three levels deep) the page has not seen yet is a new deliverable, announced
+// A file of the drive (four levels deep) the page has not seen yet is a new deliverable, announced
 // like a reply (toast, system notification when the tab is hidden) unless switched off in Paramètres.
 // The drive is read when something may have written there (the stream's `files.changed`, settled by the
 // drive store), the tab shown again, and every 10 minutes while visible and the stream is down. The

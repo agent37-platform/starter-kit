@@ -80,12 +80,17 @@ export function SendDialog({
   const [picked, setPicked] = useState<Set<string>>(() => new Set(files.map((f) => f.path)));
   const [me, setMe] = useState(toMe);
   const [others, setOthers] = useState("");
+  // Cc and Cci, as in Gmail: behind one link until asked for (Leslie, 20/11).
+  const [copies, setCopies] = useState(false);
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [ask, setAsk] = useState(true);
   const account = accounts.find((a) => a.id === accountId) ?? accounts.find((a) => a.channel === prefer) ?? accounts[0] ?? null;
   const channel = account?.channel ?? "mail";
   const to = recipientList(me, myEmail, others, channel);
   const chosen = files.filter((f) => picked.has(f.path));
+  const split = (v: string) => recipientList(false, null, v, "mail");
   const ready = Boolean(account) && to.length > 0 && (mode === "routine" || chosen.length > 0);
   const toggle = (path: string) =>
     setPicked((prev) => {
@@ -97,7 +102,7 @@ export function SendDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{mode === "file" ? "Envoyer" : "Envoi automatique"}</DialogTitle>
           <DialogDescription>
@@ -172,7 +177,14 @@ export function SendDialog({
           </>
         )}
 
-        <span className={cn(label, mode === "file" && files.length <= 1 && "mt-0")}>À qui</span>
+        <span className={cn(label, "flex items-center justify-between", mode === "file" && files.length <= 1 && "mt-0")}>
+          À qui
+          {channel === "mail" && mode === "file" && !copies && (
+            <button type="button" onClick={() => setCopies(true)} className="text-[12.5px] font-semibold text-brand-ink hover:underline">
+              Cc Cci
+            </button>
+          )}
+        </span>
         {channel === "mail" && (
           <div className="flex flex-wrap items-center gap-2">
             <Chip on={me} onClick={() => setMe(!me)}>
@@ -189,6 +201,16 @@ export function SendDialog({
           placeholder={channel === "mail" ? "Autres personnes : nom ou e-mail" : channel === "whatsapp" ? "Nom ou numéro" : "Nom de la personne sur LinkedIn"}
           aria-label="Autres personnes"
         />
+        {channel === "mail" && mode === "file" && copies && (
+          <div className="mt-2 grid gap-2">
+            {([["Cc", "Copie (Cc)", cc, setCc], ["Cci", "Copie cachée (Cci)", bcc, setBcc]] as const).map(([word, name, value, set]) => (
+              <label key={word} className="relative block">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-ink-3">{word}</span>
+                <Input className="pl-12" value={value} onChange={(e) => set(e.target.value)} placeholder="Nom ou e-mail" aria-label={name} />
+              </label>
+            ))}
+          </div>
+        )}
 
         <span className={label}>Envoyé depuis</span>
         {!loaded && !accounts.length ? (
@@ -259,7 +281,7 @@ export function SendDialog({
         <Button
           className="mt-5 w-full"
           disabled={!ready}
-          onClick={() => account && onSend(mode === "file" ? sendFilesText(chosen, to, account) : sendRoutineText(what, to, account, ask))}
+          onClick={() => account && onSend(mode === "file" ? sendFilesText(chosen, to, account, { cc: split(cc), bcc: split(bcc) }) : sendRoutineText(what, to, account, ask))}
         >
           <Send className="h-4 w-4" />
           {mode === "file" ? "Préparer l’envoi" : "Continuer dans le chat"}

@@ -27,7 +27,7 @@ test("la passerelle sait parcourir le dossier : une seule requête, sa réponse 
   const answer: DriveTree = { entries: [{ ...file("~/Livrables/a.pdf"), depth: 0 }], complete: true };
   const { src, calls } = drive(async () => answer);
   assert.equal(await treeLoader()(src), answer);
-  assert.deepEqual(calls, ["tree ~/Livrables 2"]);
+  assert.deepEqual(calls, ["tree ~/Livrables 3"]);
 });
 
 test("passerelle pas encore à jour (404) : l'application parcourt elle-même, et ne redemande qu'après quelques minutes", async () => {
@@ -48,11 +48,11 @@ test("passerelle pas encore à jour (404) : l'application parcourt elle-même, e
   clock += 5 * 60_000;
   calls.length = 0;
   await load(src);
-  assert.equal(calls[0], "tree ~/Livrables 2");
+  assert.equal(calls[0], "tree ~/Livrables 3");
 });
 
 test("une autre erreur de la passerelle n'est pas masquée par le parcours", async () => {
   const { src, calls } = drive(async () => Promise.reject(Object.assign(new Error("down"), { status: 502 })));
   await assert.rejects(treeLoader()(src), /down/);
-  assert.deepEqual(calls, ["tree ~/Livrables 2"]);
+  assert.deepEqual(calls, ["tree ~/Livrables 3"]);
 });

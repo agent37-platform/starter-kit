@@ -11,6 +11,8 @@ export interface GoogleDoc {
   kind: GoogleKind;
   url: string;
   title: string;
+  /** A name taken from the reply that gives the document, when nothing names it (Leslie, 19/11). */
+  guess?: string;
 }
 
 export const GOOGLE_LABEL: Record<GoogleKind, string> = { sheets: "Google Sheets", docs: "Google Docs", slides: "Google Slides" };
@@ -23,9 +25,42 @@ export const UNNAMED: Record<GoogleKind, string> = { sheets: "Tableur sans nom",
 export const isUnnamed = (d: Pick<GoogleDoc, "kind" | "title">): boolean => d.title === GOOGLE_LABEL[d.kind];
 
 /** The name shown: the member's own, else the one the text gave, else « Présentation sans nom ». */
-export function docName(d: Pick<GoogleDoc, "id" | "kind" | "title">, names: Readonly<Record<string, string>>): string {
+export function docName(d: Pick<GoogleDoc, "id" | "kind" | "title" | "guess">, names: Readonly<Record<string, string>>): string {
   const own = names[d.id]?.trim();
-  return own || (isUnnamed(d) ? UNNAMED[d.kind] : d.title);
+  return own || (isUnnamed(d) ? d.guess || UNNAMED[d.kind] : d.title);
+}
+
+/**
+ * A default name from the reply itself (Leslie, 19/11: « pas fan de Nommer, mets un nom par défaut par
+ * rapport au contenu »): its first heading, else its first bold words, else its first sentence, cut at
+ * 48 signs on a word. Links, emojis and « Voici » go; null when nothing is left worth a name.
+ */
+export function titleFromReply(text: string): string | null {
+  const clean = (t: string) =>
+    t
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/\p{Extended_Pictographic}️?/gu, "")
+      .replace(/[*_`#>]+/g, "")
+      .replace(/^\s*(?:voici|voilà|c['’]est prêt|c['’]est fait|bonjour|parfait|super|ok)\b[\s,:!.]*/iu, "")
+      .replace(/\s+/g, " ")
+      .replace(/[\s:,;.!?-]+$/u, "")
+      .trim();
+  const heading = /^\s{0,3}#{1,4}\s+(.+)$/m.exec(text)?.[1];
+  const bold = /\*\*([^*\n]{4,80})\*\*/.exec(text)?.[1];
+  const sentence = text.split(/(?<=[.!?:])\s|\n/).map(clean).find((x) => x.split(" ").length >= 2);
+  for (const c of [heading, bold, sentence]) {
+    if (!c) continue;
+    let t = clean(c);
+    // « La présentation de 3 pages » parle du document sans le nommer.
+    if (t.split(" ").length < 2 || /^(?:le|la|les|l['’]|un|une|des|ce|cette)\s*(?:document|doc|fichier|lien|présentation|tableur|tableau|classeur|slides?)\b/iu.test(t)) continue;
+    if (t.length > 48) {
+      const cut = t.slice(0, 48);
+      t = cut.includes(",") ? cut.slice(0, cut.lastIndexOf(",")) : cut.replace(/\s+\S*$/u, "").replace(/\s+(?:à|de|du|des|la|le|les|et|en|pour|avec|sur)$/iu, "");
+    }
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  return null;
 }
 
 /** A rename kept: trimmed, at most 120 signs; empty gives the document its own name back. */
@@ -122,6 +157,8 @@ export function googleDocs(text: string): GoogleDoc[] {
     if (!had) found.set(doc.id, { ...doc, title: guess ?? GOOGLE_LABEL[doc.kind] });
     else if (guess && had.title === GOOGLE_LABEL[doc.kind]) had.title = guess;
   }
+  const guess = titleFromReply(text);
+  for (const d of found.values()) if (isUnnamed(d) && guess) d.guess = guess;
   return [...found.values()];
 }
 
@@ -184,8 +221,10 @@ export function usedGoogleDocs(replies: { text: string; at: number | null }[]): 
     for (const d of [...named, ...linked]) {
       const had = seen.get(d.id);
       const title = had && d.title.startsWith("Google ") ? had.title : d.title;
+      // The first reply that gave the document keeps naming it by default.
+      const guess = had?.guess ?? d.guess;
       seen.delete(d.id);
-      seen.set(d.id, { id: d.id, kind: d.kind, url: d.url, title, usedAt: at });
+      seen.set(d.id, { id: d.id, kind: d.kind, url: d.url, title, usedAt: at, ...(guess ? { guess } : {}) });
     }
   }
   return [...seen.values()].reverse();

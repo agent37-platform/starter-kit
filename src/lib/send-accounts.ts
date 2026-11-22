@@ -109,11 +109,20 @@ export const SEND_SIGNATURE = "Utilise ce compte et aucun autre.";
 export const isDialogSend = (text: string): boolean => /^\s*envoie\s/i.test(text) && text.includes(SEND_SIGNATURE);
 
 /** The instruction for files sent now: who, from which account, the exact files, and a proof back. */
-export function sendFilesText(files: readonly { name: string; path: string }[], to: string[], account: SendAccount): string {
+export function sendFilesText(
+  files: readonly { name: string; path: string }[],
+  to: string[],
+  account: SendAccount,
+  copies: { cc?: readonly string[]; bcc?: readonly string[] } = {}
+): string {
   const what = files.length === 1 ? "ce livrable" : `ces ${files.length} livrables`;
   const attach = account.channel === "mail" ? ", en pièces jointes" : "";
+  // Copies on e-mail only, on the first line with the other recipients (Leslie, 20/11).
+  const cc = account.channel === "mail" ? [...new Set(copies.cc ?? [])].filter(Boolean) : [];
+  const bcc = account.channel === "mail" ? [...new Set(copies.bcc ?? [])].filter(Boolean) : [];
+  const copy = [cc.length ? `en copie (Cc) ${joinFr(cc)}` : "", bcc.length ? `en copie cachée (Cci) ${joinFr(bcc)}` : ""].filter(Boolean).join(", ");
   return [
-    `Envoie ${what} à ${joinFr(to)} ${CHANNEL_WORDS[account.channel]}, ${account.how}${attach} :`,
+    `Envoie ${what} à ${joinFr(to)}${copy ? `, ${copy},` : ""} ${CHANNEL_WORDS[account.channel]}, ${account.how}${attach} :`,
     ...files.map((f) => `- ${f.path}`),
     "",
     `${SEND_SIGNATURE} Une fois envoyé, dis-moi à qui et à quelle heure ; si l’envoi échoue, dis-moi pourquoi.`,
@@ -127,4 +136,12 @@ export function sendRoutineText(what: "each" | "minutes", to: string[], account:
       ? `Nouvelle routine d’envoi : dès qu’un livrable est prêt, envoie-le à ${joinFr(to)} ${CHANNEL_WORDS[account.channel]}, ${account.how}.`
       : `Nouvelle routine d’envoi : après chaque rendez-vous, envoie le compte rendu à ${joinFr(to)} ${CHANNEL_WORDS[account.channel]}, ${account.how}.`;
   return `${head} ${ask ? "Demande-moi avant chaque envoi." : "Envoie sans me demander."} Garde cette consigne jusqu’à ce que je te dise d’arrêter.`;
+}
+
+/** A file line of the « Envoyer » instruction (« - ~/Livrables/… »): shown as the document's name, not its path. */
+export function sentFileLine(line: string): { path: string; name: string } | null {
+  const m = /^- (~\/Livrables\/.+)$/.exec(line.trim());
+  if (!m) return null;
+  const path = m[1].trim();
+  return { path, name: path.split("/").pop() || path };
 }

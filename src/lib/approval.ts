@@ -27,7 +27,8 @@ const AUTO_SENDS = [
 
 const destinationOf = (message: string): string | null => {
   for (const re of AUTO_SENDS) {
-    const m = re.exec(message.trim());
+    // The first line names the action; a preview of the e-mail may follow (mail-preview.ts).
+    const m = re.exec(message.trim().split("\n")[0].trim());
     if (m) return m[1].trim();
   }
   return null;
@@ -56,7 +57,8 @@ const named = (line: string, who: string): boolean => {
 
 export const APPROVAL_CHOICES: readonly ApprovalChoice[] = ["once", "always", "deny"];
 export const MODIFY_PREFIX = "Modifie plutôt : ";
-const MAX_MESSAGE = 2000;
+// Room for the e-mail an approval shows whole (mail-preview.ts).
+const MAX_MESSAGE = 8000;
 const DEFAULT_WAIT_MS = 300_000;
 
 export const isApprovalChoice = (v: unknown): v is ApprovalChoice => typeof v === "string" && (APPROVAL_CHOICES as readonly string[]).includes(v);

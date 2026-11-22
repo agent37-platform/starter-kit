@@ -1,4 +1,4 @@
-// The drive three levels deep (Livrables/<Expert>/<dossier>/fichier), for every screen that watches or
+// The drive four levels deep (Livrables/<Expert>/<dossier>/<sous-dossier>/fichier, e.g. a chief of staff's Réunions/<date>/), for every screen that watches or
 // lists deliverables. The runtime gateway walks it itself (`/files/tree`, cached there); until that
 // endpoint is deployed (404), the app walks it: a bounded number of folders, a few at a time, the
 // experts' memory folders not entered. `complete` is false when a folder could not be listed.
@@ -7,8 +7,8 @@ import { isMemoryFolder } from "./drive-order.ts";
 import { DRIVE_ROOT, type DriveTree } from "./drive-paths.ts";
 import type { FileEntry } from "./types.ts";
 
-export const TREE_DEPTH = 3;
-const MAX_FOLDERS = 40;
+export const TREE_DEPTH = 4;
+const MAX_FOLDERS = 80;
 const PARALLEL = 6;
 
 export interface TreeSource {
@@ -28,7 +28,7 @@ export function treeLoader(now: () => number = Date.now): (src: TreeSource) => P
   return async (src) => {
     if (now() >= skipUntil) {
       try {
-        // The gateway counts from 0 (the root's content): its depth 2 is these three levels.
+        // The gateway counts from 0 (the root's content): its depth 3 is these four levels.
         return await src.tree(DRIVE_ROOT, TREE_DEPTH - 1);
       } catch (e) {
         if (!isNotFound(e)) throw e;

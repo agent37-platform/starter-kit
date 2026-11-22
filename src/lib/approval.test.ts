@@ -19,7 +19,7 @@ test("unknown choices dropped; once and deny always offered; no deadline: 5 min"
   assert.deepEqual(a?.choices, ["once", "deny"]);
   assert.equal(a?.expiresAt, NOW + 300_000);
   assert.equal(parseApproval({ request_id: "r", choices: ["deny", "once"] }, NOW)?.choices.join(), "once,deny");
-  assert.ok(parseApproval({ request_id: "r", message: "m".repeat(3000) }, NOW)!.message.length <= 2001);
+  assert.ok(parseApproval({ request_id: "r", message: "m".repeat(9000) }, NOW)!.message.length <= 8001);
 });
 
 test("a replayed request is added once; answered and expired states", () => {
