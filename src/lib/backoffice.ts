@@ -286,7 +286,7 @@ async function send(path: string, init: { method?: string; workspace?: string; t
 
 // `workspace` is given by the proxy, which runs before a request has a scope to read it from.
 // `form` sends a multipart body instead of JSON (a document for the company memory).
-async function call<T>(path: string, init: { method?: string; token?: string | null; body?: unknown; form?: FormData; workspace?: string; timeoutMs?: number; headers?: Record<string, string> } = {}): Promise<T> {
+async function call<T>(path: string, init: { method?: string; token?: string | null; body?: unknown; form?: FormData; raw?: ArrayBuffer; workspace?: string; timeoutMs?: number; headers?: Record<string, string> } = {}): Promise<T> {
   const res = await send(path, {
     method: init.method ?? "GET",
     workspace: init.workspace,
@@ -297,7 +297,7 @@ async function call<T>(path: string, init: { method?: string; token?: string | n
       ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
       ...init.headers,
     },
-    body: init.form ?? (init.body === undefined ? undefined : JSON.stringify(init.body)),
+    body: init.raw ?? init.form ?? (init.body === undefined ? undefined : JSON.stringify(init.body)),
   });
 
   const text = await res.text();
@@ -747,6 +747,24 @@ export const backoffice = {
     call<{ id: string; version: number }>(`${ownPath("/app/memory/items", id)}/versions`, { method: "POST", token, form, timeoutMs: MAIL_SEND_TIMEOUT_MS }),
   // The document of a deposit, as a stream for the route to pipe. 404 when the member does not read its compartment.
   memoryDocument: (token: string, id: string) => stream(`${ownPath("/app/memory/items", id)}/file`, token),
+
+  // A document over the host's 4.5 MB limit, sent in parts (lib/upload-parts.ts, docs/plans/envois-en-morceaux.md):
+  // the back office keeps the parts, puts them back together, and gives the file or files it in the memory.
+  startUpload: (token: string, meta: { name: string; type: string; size: number; parts: number }) =>
+    call<{ id: string }>("/app/uploads", { method: "POST", token, body: meta }),
+  uploadPart: (token: string, id: string, n: number, bytes: ArrayBuffer) =>
+    call<{ ok: true }>(`${ownPath("/app/uploads", id)}/parts/${n}`, {
+      method: "PUT",
+      token,
+      raw: bytes,
+      headers: { "Content-Type": "application/octet-stream" },
+      timeoutMs: MAIL_SEND_TIMEOUT_MS,
+    }),
+  /** The file put back together, as a stream; 409 while a part is missing. */
+  uploadedFile: (token: string, id: string) => stream(`${ownPath("/app/uploads", id)}/file`, token),
+  uploadToMemory: (token: string, id: string, as: { title: string; unit?: string | null } | { item: string }) =>
+    call<{ id: string; version?: number }>(`${ownPath("/app/uploads", id)}/memory`, { method: "POST", token, body: as, timeoutMs: MAIL_SEND_TIMEOUT_MS }),
+  cancelUpload: (token: string, id: string) => call<{ ok: true }>(ownPath("/app/uploads", id), { method: "DELETE", token }),
 
   // The org chart that walls the memory, for the workspace's admins. The back office keeps it; the
   // app holds no copy.

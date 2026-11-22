@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent } from "react";
 import { toast } from "sonner";
 import { readApiError } from "@/lib/api";
-import { TOO_LARGE, tooLarge } from "@/lib/upload-limit";
+import { needsParts, PART_BYTES, TOO_LARGE, TOO_LARGE_DOCUMENT, tooLargeDocument } from "@/lib/upload-limit";
+import { PartsError, sendInParts } from "@/lib/upload-parts";
 import { uid, type MessageAttachment } from "./types";
 import { useDropZone } from "../useDropZone";
 
@@ -14,6 +15,8 @@ export interface PendingFile {
   status: "uploading" | "uploaded" | "error";
   path?: string; // instance path returned by the upload, passed to the turn's `files`
   error?: string;
+  /** 0 to 1 while a file over 4 MB goes in parts. */
+  progress?: number;
 }
 
 // Drag-drop / paste / click attachments. Each file uploads immediately to the instance
@@ -33,10 +36,27 @@ export function useChatAttachments(agentId: string, onFocusRequest?: () => void)
     async (pf: PendingFile) => {
       const ctrl = new AbortController();
       controllers.current.set(pf.id, ctrl);
-      const form = new FormData();
-      form.append("file", pf.file, pf.file.name);
       let aborted = false;
       try {
+        // Over the host's limit: in parts of 3 MB (lib/upload-parts.ts), the share sent shown on the chip.
+        if (needsParts(pf.file)) {
+          patch(pf.id, { progress: 0 });
+          try {
+            const data = await sendInParts<{ path?: string }>(pf.file, { kind: "chat", agentId }, {
+              partBytes: PART_BYTES,
+              signal: ctrl.signal,
+              onProgress: (progress) => patch(pf.id, { progress }),
+            });
+            patch(pf.id, { status: "uploaded", path: data.path, progress: undefined });
+          } catch (e) {
+            // A back office that does not take parts yet: the limit stays 4 MB.
+            if (e instanceof PartsError && e.status === 404) throw new Error(TOO_LARGE);
+            throw e;
+          }
+          return;
+        }
+        const form = new FormData();
+        form.append("file", pf.file, pf.file.name);
         const res = await fetch(`/api/agents/${agentId}/chat/files`, {
           method: "POST",
           body: form,
@@ -52,7 +72,7 @@ export function useChatAttachments(agentId: string, onFocusRequest?: () => void)
           aborted = true;
           return;
         }
-        patch(pf.id, { status: "error", error: (e as Error).message });
+        patch(pf.id, { status: "error", error: (e as Error).message, progress: undefined });
       } finally {
         controllers.current.delete(pf.id);
         if (!aborted) onFocusRequest?.();
@@ -68,10 +88,10 @@ export function useChatAttachments(agentId: string, onFocusRequest?: () => void)
         file,
         previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
         // A file over the limit is shown refused, with the reason, and never sent.
-        ...(tooLarge(file) ? { status: "error" as const, error: TOO_LARGE } : { status: "uploading" as const }),
+        ...(tooLargeDocument(file) ? { status: "error" as const, error: TOO_LARGE_DOCUMENT } : { status: "uploading" as const }),
       }));
       if (!pfs.length) return;
-      for (const pf of pfs.filter((x) => x.status === "error").slice(0, 3)) toast.error(`${pf.file.name} : ${TOO_LARGE}`);
+      for (const pf of pfs.filter((x) => x.status === "error").slice(0, 3)) toast.error(`${pf.file.name} : ${TOO_LARGE_DOCUMENT}`);
       setFiles((prev) => [...prev, ...pfs]);
       onFocusRequest?.();
       pfs.filter((pf) => pf.status === "uploading").forEach(startUpload);
@@ -103,7 +123,7 @@ export function useChatAttachments(agentId: string, onFocusRequest?: () => void)
     (id: string) => {
       const f = filesRef.current.find((x) => x.id === id);
       // Sending a file over the limit again would fail the same way.
-      if (!f || tooLarge(f.file)) return;
+      if (!f || tooLargeDocument(f.file)) return;
       patch(id, { status: "uploading", error: undefined });
       startUpload({ ...f, status: "uploading", error: undefined });
     },

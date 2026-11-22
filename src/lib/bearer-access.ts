@@ -13,9 +13,11 @@ const WRITE = new RegExp(`${AGENT}chat\\/(files|responses|responses\\/${ID}\\/(c
 // salon, and the notice that the member wrote. The messages themselves go phone ⇄ relay, signed by the phone's key.
 const BUZZ_READ = /^\/api\/buzz$/;
 const BUZZ_WRITE = /^\/api\/buzz\/(devices|salons|sent)$/;
+// A file over 4 MB from the phone, in parts (lib/upload-parts.ts): started, each part, then where it goes.
+const UPLOAD_WRITE = new RegExp(`^\\/api\\/uploads(\\/${ID}\\/(parts\\/\\d{1,2}|complete))?$`);
 
 export const bearerRoute = (method: string, pathname: string): boolean =>
-  ((method === "GET" || method === "HEAD") && (READ.test(pathname) || BUZZ_READ.test(pathname))) || (method === "POST" && (WRITE.test(pathname) || BUZZ_WRITE.test(pathname)));
+  ((method === "GET" || method === "HEAD") && (READ.test(pathname) || BUZZ_READ.test(pathname))) || (method === "POST" && (WRITE.test(pathname) || BUZZ_WRITE.test(pathname) || UPLOAD_WRITE.test(pathname)));
 
 export interface BearerRequest {
   method: string;

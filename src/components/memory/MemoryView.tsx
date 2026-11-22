@@ -18,11 +18,24 @@ import Link from "next/link";
 import { useExpertsContext } from "@/components/experts/ExpertsProvider";
 import { usePoll } from "@/components/usePoll";
 import { runPool } from "@/lib/bulk";
-import { MAX_UPLOAD_BYTES, tooLarge } from "@/lib/upload-limit";
+import { MAX_DOCUMENT_BYTES, MAX_UPLOAD_BYTES, needsParts, PART_BYTES, tooLargeDocument } from "@/lib/upload-limit";
+import { PartsError, sendInParts, type UploadDestination } from "@/lib/upload-parts";
 
 // The limit said in every refusal of a too large file (Leslie, 07/11): the host refuses it before the app sees it.
-const LIMIT_MB = Math.round(MAX_UPLOAD_BYTES / (1024 * 1024));
-const tooBig = (what: string) => `${what} dépasse ${LIMIT_MB} Mo, la taille maximale d’un envoi. Réduisez-la (un PDF compressé, par exemple) puis réessayez.`;
+// 25 MB in parts (lib/upload-parts.ts); 4 MB while the back office does not take parts.
+const LIMIT_MB = Math.round(MAX_DOCUMENT_BYTES / (1024 * 1024));
+const SINGLE_MB = Math.round(MAX_UPLOAD_BYTES / (1024 * 1024));
+const tooBig = (what: string, mb = LIMIT_MB) => `${what} dépasse ${mb} Mo, la taille maximale d’un envoi. Réduisez-la (un PDF compressé, par exemple) puis réessayez.`;
+
+/** A document over 4 MB, in parts: null once filed, else what to tell (`what` names it in the sentence). */
+async function sendLarge(file: File, to: UploadDestination, what: string): Promise<string | null> {
+  try {
+    await sendInParts(file, to, { partBytes: PART_BYTES });
+    return null;
+  } catch (e) {
+    return e instanceof PartsError && e.status === 404 ? tooBig(what, SINGLE_MB) : (e as Error).message;
+  }
+}
 import { driveTree } from "@/lib/drive-store";
 import { expertPath } from "@/lib/expert-tabs";
 
@@ -131,8 +144,13 @@ export function MemoryView({
   }
 
   async function depositCharte(file: File) {
-    if (tooLarge(file)) return void toast.error(tooBig("La charte"));
+    if (tooLargeDocument(file)) return void toast.error(tooBig("La charte"));
     if (charte) return newVersion(charte, file);
+    if (needsParts(file)) {
+      const refused = await sendLarge(file, { kind: "memory", title: "Charte graphique" }, "La charte");
+      if (refused) toast.error(refused);
+      return void (await load());
+    }
     const form = new FormData();
     form.set("title", "Charte graphique");
     form.set("file", file);
@@ -143,7 +161,13 @@ export function MemoryView({
 
   // A new file for a deposited document: the back office keeps the old one as the previous version.
   async function newVersion(item: MemoryItem, file: File) {
-    if (tooLarge(file)) return void toast.error(tooBig(`« ${file.name} »`).replace("Réduisez-la", "Réduisez-le"));
+    if (tooLargeDocument(file)) return void toast.error(tooBig(`« ${file.name} »`).replace("Réduisez-la", "Réduisez-le"));
+    if (needsParts(file)) {
+      const refused = await sendLarge(file, { kind: "memory-version", item: item.id }, "La nouvelle version");
+      if (refused) toast.error(refused);
+      else toast.success(`${item.title} : nouvelle version déposée`);
+      return void (await load());
+    }
     const form = new FormData();
     form.set("file", file);
     const res = await fetch(`/api/memory/items/${item.id}/versions`, { method: "POST", body: form });
@@ -186,9 +210,14 @@ export function MemoryView({
       if (kind === "documents") {
         // Three documents at a time; the ones refused stay in the window, in their order.
         const sent = await runPool(files, 3, async (file) => {
-          if (tooLarge(file)) {
+          if (tooLargeDocument(file)) {
             toast.error(`${file.name} : ${tooBig("ce document").replace(/^ce/, "Ce").replace("Réduisez-la", "Réduisez-le")}`);
             return false;
+          }
+          if (needsParts(file)) {
+            const refused = await sendLarge(file, { kind: "memory", title: file.name, unit: unitId }, "Ce document");
+            if (refused) toast.error(`${file.name} : ${refused.replace("Réduisez-la", "Réduisez-le")}`);
+            return !refused;
           }
           const form = new FormData();
           form.set("title", file.name);
@@ -328,7 +357,7 @@ export function MemoryView({
           )}
           {adding === "documents" && (
             <div>
-              <p className="text-[13px] text-ink-3">PDF ou texte, 4 Mo au plus chacun.</p>
+              <p className="text-[13px] text-ink-3">PDF ou texte, 25 Mo au plus chacun.</p>
               {files.length > 0 && (
                 <ul className="mt-2 space-y-1">
                   {files.map((f, i) => (

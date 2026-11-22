@@ -336,8 +336,10 @@ Dockerfile goes away once every client is on Vercel.
   log it and answer a French sentence written here; a new route does the same.
 - **A file served from the drive cannot run script with the member's session.** Anything but a
   picture, a PDF, audio, video or plain text is answered with `Content-Security-Policy: sandbox`.
-- **A file sent from the browser is at most 4 MB** (`src/lib/upload-limit.ts`): the host refuses a
-  larger request before any route sees it.
+- **A request body from the browser is at most 4 MB** (`src/lib/upload-limit.ts`): the host refuses a
+  larger request before any route sees it. A document (chat attachment, drive, company memory) up to 25 MB goes in
+  parts of 3 MB that the back office puts back together (`src/lib/upload-parts.ts`, `src/app/api/uploads/`,
+  `docs/plans/envois-en-morceaux.md`); pictures, logos and e-mail attachments stay at 4 MB.
 - **A file path from the browser is checked before it reaches the instance** (`assertInDrive`). The attachments of a chat turn are such paths too.
   Server code that must read outside the drive (the routines key file) does so itself, never
   through a path the caller supplied.

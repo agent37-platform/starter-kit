@@ -9,3 +9,20 @@ export const TOO_LARGE = "Ce fichier dépasse 4 Mo, la taille maximale d’un en
 export function tooLarge(file: File): boolean {
   return file.size > MAX_UPLOAD_BYTES;
 }
+
+// A document (chat attachment, drive, company memory) may be larger: it goes in parts of 3 MB, each under the
+// host's limit, and the back office puts them back together (lib/upload-parts.ts). Up to 25 MB (Leslie, 20/11).
+export const PART_BYTES = 3 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
+
+export const TOO_LARGE_DOCUMENT = "Ce fichier dépasse 25 Mo, la taille maximale d’un envoi.";
+
+/** Over 25 MB: refused before anything is sent. */
+export function tooLargeDocument(file: Blob): boolean {
+  return file.size > MAX_DOCUMENT_BYTES;
+}
+
+/** Over the host's limit: sent in parts. */
+export function needsParts(file: Blob): boolean {
+  return file.size > MAX_UPLOAD_BYTES;
+}

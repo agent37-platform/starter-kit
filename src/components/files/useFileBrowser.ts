@@ -9,7 +9,8 @@ import { DRIVE_ABS, DRIVE_ROOT, fileLabel, isDriveRoot } from "@/lib/drive-paths
 import { driveChanged } from "@/lib/drive-store";
 import { isDriveClutter, matchesDriveQuery, sortDriveEntries, type DriveSort } from "@/lib/drive-order";
 import { shrinkPicture } from "@/lib/shrink-image";
-import { TOO_LARGE, tooLarge } from "@/lib/upload-limit";
+import { needsParts, PART_BYTES, TOO_LARGE, TOO_LARGE_DOCUMENT, tooLargeDocument } from "@/lib/upload-limit";
+import { PartsError, sendInParts } from "@/lib/upload-parts";
 import { useDropZone } from "../useDropZone";
 import { joinPath, type FileEntry, type FileListResponse } from "./types";
 
@@ -189,6 +190,13 @@ export function useFileBrowser(agentId: string, initialPath?: string, inbox?: st
   const putFile = useCallback(
     async (file: File, relPath: string, dir: string): Promise<void> => {
       const target = joinPath(dir, relPath);
+      // Over the host's limit: in parts of 3 MB (lib/upload-parts.ts); a back office without them keeps 4 MB.
+      if (needsParts(file)) {
+        await sendInParts(file, { kind: "drive", agentId, path: target, overwrite: true }, { partBytes: PART_BYTES }).catch((e: unknown) => {
+          throw e instanceof PartsError && e.status === 404 ? new Error(TOO_LARGE) : e;
+        });
+        return;
+      }
       const res = await fetch(
         `/api/agents/${agentId}/files/content?path=${encodeURIComponent(target)}&overwrite=true`,
         { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file }
@@ -219,9 +227,9 @@ export function useFileBrowser(agentId: string, initialPath?: string, inbox?: st
         })
       );
       // A file over the limit would be refused by the host with a page of its own: say it here.
-      const items = all.filter(({ file }) => !tooLarge(file));
-      for (const { relPath } of all.filter(({ file }) => tooLarge(file)).slice(0, 3)) toast.error(`${relPath} : ${TOO_LARGE}`);
-      if (all.length - items.length > 3) toast.error(`${all.length - items.length - 3} autres fichiers dépassent 4 Mo.`);
+      const items = all.filter(({ file }) => !tooLargeDocument(file));
+      for (const { relPath } of all.filter(({ file }) => tooLargeDocument(file)).slice(0, 3)) toast.error(`${relPath} : ${TOO_LARGE_DOCUMENT}`);
+      if (all.length - items.length > 3) toast.error(`${all.length - items.length - 3} autres fichiers dépassent 25 Mo.`);
       if (!items.length || !path) return;
       const dir = uploadDir(path);
       setUploading((n) => n + items.length);
