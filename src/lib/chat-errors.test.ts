@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BUDGET_EXCEEDED, CREDIT_EXHAUSTED, INTERRUPTED_REPLY, OFFLINE, UNREACHABLE, attachedFiles, chatFailureMessage, cleanReply, cleanUserMessage, isAccountToTopUp } from "./chat-errors.ts";
+import { BUDGET_EXCEEDED, CREDIT_EXHAUSTED, INTERRUPTED_REPLY, OFFLINE, UNREACHABLE, attachedFiles, chatFailureMessage, cleanReply, cleanUserMessage, isAccountToTopUp, networkFailure } from "./chat-errors.ts";
 
 test("the gateway's budget refusal becomes the budget sentence", () => {
   assert.equal(chatFailureMessage('litellm.BudgetExceededError: {"error":{"type":"budget_exceeded"}}', "x"), BUDGET_EXCEEDED);
@@ -64,4 +64,12 @@ test("cleanReply hides delegation notices and markers, and says an interrupted t
   assert.equal(cleanReply("[DÉLÉGUER → Salif] Je confie le planning à Salif."), "Je confie le planning à Salif.");
   assert.equal(cleanReply("Operation interrupted: waiting for model response (12.0s elapsed)."), INTERRUPTED_REPLY);
   assert.equal(cleanReply("La tâche est terminée, je vous envoie le fichier."), "La tâche est terminée, je vous envoie le fichier.");
+});
+
+test("a request that never got through reads as a French sentence, an abort stays one", () => {
+  assert.equal(networkFailure(new TypeError("Failed to fetch")), UNREACHABLE);
+  assert.equal(networkFailure(new TypeError("Load failed"), false), OFFLINE);
+  assert.equal(networkFailure(new Error("NetworkError when attempting to fetch resource.")), UNREACHABLE);
+  assert.equal(networkFailure(new DOMException("stopped", "AbortError")), null);
+  assert.equal(networkFailure(new Error("Cet Expert n’est pas dans votre équipe.")), null);
 });
