@@ -35,7 +35,7 @@ import { FilePreview, ReducedImage } from "./FilePreview";
 import { Preview as DocPreview } from "@/components/chat/DocumentCards";
 import { docKind } from "@/lib/drive-links";
 import { driveTree } from "@/lib/drive-store";
-import { coverRank, deliverableItems } from "@/lib/deliverable-folders";
+import { coverRank, folderPeeks, type FolderPeek } from "@/lib/deliverable-folders";
 import { GoogleGlyph } from "@/components/chat/GoogleDocs";
 import { shortcutKind } from "@/lib/google-docs";
 import { MoveDialog } from "./MoveDialog";
@@ -240,22 +240,20 @@ export function FilesView({
     if (!home || !fb.path || !(fb.path === home || fb.path.startsWith(`${home}/`))) return all;
     return all.filter((c) => c.path.length >= home.length).map((c) => (c.path === home ? { ...c, label: "Livrables" } : c));
   }, [fb.path, home]);
-  // A project folder shows its cover, picked like on the general page: its newest picture or PDF.
-  const [covers, setCovers] = useState<Map<string, { path: string; modified: number }>>(new Map());
+  // Every folder shows a glimpse of what it holds: its best cover anywhere inside (a picture, a PDF's first page…),
+  // else the names of its newest three entries (Leslie, 20/11 : « qu'on entrevoie ce qu'il y a à l'intérieur »).
+  const [peeks, setPeeks] = useState<Map<string, FolderPeek>>(new Map());
+  const shownFolders = useMemo(() => fb.visibleEntries.filter(isDir).map((e) => e.path), [fb.visibleEntries]);
   useEffect(() => {
     let live = true;
+    if (!shownFolders.length) return;
     driveTree(agentId)
-      .then((tree) => {
-        if (!live) return;
-        const m = new Map<string, { path: string; modified: number }>();
-        for (const it of deliverableItems(tree.entries)) if (it.folder && it.cover) m.set(it.path, { path: it.cover, modified: it.coverModified });
-        setCovers(m);
-      })
+      .then((tree) => live && setPeeks(folderPeeks(tree.entries, shownFolders.map((p) => normTreePath(p, tree.entries)))))
       .catch(() => undefined);
     return () => {
       live = false;
     };
-  }, [agentId, fb.entries]);
+  }, [agentId, fb.entries, shownFolders]);
   // A folder of visuals in variants shows by visual first (« Tous les fichiers » for the plain list),
   // and the editable « source » folder always comes last (Myriel, Leslie 30/10).
   const variants = useMemo(() => groupVariants(fb.visibleEntries.filter((e) => !isDir(e))), [fb.visibleEntries]);
@@ -591,7 +589,7 @@ export function FilesView({
                       )}
                       {...entryHandlers(entry)}
                     >
-                      <EntryCover agentId={agentId} entry={entry} cover={covers.get(entry.path)} />
+                      <EntryCover agentId={agentId} entry={entry} peek={peekOf(peeks, entry.path)} />
                       <div className="min-w-0 flex-1 px-3 pt-2.5">
                         {editing ? (
                           <RenameInput
@@ -969,9 +967,12 @@ function EmptyFolder({
 
 // What a card shows above its name: the deliverable itself (a picture reduced on the server, a PDF's first page),
 // a slide, a page or a sheet drawn by the app, a project's cover, else its kind in large. Same covers as the general page.
-function EntryCover({ agentId, entry, cover }: { agentId: string; entry: FileEntry; cover?: { path: string; modified: number } }) {
+function EntryCover({ agentId, entry, peek }: { agentId: string; entry: FileEntry; peek?: FolderPeek }) {
   const [failed, setFailed] = useState(false);
-  const target = isDir(entry) ? cover ?? null : coverRank(entry.name) ? { path: entry.path, modified: entry.modified ?? 0 } : null;
+  // A folder of folders lists them (what is inside is the folders); a folder shows a picture, a PDF or a slide as its cover,
+  // else the names of what it holds: a page of text says less than the names.
+  const folderCover = peek?.cover && coverRank(peek.cover) >= 3 && !(peek.first.length && peek.first.every((f) => f.folder)) ? peek.cover : null;
+  const target = isDir(entry) ? (folderCover ? { path: folderCover, modified: peek!.coverModified } : null) : coverRank(entry.name) ? { path: entry.path, modified: entry.modified ?? 0 } : null;
   const name = target?.path.split("/").pop() ?? "";
   const kind = target ? docKind(name) : null;
   return (
@@ -990,6 +991,8 @@ function EntryCover({ agentId, entry, cover }: { agentId: string; entry: FileEnt
             <DocPreview agentId={agentId} doc={{ name, path: target.path, size: null, modified: target.modified, kind: kind! }} />
           </span>
         )
+      ) : isDir(entry) && peek?.first.length ? (
+        <FolderGlimpse peek={peek} />
       ) : (
         <span className="grid size-full place-items-center">
           <EntryGlyph entry={entry} large />
@@ -1003,6 +1006,29 @@ function EntryCover({ agentId, entry, cover }: { agentId: string; entry: FileEnt
     </span>
   );
 }
+
+// A folder without a picture or a document to show: the names of its newest entries, on small sheets, and how many it holds.
+function FolderGlimpse({ peek }: { peek: FolderPeek }) {
+  return (
+    <span className="flex size-full flex-col justify-center gap-1.5 px-4 py-3">
+      {peek.first.map((f) => (
+        <span key={f.name} className="flex min-w-0 items-center gap-2 rounded-md bg-background/90 px-2.5 py-1.5 text-xs text-ink-2 shadow-sm">
+          {f.folder ? <Folder className="size-3.5 shrink-0 text-primary" /> : <FileIcon className="size-3.5 shrink-0 text-ink-3" />}
+          <span className="truncate">{f.name}</span>
+        </span>
+      ))}
+      {peek.count > peek.first.length && <span className="pl-1 text-[11px] text-ink-3">et {peek.count - peek.first.length} de plus</span>}
+    </span>
+  );
+}
+
+// The tree spells the drive « ~/Livrables/… » or « /home/node/Livrables/… »: a folder of the list is matched either way.
+function normTreePath(path: string, entries: readonly { path: string }[]): string {
+  const home = entries.find((e) => e.path.includes("/Livrables"))?.path ?? "";
+  const tilde = home.startsWith("~/");
+  return tilde ? path.replace(/^\/home\/node\//, "~/") : path.replace(/^~\//, "/home/node/");
+}
+const peekOf = (peeks: Map<string, FolderPeek>, path: string) => peeks.get(path) ?? peeks.get(path.replace(/^\/home\/node\//, "~/")) ?? peeks.get(path.replace(/^~\//, "/home/node/"));
 
 // The version that goes out, beside the latest of a document with older versions (Leslie, 16/11).
 function KeptPill({ className }: { className?: string }) {

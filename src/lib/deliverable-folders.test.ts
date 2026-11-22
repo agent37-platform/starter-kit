@@ -60,3 +60,29 @@ test("a document shows itself when nothing better is there: slides before pages 
   assert.equal(items.find((i) => i.name === "Bilan")?.cover, `${R}/Fatima/Bilan/deck.pptx`);
   assert.equal(items.find((i) => i.name === "note.docx")?.cover, `${R}/Fatima/note.docx`);
 });
+
+test("a folder's glimpse: its best cover anywhere inside, else its newest three entries, working files left out", async () => {
+  const { folderPeeks } = await import("./deliverable-folders.ts");
+  const e = (path: string, modified: number, type = "file") => ({ name: path.split("/").pop()!, path, type, modified, depth: path.split("/").length - 3 });
+  const peeks = folderPeeks(
+    [
+      e("~/Livrables/Djeneba/Reunions", 9, "directory"),
+      e("~/Livrables/Djeneba/Reunions/261120-090116", 9, "directory"),
+      e("~/Livrables/Djeneba/Reunions/261120-090116/compte-rendu.html", 9),
+      e("~/Livrables/Djeneba/Reunions/261120-090116/compte-rendu.json", 9),
+      e("~/Livrables/Djeneba/Reunions/261119-140000", 5, "directory"),
+      e("~/Livrables/Djeneba/Reunions/notes.md", 8),
+      e("~/Livrables/Djeneba/Reunions/Ordre du jour.docx", 7),
+      e("~/Livrables/Djeneba/Reunions/Plan.pdf", 6),
+      e("~/Livrables/Djeneba/CFAO", 4, "directory"),
+      e("~/Livrables/Djeneba/CFAO/Offre/visuel.png", 4),
+      e("~/Livrables/Djeneba/CFAO/Recus/scan.png", 9),
+    ],
+    ["~/Livrables/Djeneba/Reunions", "~/Livrables/Djeneba/CFAO"]
+  );
+  const r = peeks.get("~/Livrables/Djeneba/Reunions")!;
+  assert.equal(r.cover, "~/Livrables/Djeneba/Reunions/Plan.pdf");
+  assert.deepEqual(r.first.map((x) => x.name), ["261120-090116", "Ordre du jour.docx", "Plan.pdf"]);
+  assert.equal(r.count, 4);
+  assert.equal(peeks.get("~/Livrables/Djeneba/CFAO")!.cover, "~/Livrables/Djeneba/CFAO/Offre/visuel.png");
+});
