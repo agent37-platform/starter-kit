@@ -3,7 +3,7 @@
 import { useSafeDashboard } from "@/components/experts/DashboardProvider";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, ClipboardCheck, Copy, CornerDownLeft, FileText, Image as ImageIcon, Loader2, PhoneCall, Repeat } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ClipboardCheck, Clock, Copy, CornerDownLeft, FileText, Image as ImageIcon, Loader2, PhoneCall, Repeat } from "lucide-react";
 import { turnDocs, type DriveFile, type TurnDoc } from "@/lib/drive-links";
 import { kanbanNotice } from "@/lib/kanban-notice";
 import { isRoutineRun, isSilentRun, routinePlainText, SILENT_RUN_LABEL } from "@/lib/routines";
@@ -375,11 +375,14 @@ const MessageRow = memo(function MessageRow({
               </div>
             )}
             {m.queued && (
+              // « En attente » alone read like a stuck message (Leslie, 16/11: « je comprends pas cette queue »):
+              // it says when it will be read, and the button says it cancels it.
               <span className="flex items-center gap-2 text-xs text-ink-3">
-                En attente
+                <Clock className="h-3 w-3" />
+                {pronoun === "elle" ? "Elle le lira" : pronoun === "il" ? "Il le lira" : "Lu"} après sa réponse en cours
                 {onUnqueue && (
                   <button type="button" onClick={() => onUnqueue(m.id)} className="-my-2 inline-flex min-h-8 items-center rounded-lg px-1.5 font-semibold text-ink-2 hover:bg-soft hover:text-ink">
-                    Retirer
+                    Annuler
                   </button>
                 )}
               </span>
