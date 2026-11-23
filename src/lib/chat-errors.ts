@@ -25,6 +25,8 @@ export const UNREACHABLE = "Yelema ne répond pas pour le moment. Réessayez dan
  */
 export function chatFailureMessage(raw: string | undefined | null, fallback: string, online = true): string {
   if (raw && NETWORK.test(raw.trim())) return online ? UNREACHABLE : OFFLINE;
+  const stop = raw ? engineStop(raw) : undefined;
+  if (stop) return stop;
   if (raw && BUDGET.test(raw)) return BUDGET_EXCEEDED;
   if (raw && CREDIT.test(raw)) return CREDIT_EXHAUSTED;
   return fallback;
@@ -59,9 +61,19 @@ const RUNTIME_LINES = [
 // The marker an expert writes for itself when it hands work to a colleague: « [DÉLÉGUER] », « [DÉLÉGUER → Salif] ».
 const HANDOFF_MARK = /\[\s*d[ée]l[ée]guer\b[^\]\n]*\]\s*/gi;
 
-// The runtime's own words when a turn stops waiting for the model: the member reads what happened.
-const INTERRUPTED = /^\s*[^\w\s]{0,3}\s*operation interrupted\b.*$/i;
+// The runtime's own words when it ends a turn early (model wait, tool loop guard, step budget, internal
+// error): the member reads what happened in French. Hermes may follow them with a « Details: » line.
 export const INTERRUPTED_REPLY = "Ma réponse a été interrompue avant la fin. Renvoyez votre message et je reprends.";
+export const LOOP_STOPPED_REPLY = "Je me suis arrêté : je répétais la même opération sans avancer. Dites-moi comment poursuivre.";
+export const OUT_OF_STEPS_REPLY = "J’ai atteint le nombre d’étapes prévu pour cette réponse avant de terminer. Écrivez « continue » et je reprends.";
+const ENGINE_STOPS: [RegExp, string][] = [
+  [/^\s*[^\w\s]{0,3}\s*operation interrupted\b/i, INTERRUPTED_REPLY],
+  [/^\s*i stopped retrying because i kept running\b/i, LOOP_STOPPED_REPLY],
+  [/^\s*(i ran out of steps for this turn|i reached the iteration limit)\b/i, OUT_OF_STEPS_REPLY],
+  [/^\s*[^\w\s]{0,3}\s*(hermes hit (repeated errors|an internal error)|no reply: the turn stopped|this turn did not complete)\b/i, INTERRUPTED_REPLY],
+];
+const engineStop = (line: string): string | undefined => ENGINE_STOPS.find(([re]) => re.test(line))?.[1];
+const STOP_DETAILS = /^\s*details:/i;
 
 /**
  * A member's message as they wrote it: when an answer is cut, the runtime appends its own English
@@ -97,11 +109,14 @@ export function attachedFiles(text: string): { text: string; files: { name: stri
 
 /** A reply as the member reads it: the runtime's English lines and MEDIA tags out, the same paragraph never twice in a row. */
 export function cleanReply(text: string): string {
-  const kept = mediaTags(text)
-    .text.replace(HANDOFF_MARK, "")
-    .split("\n")
-    .map((line) => (INTERRUPTED.test(line) ? INTERRUPTED_REPLY : line))
-    .filter((line) => !RUNTIME_LINES.some((re) => re.test(line)));
+  const kept: string[] = [];
+  let stopped = false;
+  for (const line of mediaTags(text).text.replace(HANDOFF_MARK, "").split("\n")) {
+    const stop = engineStop(line);
+    if (stop) kept.push(stop);
+    else if (!(stopped && STOP_DETAILS.test(line)) && !RUNTIME_LINES.some((re) => re.test(line))) kept.push(line);
+    if (line.trim()) stopped = !!stop;
+  }
   const paragraphs = kept.join("\n").split(/\n{2,}/);
   const out = paragraphs.filter((p, i) => !p.trim() || i === 0 || p.trim() !== paragraphs[i - 1].trim());
   return out.join("\n\n").replace(/^\s+|\s+$/g, "");
