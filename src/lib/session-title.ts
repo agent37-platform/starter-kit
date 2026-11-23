@@ -3,7 +3,7 @@
 const COMMANDS: Record<string, string> = {
   tableau: "Tableau de bord",
   // The three commands the empty conversation runs behind plain words (Leslie, 31/10).
-  onboarding: "Faire connaissance",
+  onboarding: "Bien démarrer",
   memoire: "Sa mémoire",
   configuration: "Ses outils",
 };

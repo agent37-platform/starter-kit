@@ -413,7 +413,7 @@ export function AgentWorkspace({
           {/* Files mirrors Chat: full-height, kept MOUNTED so the current directory survives. */}
           {filesOpened && (
             <div className={cn("min-h-0 flex-1", !isFiles && "hidden")}>
-              <FilesTab agentId={agentId} initialPath={driveFolder} />
+              <FilesTab agentId={agentId} initialPath={driveFolder} onAsk={() => selectTab("chat")} />
             </div>
           )}
           {/* Routines mount lazily in the padded scroll area. */}
