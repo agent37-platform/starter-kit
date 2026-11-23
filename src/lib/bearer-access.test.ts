@@ -28,6 +28,8 @@ describe("🔒 jeton de l'app mobile sur les routes d'instance", () => {
   it("un jeton valide devient la session de cette seule requête (mêmes contrôles d'accès que le cookie ensuite)", async () => {
     assert.deepEqual(await bearerDecision(req(), verify), { session: { accessToken: good, refreshToken: "", expiresAt: NOW_S + 3600 } });
     for (const p of ["files/tree", "files/content", "files/thumb", "events"]) assert.ok(bearerRoute("GET", `/api/agents/inst00001/${p}`), p);
+    assert.ok(bearerRoute("GET", "/api/agents/inst00001/experts/unifood__fatima/jour-zero"));
+    assert.ok(!bearerRoute("POST", "/api/agents/inst00001/experts/unifood__fatima/jour-zero"));
   });
 
   it("le chat du téléphone : lire les conversations, écrire un tour, l'arrêter, répondre à une demande d'accord", () => {

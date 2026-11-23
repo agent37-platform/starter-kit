@@ -12,6 +12,7 @@ import { sparingData, useInView, useIntent } from "@/components/usePrefetch";
 import { setChatListHidden } from "@/components/chat/chat-layout";
 import type { Expert } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useInstallPending } from "./useInstallPending";
 
 /**
  * Une ligne d'Expert. Unité partagée : barre latérale, accueil, et tout écran qui en liste.
@@ -46,12 +47,13 @@ export function ExpertItem({
   const subtitle = expert.title ?? expert.role ?? expert.agentName ?? "";
   const { running, unread, waiting } = useExpertActivity(expert.agentId, expert.profileId);
   const bell = useNotifications();
+  const toInstall = useInstallPending(expert);
   // Not for Djénéba: « Chief of Staff & Direction » under her name says it already (Leslie, 03/11).
   const cycle = showCycle && !compact && !isDjeneba(expert) ? expertCycle(expert) : null;
   // On its way (a pointer resting, a finger, the focus): its whole page; on screen: its conversations.
   const intent = useIntent(() => void preloadExpert(expert.agentId, expert.profileId, expert.catalogueKey));
   const inView = useInView<HTMLAnchorElement>(() => preloadSpace(expert.agentId, expert.profileId));
-  const hint = unread ? (unread === 1 ? "1 nouvelle réponse" : `${unread} nouvelles réponses`) : running ? "En cours" : null;
+  const hint = unread ? (unread === 1 ? "1 nouvelle réponse" : `${unread} nouvelles réponses`) : running ? "En cours" : toInstall ? "À installer" : null;
   // Menu replié : au survol ou au focus, une étiquette à droite du visage avec le prénom et le poste
   // (Leslie, 22/11). Posée dans <body> : la colonne du menu défile et couperait une étiquette dedans.
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
@@ -104,8 +106,8 @@ export function ExpertItem({
       <span className={cn("relative shrink-0 rounded-full", compact && active && "ring-2 ring-brand ring-offset-2 ring-offset-surface")}>
         <ExpertAvatar expert={expert} />
         {/* At work: a green dot that breathes; a new answer: the violet dot; nothing: no dot. */}
-        {compact && (unread > 0 || running) && (
-          <span className={cn("absolute -right-0.5 -top-0.5 size-3 rounded-full ring-2 ring-surface", unread ? "bg-brand" : "animate-pulse bg-ok")} aria-hidden />
+        {compact && (unread > 0 || running || toInstall) && (
+          <span className={cn("absolute -right-0.5 -top-0.5 size-3 rounded-full ring-2 ring-surface", unread || (toInstall && !running) ? "bg-brand" : "animate-pulse bg-ok")} aria-hidden />
         )}
       </span>
       {!compact && (
@@ -123,6 +125,12 @@ export function ExpertItem({
         </span>
       )}
       {!compact && !unread && running && <Loader2 className="size-4 shrink-0 animate-spin text-ok" aria-label="En cours" />}
+      {/* Its installation is still to do: a « 1 », as for one answer waiting (Leslie, 23/11). */}
+      {!compact && !unread && !running && toInstall && (
+        <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-on-brand" aria-label="À installer">
+          1
+        </span>
+      )}
       {compact &&
         tip &&
         createPortal(
@@ -134,7 +142,7 @@ export function ExpertItem({
             <span className="absolute top-1/2 -left-1 size-2 -translate-y-1/2 rotate-45 bg-card ring-1 ring-line [clip-path:polygon(0_0,0_100%,100%_100%)]" aria-hidden />
             <span className="block text-sm font-semibold text-ink">{expert.displayName}</span>
             {subtitle && <span className="block text-xs font-medium text-ink-3">{subtitle}</span>}
-            {hint && <span className={cn("mt-1 block text-xs font-semibold", unread ? "text-brand-ink" : "text-ok")}>{hint}</span>}
+            {hint && <span className={cn("mt-1 block text-xs font-semibold", unread || (toInstall && !running) ? "text-brand-ink" : "text-ok")}>{hint}</span>}
           </span>,
           document.body
         )}

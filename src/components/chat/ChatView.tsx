@@ -25,6 +25,7 @@ import { ChatComposer } from "./ChatComposer";
 import { ExpertReadiness } from "@/components/experts/ExpertReadiness";
 import { useVoiceExpert } from "@/components/voice/useVoiceExpert";
 import type { Stage } from "@/lib/jour-zero";
+import { isDjeneba } from "@/lib/expert-cycle";
 import { ChatMessages } from "./ChatMessages";
 import { ChatSessionsPanel } from "./ChatSessionsPanel";
 import { setChatFull, setChatListHidden, useChatFull, useChatListHidden, useChatSidePanel } from "./chat-layout";
@@ -45,7 +46,7 @@ const SCREEN_TEMPLATE = "yelema-hermes";
 const SCREEN_MIN_REVISION = 5;
 
 
-/** Deliverables after which « Faire connaissance » is no longer offered. */
+/** Deliverables after which « Bien démarrer » is no longer offered. */
 const INTRO_MAX = 10;
 export const hasScreen = (instance: { image: { template: string; revision: number | null } | null } | null) =>
   instance?.image?.template === SCREEN_TEMPLATE && (instance.image.revision ?? 0) >= SCREEN_MIN_REVISION;
@@ -239,9 +240,9 @@ export function ChatView({
     [experts, agentId, profile]
   );
   const pronoun = expert?.catalogueKey ? voiceExpert(expert.catalogueKey).pronoun : null;
-  // Before « Faire connaissance », it is the one action shown: the catalogue's requests wait (Leslie, 31/10).
+  // Before « Bien démarrer », it is the one action shown: the catalogue's requests wait (Leslie, 31/10).
   const [prepStage, setPrepStage] = useState<Stage | null>(null);
-  // « Faire connaissance » goes once done, or once the expert has made INTRO_MAX deliverables: a conversation
+  // « Bien démarrer » goes once done, or once the expert has made INTRO_MAX deliverables: a conversation
   // that counts is one that produced something, and by then they know each other (Leslie, 04/11).
   const [made, setMade] = useState(0);
   const wantsIntro = Boolean(profile) && prepStage === "intro";
@@ -255,7 +256,9 @@ export function ChatView({
       cancelled = true;
     };
   }, [wantsIntro, agentId, driveFolder]);
-  const showIntro = wantsIntro && made < INTRO_MAX;
+  // Only at Djénéba, who runs the company's common welcome once and then briefs each Expert, which starts
+  // its own installation in its thread (Leslie, 23/11; hermes-experts #109).
+  const showIntro = wantsIntro && made < INTRO_MAX && Boolean(profile) && isDjeneba({ catalogueKey: expert?.catalogueKey ?? null, profileId: profile ?? "" });
   const instance = useMemo(() => agents.find((x) => x.agent37_id === agentId) ?? null, [agents, agentId]);
   // The expert's name when the chat targets one; the company chat otherwise (never the instance's
   // name, which the back office writes as the list of its Experts).
@@ -433,7 +436,7 @@ export function ChatView({
             className={cn("mb-3", centered && "max-w-2xl")}
           />
         )}
-        {/* Only « Faire connaissance », and only for a while: the catalogue's requests are gone, and nothing
+        {/* Only « Bien démarrer », and only for a while: the catalogue's requests are gone, and nothing
             takes their place, no help sentence either (Leslie, 03/11: « simplifier au max »). Just above the bar. */}
         {showWelcome && showIntro && (
           <button
@@ -443,7 +446,7 @@ export function ChatView({
             className="mb-3 flex w-full items-center gap-3.5 rounded-[18px] border-[1.5px] border-brand bg-tint p-3.5 text-left text-ink transition-colors hover:bg-brand/15"
           >
             {face && <ExpertAvatar expert={face} size="md" />}
-            <span className="min-w-0 flex-1 text-[16px] font-bold leading-snug">Faire connaissance avec {agentName}</span>
+            <span className="min-w-0 flex-1 text-[16px] font-bold leading-snug">Bien démarrer</span>
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-on-brand">
               <ArrowRight className="size-[18px]" />
             </span>

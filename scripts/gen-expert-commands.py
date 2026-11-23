@@ -4,7 +4,7 @@ import os, re, glob, json, sys
 SRC = sys.argv[1]; OUT = sys.argv[2]
 COMMON = {  # libellé client, ce qui manque (None = rien d'obligatoire), un fichier suffit ?
  "s": ("Chercher sur le web", "le sujet à chercher", False),
- "onboarding": ("Faire connaissance", None, False),
+ "onboarding": ("Bien démarrer", None, False),
  "historique": ("Retrouver un client ou un dossier", "le nom du client ou du dossier", False),
  "livrable": ("Remettre le document en ligne", None, False),
  "etat": ("Où en est le travail", None, False),

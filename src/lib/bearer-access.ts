@@ -6,7 +6,9 @@ import type { VerifiedClaims } from "./jwt.ts";
 
 const AGENT = "^\\/api\\/agents\\/[A-Za-z0-9_-]{1,64}\\/";
 const ID = "[A-Za-z0-9_.:-]{1,128}";
-const READ = new RegExp(`${AGENT}(deliverables|files\\/tree|files\\/content|files\\/thumb|events|chat\\/sessions|chat\\/sessions\\/${ID}|chat\\/by-profile|chat\\/responses\\/${ID}\\/stream)$`);
+const READ = new RegExp(`${AGENT}(deliverables|files\\/tree|files\\/content|files\\/thumb|events|chat\\/sessions|chat\\/sessions\\/${ID}|chat\\/by-profile|chat\\/responses\\/${ID}\\/stream|experts\\/${ID}\\/jour-zero)$`);
+// An Expert's day-zero file: the phone shows « Bien démarrer » at Djénéba and a « 1 » on an Expert still to install,
+// as the web does (Leslie, 23/11).
 // The phone's chat: the same conversations as the web, written the same way (a turn, stopping it, an approval).
 const WRITE = new RegExp(`${AGENT}chat\\/(files|responses|responses\\/${ID}\\/(cancel|approval|steer))$`);
 // The phone's salons (Buzz): the overview (relay address, directory, salons), admitting the phone's own key, opening a

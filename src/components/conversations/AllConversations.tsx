@@ -91,6 +91,9 @@ export function AllConversations({ initial = null }: { initial?: ServerReading<R
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown, marks]);
 
+  // No conversation at all yet (the first day): one sentence, no search and no filters to sort nothing (Leslie, 23/11).
+  const none = rows !== null && rows.length === 0;
+
   const chips: { id: Filter; label: string }[] = [
     { id: "tout", label: "Tout" },
     { id: "non-lues", label: unreadIds.size ? `Non lues ${unreadIds.size}` : "Non lues" },
@@ -109,6 +112,8 @@ export function AllConversations({ initial = null }: { initial?: ServerReading<R
         )}
       </div>
 
+      {!none && (
+      <>
       <label className="mt-5 flex h-11 items-center gap-2.5 rounded-xl border border-line bg-surface px-3">
         <Search className="size-4 shrink-0 text-ink-3" />
         <input
@@ -153,9 +158,13 @@ export function AllConversations({ initial = null }: { initial?: ServerReading<R
           <Picker label="Dates" placeholder="Toutes les dates" value={since} onChange={setSince} groups={[{ options: DATES }]} />
         </span>
       </div>
+      </>
+      )}
 
       {rows === null ? (
         <p className="mt-8 text-sm text-ink-3">Chargement des conversations…</p>
+      ) : none ? (
+        <p className="mt-8 text-sm text-ink-3">Pas encore de conversation.</p>
       ) : groups.length === 0 ? (
         <p className="mt-8 text-sm text-ink-3">{filter === "archivees" && !needle ? "Aucune conversation archivée." : "Aucune conversation ne correspond."}</p>
       ) : (
