@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BUDGET_EXCEEDED, CREDIT_EXHAUSTED, INTERRUPTED_REPLY, OFFLINE, UNREACHABLE, attachedFiles, chatFailureMessage, cleanReply, cleanUserMessage, isAccountToTopUp } from "./chat-errors.ts";
+import { BUDGET_EXCEEDED, CREDIT_EXHAUSTED, INTERRUPTED_REPLY, LOOP_STOPPED_REPLY, OFFLINE, OUT_OF_STEPS_REPLY, UNREACHABLE, attachedFiles, chatFailureMessage, cleanReply, cleanUserMessage, isAccountToTopUp } from "./chat-errors.ts";
 
 test("the gateway's budget refusal becomes the budget sentence", () => {
   assert.equal(chatFailureMessage('litellm.BudgetExceededError: {"error":{"type":"budget_exceeded"}}', "x"), BUDGET_EXCEEDED);
@@ -64,4 +64,16 @@ test("cleanReply hides delegation notices and markers, and says an interrupted t
   assert.equal(cleanReply("[DÉLÉGUER → Salif] Je confie le planning à Salif."), "Je confie le planning à Salif.");
   assert.equal(cleanReply("Operation interrupted: waiting for model response (12.0s elapsed)."), INTERRUPTED_REPLY);
   assert.equal(cleanReply("La tâche est terminée, je vous envoie le fichier."), "La tâche est terminée, je vous envoie le fichier.");
+});
+
+test("the engine's English stop messages read as a French sentence, never their details", () => {
+  const loop = "I stopped retrying because I kept running skill_view 5 times without making progress. The last result above shows what blocked it. Tell me how you'd like to proceed, or send `continue` and I'll try a different approach.";
+  assert.equal(cleanReply(loop), LOOP_STOPPED_REPLY);
+  assert.equal(cleanReply(`Je regarde le livrable.\n\n${loop}`), `Je regarde le livrable.\n\n${LOOP_STOPPED_REPLY}`);
+  assert.equal(cleanReply("I ran out of steps for this turn (90 tool calls) before finishing, and couldn't produce a summary."), OUT_OF_STEPS_REPLY);
+  assert.equal(cleanReply("I reached the iteration limit and couldn't generate a summary."), OUT_OF_STEPS_REPLY);
+  assert.equal(cleanReply("Hermes hit repeated errors and stopped this turn so it wouldn't keep retrying.\n\nDetails: KeyError 'x'"), INTERRUPTED_REPLY);
+  assert.equal(cleanReply("No reply: the turn stopped while a tool result was still pending. Send `continue` to let the model summarize."), INTERRUPTED_REPLY);
+  assert.equal(cleanReply("Details: voir le tableau ci-dessous."), "Details: voir le tableau ci-dessous.");
+  assert.equal(chatFailureMessage("This turn did not complete. Some actions may already have run; verify their effects before resending.", "x"), INTERRUPTED_REPLY);
 });

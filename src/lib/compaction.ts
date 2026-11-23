@@ -1,7 +1,8 @@
 // A long conversation is compacted by its runtime: the summary it writes for itself is never a message, and
 // each compaction shows as one marker line. No imports, for `node --test`.
 
-const SUMMARY = /^\s*(\[(CONTEXT COMPACTION|PRIOR CONTEXT|CONTEXT SUMMARY)\b|This session is being continued from a previous conversation)/i;
+// The last alternative is the task list Hermes re-injects as a user row after compacting: for the expert only.
+const SUMMARY = /^\s*(\[(CONTEXT COMPACTION|PRIOR CONTEXT|CONTEXT SUMMARY)\b|This session is being continued from a previous conversation|\[Your active task list was preserved across context compression\])/i;
 
 export const isCompactionSummary = (content: string): boolean => SUMMARY.test(content);
 

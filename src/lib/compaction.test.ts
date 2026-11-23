@@ -48,3 +48,16 @@ test("a member's message saved several times at once shows once, the same words 
     ["user:Le point des mails ?", "assistant:Trois mails attendent une réponse.", "user:?", "user:?"],
   );
 });
+
+test("the task list Hermes keeps across a compaction is never shown, and the marker shows once", () => {
+  const note = "[Your active task list was preserved across context compression]\n- [>] Draft the deck\nskill_view(name='salif/4-livrables/deck')";
+  const rows = [
+    { role: "user", content: "Le livrable ?" },
+    { role: "system", content: "📚 La conversation devenait longue…" },
+    { role: "user", content: note },
+    { role: "system", content: "📚 La conversation devenait longue…" },
+    { role: "assistant", content: "Le livrable est prêt." },
+  ];
+  assert.deepEqual(visibleHistory(rows).map((r) => r.role), ["user", "system", "assistant"]);
+  assert.ok(!isCompactionSummary("Your active task list, as I understand it: the deck."));
+});
