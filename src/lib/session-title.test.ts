@@ -7,7 +7,7 @@ test("a conversation opened by a command is named in French", () => {
   assert.equal(sessionTitle("Run tableau command", null), "Tableau de bord");
   assert.equal(sessionTitle(null, "/tableau"), "Tableau de bord");
   assert.equal(sessionTitle("/tableau #3", "Tableau de bord"), "Tableau de bord");
-  assert.equal(sessionTitle("/onboarding", null), "Faire connaissance");
+  assert.equal(sessionTitle("/onboarding", null), "Bien démarrer");
   assert.equal(sessionTitle("Run rapport command #2", null), "Commande rapport");
 });
 
@@ -18,12 +18,12 @@ test("any other conversation keeps its title, else its first words", () => {
 });
 
 test("a bare command sent for the member reads as its button", () => {
-  assert.equal(commandText("/onboarding"), "Faire connaissance");
+  assert.equal(commandText("/onboarding"), "Bien démarrer");
   assert.equal(commandText(" /configuration "), "Ses outils");
   assert.equal(commandText("/memoire", "elle"), "Ce qu’elle sait");
   assert.equal(commandText("/memoire", "il"), "Ce qu’il sait");
   assert.equal(commandText("/memoire"), "Sa mémoire");
   assert.equal(commandText("/inconnue"), "/inconnue");
   assert.equal(commandText("/onboarding complet"), "/onboarding complet");
-  assert.equal(sessionTitle("Run onboarding command #2", null), "Faire connaissance");
+  assert.equal(sessionTitle("Run onboarding command #2", null), "Bien démarrer");
 });

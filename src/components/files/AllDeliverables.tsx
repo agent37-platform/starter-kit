@@ -70,11 +70,16 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
     else setPreview({ agentId: d.agentId, entry: { name: d.name, path: d.path, type: "file", size: null, modified: d.modified } as FileEntry });
   }
 
+  // Nothing made yet (the first day): no search, sort, view or filter to sort nothing (Leslie, 23/11).
+  const none = all !== null && all.length === 0;
+
   return (
     <div className="mx-auto w-full max-w-[1100px] px-4 pt-6 pb-28 sm:px-8">
       <BackButton label="Accueil" onClick={() => router.push("/")} />
       <h1 className="mt-4 font-display text-[28px] font-bold tracking-tight text-ink sm:text-[32px]">Livrables</h1>
 
+      {!none && (
+      <>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <label className="flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-line bg-surface px-3 sm:w-auto sm:max-w-sm sm:flex-1">
           <Search className="size-4 shrink-0 text-ink-3" />
@@ -214,6 +219,8 @@ export function AllDeliverables({ initial = null }: { initial?: ServerReading<Re
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      </>
+      )}
 
       <div className="mt-5">
         {all === null ? (

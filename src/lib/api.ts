@@ -1,5 +1,6 @@
 import { wipeDevice } from "@/lib/device-cache-client";
 import { within } from "@/lib/first-screen";
+import { networkFailure } from "@/lib/chat-errors";
 
 // What the user reads when an answer carries no sentence of its own (a host's error page, a
 // crashed route): never a status code or a raw body.
@@ -40,11 +41,20 @@ export class ApiFetchError extends Error {
 
 /** `fallback`: the sentence (without its full stop) when a refusal carries none of its own. */
 export async function apiFetch<T>(url: string, init?: RequestInit, fallback?: string): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...(ownType(init?.body) ? {} : { "Content-Type": "application/json" }), ...(init?.headers || {}) },
-  });
-  const text = await res.text();
+  // A request that never got through says so in French, never « Failed to fetch » or « Load failed »
+  // (Leslie, 22/11: the raw words under the conversation filters).
+  let res: Response;
+  let text: string;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: { ...(ownType(init?.body) ? {} : { "Content-Type": "application/json" }), ...(init?.headers || {}) },
+    });
+    text = await res.text();
+  } catch (e) {
+    const sentence = networkFailure(e, typeof navigator === "undefined" || navigator.onLine);
+    throw sentence ? new Error(sentence) : e;
+  }
   // A proxy or a crashed route can answer with an HTML page: fall back to a plain sentence, not a
   // parse error or the page itself.
   let data: unknown = {};
@@ -63,6 +73,16 @@ export async function apiFetch<T>(url: string, init?: RequestInit, fallback?: st
     throw new ApiFetchError(error?.message || (fallback ? asSentence(fallback) : FAILED), res.status, code);
   }
   return data as T;
+}
+
+/**
+ * What a member reads for a failure caught on screen: the refusal's own French sentence, or a French
+ * sentence for a request that never got through; never the browser's « Failed to fetch ».
+ */
+export function errorText(e: unknown, fallback = FAILED): string {
+  const network = networkFailure(e, typeof navigator === "undefined" || navigator.onLine);
+  if (network) return network;
+  return (e instanceof Error && e.message.trim()) || fallback;
 }
 
 // Pull the API's { error: { message } } off a non-ok Response for the manual fetch callers

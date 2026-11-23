@@ -4,7 +4,7 @@ import { Picker } from "@/components/ui/picker";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Globe, Loader2, NotebookPen, Palette, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch, readApiError } from "@/lib/api";
+import { apiFetch, readApiError, errorText } from "@/lib/api";
 import type { MemoryItem, MemoryList } from "@/lib/memory";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { HiddenFileInput } from "@/components/HiddenFileInput";
@@ -82,7 +82,7 @@ export function MemoryView({
     () =>
       apiFetch<MemoryList>("/api/memory/items")
         .then(setList)
-        .catch((e: Error) => setError(e.message)),
+        .catch((e: Error) => setError(errorText(e))),
     []
   );
   useEffect(() => void load(), [load]);
@@ -137,7 +137,7 @@ export function MemoryView({
       toast.success("C’est la charte de l’entreprise : vos Experts l’appliquent désormais.");
       await load();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorText(e));
     } finally {
       setCopying(false);
     }
@@ -228,14 +228,14 @@ export function MemoryView({
           return res.ok;
         });
         sent.forEach((r, i) => {
-          if (r.status === "rejected") toast.error(`${files[i].name} : ${(r.reason as Error).message}`);
+          if (r.status === "rejected") toast.error(`${files[i].name} : ${errorText(r.reason)}`);
           if (r.status === "rejected" || !r.value) failed.push(files[i]);
         });
         setFiles(failed);
         if (failed.length === 0) setAdding(null);
       }
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorText(e));
     } finally {
       setBusy(false);
       await load();
@@ -248,7 +248,7 @@ export function MemoryView({
       await apiFetch(`/api/memory/items/${item.id}`, { method: "PATCH", body: JSON.stringify(body) });
       await load();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorText(e));
     }
   }
 

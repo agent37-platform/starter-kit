@@ -17,6 +17,7 @@ import {
   Link2,
   List,
   Loader2,
+  MessageSquare,
   Pencil,
   RefreshCw,
   Search,
@@ -66,6 +67,7 @@ export function FilesView({
   openFile,
   inbox,
   home,
+  onAsk,
 }: {
   agentId: string;
   initialPath?: string;
@@ -75,6 +77,8 @@ export function FilesView({
   /** The Expert's own folder: its Livrables stop there, nothing above it (Leslie, 16/11: « on est censé être dans les
    * livrables d'un expert, pourquoi est-ce qu'on a tous les experts »). The general page lists everyone's. */
   home?: string;
+  /** Opens the Expert's chat: an empty folder of its own asks it for a first deliverable (Leslie, 23/11). */
+  onAsk?: () => void;
 }) {
   const fb = useFileBrowser(agentId, initialPath, inbox);
   // A folder named in the address (« ?dossier= », from a path cited in the chat) opens here.
@@ -484,6 +488,7 @@ export function FilesView({
                 canCreate={!!fb.path}
                 uploading={fb.uploading}
                 onUpload={() => uploadRef.current?.click()}
+                onAsk={onAsk}
               />
             ) : (
               <>
@@ -942,12 +947,17 @@ function EmptyFolder({
   canCreate,
   uploading,
   onUpload,
+  onAsk,
 }: {
   owner: string | null;
   canCreate: boolean;
   uploading: boolean;
   onUpload: () => void;
+  onAsk?: () => void;
 }) {
+  // The Expert's own folder on the first day: its deliverables are its to make, so the first gesture asks it for one
+  // (Leslie, 23/11); importing stays, second.
+  const ask = owner && onAsk;
   return (
     <div className="flex min-h-[20rem] flex-col items-center justify-center rounded-lg border border-dashed bg-secondary/20 p-8 text-center">
       <span className="mb-4 inline-flex size-12 items-center justify-center rounded-md bg-background text-primary shadow-sm">
@@ -955,6 +965,12 @@ function EmptyFolder({
       </span>
       <p className="text-sm font-medium text-foreground">{owner ? `Les livrables de ${owner} arriveront ici.` : "Ce dossier est vide."}</p>
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        {ask && (
+          <Button size="sm" onClick={onAsk}>
+            <MessageSquare className="h-4 w-4" />
+            Demander un premier livrable
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={onUpload} disabled={!canCreate || uploading}>
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
           Importer des fichiers
