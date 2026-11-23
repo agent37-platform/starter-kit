@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Check, History, Loader2, Paperclip, Repeat, X } from "lucide-react";
 import { toast } from "sonner";
 import { TOO_LARGE, tooLarge } from "@/lib/upload-limit";
-import { apiFetch, readApiError } from "@/lib/api";
+import { apiFetch, readApiError, errorText } from "@/lib/api";
 import { DRIVE_ROOT } from "@/lib/drive-paths";
 import {
   RECURRENCES,
@@ -109,7 +109,7 @@ export function RoutineDialog({
       if (!res.ok) throw new Error(await readApiError(res, "Le fichier n’a pas pu être envoyé"));
       set({ attachment: path });
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorText(e));
     } finally {
       setUploading(false);
     }
@@ -137,7 +137,7 @@ export function RoutineDialog({
       onSaved(res.routine);
       onOpenChange(false);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorText(err));
     } finally {
       setBusy(false);
     }

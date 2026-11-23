@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "@/lib/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hash, LogOut } from "lucide-react";
 import { toast } from "sonner";
@@ -180,7 +181,7 @@ export function GuestSalon({ view, onEnded, onSignedOut }: { view: GuestView; on
       setThread((t) => withMessage(t, m));
       return true;
     } catch (e) {
-      toast.error(e instanceof TypeError ? "Message non envoyé. Réessayez dans un instant." : (e as Error).message);
+      toast.error(e instanceof TypeError ? "Message non envoyé. Réessayez dans un instant." : errorText(e));
       return false;
     } finally {
       setSending(false);

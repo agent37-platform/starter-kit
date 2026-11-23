@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "@/lib/api";
 import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { Download, ExternalLink, Loader2, Pencil, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -379,7 +380,7 @@ function TextPreview({ url, markdown = false }: { url: string; markdown?: boolea
         return body.length > 500_000 ? `${body.slice(0, 500_000)}\n\n… (aperçu tronqué)` : body;
       })
       .then((body) => !cancelled && setText(body))
-      .catch((e) => !cancelled && setError((e as Error).message));
+      .catch((e) => !cancelled && setError(errorText(e)));
     return () => {
       cancelled = true;
     };
