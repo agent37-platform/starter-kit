@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isCompactionSummary, visibleHistory } from "./compaction.ts";
+import { isCompactionSummary, visibleHistory, withoutCompactionNote } from "./compaction.ts";
 
 test("a compaction summary is never a message, one marker per compaction", () => {
   const rows = [
@@ -60,4 +60,13 @@ test("the task list Hermes keeps across a compaction is never shown, and the mar
   ];
   assert.deepEqual(visibleHistory(rows).map((r) => r.role), ["user", "system", "assistant"]);
   assert.ok(!isCompactionSummary("Your active task list, as I understand it: the deck."));
+});
+
+test("a compaction note folded at the end of a message is cut, the text before it kept", () => {
+  const rows = [
+    { role: "assistant", content: "Le deck est prêt.\n\n[Your active task list was preserved across context compression]\n- [>] Draft" },
+    { role: "assistant", content: "Le tableau [PRIOR CONTEXT] reste en ligne." },
+  ];
+  assert.deepEqual(visibleHistory(rows).map((r) => r.content), ["Le deck est prêt.", "Le tableau [PRIOR CONTEXT] reste en ligne."]);
+  assert.equal(withoutCompactionNote("Bonjour"), "Bonjour");
 });
