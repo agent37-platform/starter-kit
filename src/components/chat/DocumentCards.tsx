@@ -3,7 +3,7 @@
 import { isNumberCell, isTotalRow } from "@/lib/sheet-cells";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, File, Loader2, Palette, FileImage, FileSpreadsheet, FileText, Presentation, Video, Music, type LucideIcon } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, errorText } from "@/lib/api";
 import { isMemoryFolder } from "@/lib/drive-order";
 import type { DocKind, DriveFile, TurnDoc } from "@/lib/drive-links";
 import type { FileListResponse } from "@/lib/types";
@@ -113,7 +113,7 @@ export function CharteAdopt({ agentId, doc }: { agentId: string; doc: { name: st
       setDone(true);
       toast.success("C’est la charte de l’entreprise : vos Experts l’appliquent désormais.");
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorText(e));
     } finally {
       setBusy(false);
     }

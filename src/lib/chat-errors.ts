@@ -30,6 +30,17 @@ export function chatFailureMessage(raw: string | undefined | null, fallback: str
   return fallback;
 }
 
+/**
+ * A request that never reached the server (the browser's TypeError, or its words for it), put in a
+ * French sentence; null for anything else, an abort included (the caller stopped it on purpose).
+ */
+export function networkFailure(e: unknown, online = true): string | null {
+  if (e instanceof Error && e.name === "AbortError") return null;
+  const raw = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  if (e instanceof TypeError || NETWORK.test(raw.trim())) return online ? UNREACHABLE : OFFLINE;
+  return null;
+}
+
 /** Whether a failure sentence says the model account must be topped up: the bell names it so. */
 export const isAccountToTopUp = (sentence: string | null | undefined) => sentence === CREDIT_EXHAUSTED || sentence === BUDGET_EXCEEDED;
 

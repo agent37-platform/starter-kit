@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { ImagePlus, MoreHorizontal, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch, readApiError } from "@/lib/api";
+import { apiFetch, readApiError, errorText } from "@/lib/api";
 import { companyLogos, keepsSeveralLogos, LOGO_ACCEPT, type CompanyLogo, type CompanyProfile } from "@/lib/company";
 import { tooLarge, TOO_LARGE } from "@/lib/upload-limit";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -63,7 +63,7 @@ export function CompanyLogos({ profile, onProfile }: { profile: CompanyProfile; 
       changed(await apiFetch<CompanyProfile>(`/api/workspace/logos/${logo.id}`, { method: "PATCH" }));
       toast.success("Logo principal changé.");
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(errorText(e));
     }
   }
 
@@ -174,7 +174,7 @@ export function CompanyLogos({ profile, onProfile }: { profile: CompanyProfile; 
             changed(await apiFetch<CompanyProfile>(several ? `/api/workspace/logos/${removing.id}` : "/api/workspace/logo", { method: "DELETE" }));
             toast.success("Image retirée.");
           } catch (e) {
-            toast.error((e as Error).message);
+            toast.error(errorText(e));
           }
         }}
       />

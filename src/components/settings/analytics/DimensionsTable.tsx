@@ -7,6 +7,9 @@ import { hasFilters } from "@/lib/analytics/filters";
 import { formatBytes, formatWhole } from "@/lib/analytics/format";
 import type { AnalyticsItem, AnalyticsOverview, Readable, TabKey } from "@/lib/analytics/types";
 import { cn } from "@/lib/utils";
+import { useExpertsContext } from "@/components/experts/ExpertsProvider";
+import { YELE_FACE } from "@/components/yele/YelePortrait";
+import { isCompanionProfile } from "@/lib/companion";
 import { expertColors } from "./colors";
 import { DimensionIcon } from "./DimensionIcon";
 
@@ -55,6 +58,9 @@ const sortFor = (t: Tab, chosen: Sort | null): Sort => (chosen && sortKeys(t).in
 
 const CELL = "px-2 py-3 sm:px-4";
 
+// Profil client__expert : la clé du catalogue est ce qui suit le dernier « __ » (comme catalogueKeyOf).
+const catalogueKeyOf = (profileId: string): string => (profileId.includes("__") ? profileId.slice(profileId.lastIndexOf("__") + 2) : profileId);
+
 function download(name: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
   const a = Object.assign(document.createElement("a"), { href: url, download: name });
@@ -81,6 +87,19 @@ export function DimensionsTable({
   const readable = data.readable[config.source];
   const columns = 4 + (config.volume ? 1 : 0);
   const expertColor = useMemo(() => expertColors(data.charts.experts), [data.charts.experts]);
+  // Photos des Experts de l'espace, par profil (clé du catalogue en second recours).
+  const { experts } = useExpertsContext();
+  const photoOf = useMemo(() => {
+    const byProfile = new Map<string, string>();
+    const byKey = new Map<string, string>();
+    for (const e of experts) {
+      if (!e.photoUrl) continue;
+      byProfile.set(e.profileId, e.photoUrl);
+      byKey.set(catalogueKeyOf(e.profileId), e.photoUrl);
+    }
+    // Yélé n'est pas au catalogue des Experts : son visage fixe (WebP de 5 Ko, celui des appels).
+    return (id: string) => (isCompanionProfile(catalogueKeyOf(id)) ? YELE_FACE : byProfile.get(id) ?? byKey.get(catalogueKeyOf(id)) ?? null);
+  }, [experts]);
   const isActive = (f: AnalyticsItem["filter"]) => !!f && data.filters[f.dimension].includes(f.value);
 
   const items = useMemo(() => {
@@ -182,7 +201,7 @@ export function DimensionsTable({
                   <tr key={i.id} className="hover:bg-soft/40">
                     <td className={CELL}>
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <DimensionIcon item={i} color={i.iconKind === "expert" ? expertColor(i.id) : undefined} />
+                        <DimensionIcon item={i} color={i.iconKind === "expert" ? expertColor(i.id) : undefined} photo={i.iconKind === "expert" ? photoOf(i.id) : undefined} />
                         <div className="min-w-0 [overflow-wrap:anywhere]">
                           <p className="font-semibold text-ink">{i.name}</p>
                           {i.subtitle && <p className="text-[11px] text-ink-3">{i.subtitle}</p>}

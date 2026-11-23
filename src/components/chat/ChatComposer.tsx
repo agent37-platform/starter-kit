@@ -24,6 +24,8 @@ import { ENVOI_EVENT } from "./NextAction";
 /** « /envoi »: answered here, never sent to the Expert. */
 const ENVOI_COMMAND: ExpertCommand = { cmd: "envoi", label: "Envoyer le dernier livrable", phrase: "Retrouver le choix d’envoi du dernier livrable de la conversation.", example: "", need: null, fileOk: false, common: true };
 import { CommandMenu } from "./CommandMenu";
+import { CreateMenu } from "./CreateMenu";
+import { CREATION_OTHER, creationMessage, creationsOf } from "@/lib/creations";
 import { UpdateSpinner, useDeployPhase } from "@/components/app/DeployStatus";
 
 interface Props {
@@ -116,6 +118,8 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
     const own = commandsOf(expertKey, expert?.driveFolder ?? expert?.displayName);
     return own.length && !own.some((c) => c.cmd === "envoi") ? [...own, ENVOI_COMMAND] : own;
   }, [expertKey, expert?.driveFolder, expert?.displayName]);
+  // « Créer » (Leslie, 19/11): the Expert's Créations; a model picked is asked at once.
+  const creations = useMemo(() => creationsOf(expertKey), [expertKey]);
   const [chosen, setChosen] = useState<ExpertCommand | null>(null);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState(false);
@@ -168,6 +172,22 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
     setChosen(null);
     setDismissed(false);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+  };
+
+  const askCreation = (message: string) => {
+    if (att.blocksSend) return;
+    onSend(message, { ...settings, files: [], attachments: [] });
+  };
+  const describeCreation = () => {
+    setChosen(null);
+    setText(CREATION_OTHER);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(CREATION_OTHER.length, CREATION_OTHER.length);
+      grow(el);
+    });
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -230,6 +250,7 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
         large && "max-w-2xl",
         "relative"
       )}
+      data-composer=""
     >
       {updating && (
         <p role="status" data-update-note="" className="flex items-center gap-2 rounded-t-[21px] border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[13px] font-medium leading-snug text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
@@ -305,6 +326,14 @@ export function ChatComposer({ agentId, isStreaming, att, onSend, onStop, large 
         <DictationBar dictation={dictation} />
       ) : (
       <div className="flex items-center gap-2 px-3 pb-3">
+        {creations.length > 0 && (
+          <CreateMenu
+            name={expert?.displayName ?? "l’Expert"}
+            models={creations}
+            onPick={(m) => askCreation(creationMessage(m))}
+            onOther={describeCreation}
+          />
+        )}
         <div className="flex min-w-0 shrink items-center gap-1.5 max-sm:hidden">
           {modelMenu}
           {effortMenu}
