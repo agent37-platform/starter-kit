@@ -29,6 +29,7 @@ import { DashboardMenuFace } from "@/components/experts/ExpertDashboard";
 import { setChatFull, setProfilePanel, useChatFull, useChatListHidden, useChatSidePanel, useProfilePanel } from "@/components/chat/chat-layout";
 import { FilesTab } from "@/components/files/FilesTab";
 import { cn } from "@/lib/utils";
+import { useInstallPending } from "@/components/experts/useInstallPending";
 import { CallButton } from "@/components/voice/CallButton";
 import { VoiceButton } from "@/components/voice/VoiceButton";
 import { ExpertCalls } from "@/components/voice/ExpertCalls";
@@ -91,6 +92,8 @@ export function AgentWorkspace({
   // (layout effects run before theirs); what the menu read ahead is not asked again.
   const catalogueKey = expert?.catalogueKey ?? null;
   useLayoutEffect(() => void readExpertScreen(agentId, profileId, catalogueKey), [agentId, profileId, catalogueKey]);
+  // Its installation still to do: a « 1 » on Discussion, where it happens (Leslie, 23/11).
+  const toInstall = useInstallPending(expert);
   const driveFolder = expert?.driveFolder ? `${DRIVE_ROOT}/${expert.driveFolder}` : undefined;
   // The expert's own inbox, when the back office gives this member one to read.
   const mail = useMailInboxes(agentId);
@@ -329,6 +332,11 @@ export function AgentWorkspace({
                     )}
                   >
                     {t.label}
+                    {t.id === "chat" && toInstall && (
+                      <span className="ml-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1.5 align-middle text-[11px] font-bold text-on-brand" aria-label="À installer">
+                        1
+                      </span>
+                    )}
                   </button>
                 );
               })}

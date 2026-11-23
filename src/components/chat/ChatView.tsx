@@ -446,7 +446,7 @@ export function ChatView({
             className="mb-3 flex w-full items-center gap-3.5 rounded-[18px] border-[1.5px] border-brand bg-tint p-3.5 text-left text-ink transition-colors hover:bg-brand/15"
           >
             {face && <ExpertAvatar expert={face} size="md" />}
-            <span className="min-w-0 flex-1 text-[16px] font-bold leading-snug">Bien démarrer avec {agentName}</span>
+            <span className="min-w-0 flex-1 text-[16px] font-bold leading-snug">Bien démarrer</span>
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-on-brand">
               <ArrowRight className="size-[18px]" />
             </span>
